@@ -62,6 +62,17 @@ services:
     depends_on:
       postgres-keycloak:
         condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          timeout 5 bash -c 'exec 3<>/dev/tcp/localhost/8080;
+          printf "GET /realms/movies/.well-known/openid-configuration HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3;
+          grep -q "200 OK" <&3'
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     volumes:
       - ./config/keycloak:/opt/keycloak/data/import:ro
     networks:
@@ -102,7 +113,7 @@ services:
       postgres-movies:
         condition: service_healthy
       keycloak:
-        condition: service_started
+        condition: service_healthy
     networks:
       - movie-net
 
@@ -125,7 +136,7 @@ services:
       MOVIES_API_URL: http://movies-api:8080
     depends_on:
       keycloak:
-        condition: service_started
+        condition: service_healthy
       movies-api:
         condition: service_started
     networks:
@@ -136,7 +147,7 @@ services:
       context: ./movies-ui
       dockerfile: Dockerfile
       args:
-        OMDB_API_KEY: ${OMDB_API_KEY:?Set OMDB_API_KEY in .env.local and start Compose with --env-file .env.local}
+        OMDB_API_KEY: ${OMDB_API_KEY:-}
     image: movies-ui:latest
     container_name: movies-ui
     restart: unless-stopped

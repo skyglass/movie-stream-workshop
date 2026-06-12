@@ -58,7 +58,6 @@ export class AuthService {
     body.set('client_id', request.clientId);
     body.set('username', request.username);
     body.set('password', request.password);
-    body.set('scope', 'openid profile email movies-api-audience');
 
     return this.http.post<TokenResponse>(`${c.apiBaseUrl}${c.authTokenPath}`, body.toString(), {
       headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' })

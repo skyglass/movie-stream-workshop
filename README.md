@@ -29,7 +29,7 @@ The `.env.local` file is ignored by Git. If it was already staged or tracked, re
 git rm --cached .env.local
 ```
 
-The `movies-ui` Docker build reads `OMDB_API_KEY` from this file and bakes it into the static UI runtime config used by the movie wizard.
+The `movies-ui` Docker build reads `OMDB_API_KEY` from this file and bakes it into the static UI runtime config used by the movie wizard. Teardown commands such as `docker compose down -v` do not need the env file.
 
 ## Build Docker Images
 
@@ -40,6 +40,8 @@ docker compose --env-file .env.local build movies-api movie-gateway movies-ui
 ```
 
 The `--env-file .env.local` part is required for the `movies-ui` image because the Docker build reads `OMDB_API_KEY` and writes it into the UI runtime configuration. Do not replace it with a dummy value.
+
+The Java image builds use a shared BuildKit cache mounted at `/root/.m2`, so Maven dependencies are downloaded on the first Docker build and reused by later `movies-api` and `movie-gateway` builds. The cache is local to Docker and can be cleared by Docker builder prune commands.
 
 You can also build just one image when iterating locally:
 
