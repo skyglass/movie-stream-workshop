@@ -1,0 +1,18 @@
+<header class="app-header">
+  <div class="brand">
+    <h1>Movies UI</h1>
+    <nav>
+      <a routerLink="/home" routerLinkActive="active">Home</a>
+      @if (auth.token) {
+        <a routerLink="/wizard" routerLinkActive="active">Movie Wizard</a>
+      }
+      @if (auth.isAdmin) {
+        <a routerLink="/admin/users" routerLinkActive="active">Admin Users</a>
+      }
+    </nav>
+  </div>
+  <app-auth-panel></app-auth-panel>
+</header>
+<main>
+  <router-outlet></router-outlet>
+</main>

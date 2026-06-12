@@ -1,0 +1,11 @@
+.git
+.idea
+target
+**/target
+**/node_modules
+**/.angular
+**/dist
+.env
+.env.local
+docker-compose*.yml
+README.md

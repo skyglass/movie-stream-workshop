@@ -1,0 +1,50 @@
+.app-header {
+  background: #ffffff;
+  border-bottom: 1px solid #d8dde5;
+  padding: 0.75rem 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.app-header h1 {
+  margin: 0;
+  color: #24384f;
+  font-size: 1.75rem;
+  font-weight: 600;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  letter-spacing: 0;
+}
+
+nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+nav a {
+  color: #34495f;
+  text-decoration: none;
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+nav a.active,
+nav a:hover {
+  background: #eaf4ff;
+  color: #1678c2;
+}
+
+main {
+  min-height: calc(100vh - 4.5rem);
+}

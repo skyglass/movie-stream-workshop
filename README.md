@@ -1,1 +1,201 @@
-# movie-stream-workshop
+# Movie Stream Workshop
+
+This repository contains one combined application:
+
+- Angular `movies-ui` served by Nginx.
+- Spring Cloud Gateway as the single public REST and Swagger endpoint.
+- Spring Boot `movies-api` using Java 25, PostgreSQL, JPA, and Flyway.
+- Keycloak with an automatically imported realm for local OAuth2 testing.
+- PostgreSQL for movie data and PostgreSQL for Keycloak.
+- PgAdmin for inspecting the movie database.
+
+The Java modules are built from one Maven parent project at the repository root.
+
+## Requirements
+
+- Docker with the Docker Compose plugin.
+- Free local ports: `5050`, `5432`, `7000`, `8079`, and `8180`.
+- An OMDb API key.
+
+Create a `.env.local` file in the repository root before starting Compose:
+
+```text
+OMDB_API_KEY=<your-omdb-api-key>
+```
+
+The `.env.local` file is ignored by Git. If it was already staged or tracked, remove it from the Git index while keeping the local file:
+
+```bash
+git rm --cached .env.local
+```
+
+The `movies-ui` Docker build reads `OMDB_API_KEY` from this file and bakes it into the static UI runtime config used by the movie wizard.
+
+## Build Docker Images
+
+If you want to build the application images before starting the stack, run:
+
+```bash
+docker compose --env-file .env.local build movies-api movie-gateway movies-ui
+```
+
+The `--env-file .env.local` part is required for the `movies-ui` image because the Docker build reads `OMDB_API_KEY` and writes it into the UI runtime configuration. Do not replace it with a dummy value.
+
+You can also build just one image when iterating locally:
+
+```bash
+docker compose --env-file .env.local build movies-ui
+docker compose --env-file .env.local build movies-api
+docker compose --env-file .env.local build movie-gateway
+```
+
+## Start The Application
+
+From the repository root:
+
+```bash
+docker compose --env-file .env.local up -d
+```
+
+If the images have not been built yet, or after source changes, use:
+
+```bash
+docker compose --env-file .env.local up --build -d
+```
+
+Watch startup logs if needed:
+
+```bash
+docker compose logs -f movie-gateway movies-api movies-ui keycloak
+```
+
+Useful URLs:
+
+- UI: http://localhost:7000
+- Gateway health: http://localhost:8079/actuator/health
+- Swagger UI: http://localhost:8079/swagger-ui.html
+- PgAdmin: http://localhost:5050
+- Keycloak admin console: http://localhost:8180
+
+PgAdmin login:
+
+- Email: `admin@movies.dev`
+- Password: `admin`
+
+Keycloak admin login:
+
+- Username: `admin`
+- Password: `admin`
+
+## Application Login
+
+Use the login form in the top-right of the UI.
+
+Regular user:
+
+- Client ID: `movies-ui`
+- Username: `user`
+- Password: `user`
+
+Admin user:
+
+- Client ID: `movies-ui`
+- Username: `admin`
+- Password: `admin`
+
+Regular users can see the movie list, open movie details, add comments, and use the movie wizard to create movies. Admin users can also open the admin users page.
+
+## Swagger UI
+
+Open:
+
+```text
+http://localhost:8079/swagger-ui.html
+```
+
+To call secured endpoints from Swagger:
+
+1. Select `movies`.
+2. Click `Authorize`.
+3. Use the OAuth2 password form.
+4. Enter client ID `movies-ui`, username `admin`, and password `admin`.
+5. Leave client secret and scopes empty.
+
+Swagger sends the password grant to the Gateway at `/auth/token`; the Gateway forwards it to Keycloak. For API calls, the Gateway performs token exchange before routing to `movies-api`.
+
+## Public Gateway Routes
+
+All browser and Swagger traffic goes through Spring Cloud Gateway on port `8079`:
+
+- Movies API: `http://localhost:8079/api/movies`
+- Current user profile API: `http://localhost:8079/api/userextras`
+- Admin users API: `http://localhost:8079/api/users`
+- Token endpoint: `http://localhost:8079/auth/token`
+- Swagger UI: `http://localhost:8079/swagger-ui.html`
+
+## Keycloak Configuration
+
+Keycloak is configured automatically during Compose startup from:
+
+```text
+config/keycloak/realm-movies.json
+```
+
+The imported realm is `movies`. User registration is enabled. Newly registered users are assigned to the default `USERS` group and receive the `MOVIES_USER` role.
+
+If you change the realm import and need Keycloak to import it from scratch, reset volumes:
+
+```bash
+docker compose down -v
+docker compose --env-file .env.local up --build -d
+```
+
+## Database
+
+`movies-api` owns the movie database schema through Flyway migrations in:
+
+```text
+movies-api/src/main/resources/db/migration
+```
+
+The PostgreSQL model uses separate relational tables:
+
+- `movies`
+- `movie_comments`
+- `users`
+
+The `users` table stores `username` and `email` values corresponding to Keycloak users. The API synchronizes the authenticated user from JWT claims when `/api/userextras/me` is called.
+
+## Stop The Application
+
+Stop containers while keeping persisted volumes:
+
+```bash
+docker compose down
+```
+
+Stop containers and remove persisted database and Keycloak state:
+
+```bash
+docker compose down -v
+```
+
+## Java Maven Project
+
+Build all Java modules:
+
+```bash
+mvn clean package
+```
+
+Build without tests:
+
+```bash
+mvn -DskipTests package
+```
+
+Build the gateway and required reactor modules:
+
+```bash
+mvn -pl movie-gateway -am package
+```

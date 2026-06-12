@@ -1,0 +1,90 @@
+.movie-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.movie-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+  justify-items: center;
+}
+
+.movie-card {
+  width: 100%;
+  max-width: 260px;
+  border: 1px solid #dededf;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2933;
+  text-decoration: none;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.movie-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(16, 24, 40, 0.14);
+}
+
+.movie-card img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  display: block;
+  background: #eef1f5;
+}
+
+.movie-title {
+  min-height: 3.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  text-align: center;
+  font-weight: 700;
+  border-bottom: 1px solid #eceff3;
+}
+
+dl {
+  margin: 0;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+dl div {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0.3rem;
+}
+
+dt {
+  color: #5d6978;
+}
+
+dd {
+  margin: 0;
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.state,
+.empty {
+  border: 1px solid #99c2e8;
+  border-radius: 6px;
+  padding: 1.5rem;
+  text-align: center;
+  background: #f7fbff;
+  color: #244c73;
+  font-weight: 700;
+}
+
+.error {
+  border-color: #edb4b4;
+  background: #fff6f6;
+  color: #a43636;
+}

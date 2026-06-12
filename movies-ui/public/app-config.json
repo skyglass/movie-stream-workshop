@@ -1,0 +1,19 @@
+{
+  "apiBaseUrl": "http://localhost:8079",
+  "authTokenPath": "/auth/token",
+  "clientId": "movies-ui",
+  "keycloakBaseUrl": "http://localhost:8180",
+  "keycloakRealm": "movies",
+  "uiBaseUrl": "http://localhost:7000",
+  "moviesApiPath": "/api/movies",
+  "userExtrasPath": "/api/userextras",
+  "usersApiPath": "/api/users",
+  "omdbBaseUrl": "https://www.omdbapi.com/",
+  "omdbApiKey": "",
+  "pricingApiPath": "",
+  "pricingEventsPath": "",
+  "competitorApiPath": "",
+  "accountApiPath": "",
+  "transferApiPath": "",
+  "wsPath": ""
+}

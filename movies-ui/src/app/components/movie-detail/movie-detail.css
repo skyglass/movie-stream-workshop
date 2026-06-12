@@ -1,0 +1,164 @@
+.detail-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: #1667a8;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.movie-card,
+.comments-panel {
+  border: 1px solid #dededf;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+
+.movie-card {
+  overflow: hidden;
+}
+
+.movie-card img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  display: block;
+  background: #eef1f5;
+}
+
+.movie-title {
+  padding: 0.85rem;
+  text-align: center;
+  font-weight: 700;
+  border-bottom: 1px solid #eceff3;
+}
+
+dl {
+  margin: 0;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+dl div {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0.3rem;
+}
+
+dt {
+  color: #5d6978;
+}
+
+dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.comments-panel {
+  padding: 1rem;
+}
+
+h2 {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e4e7ec;
+  color: #24384f;
+  font-size: 1.25rem;
+}
+
+.comment-form {
+  display: grid;
+  grid-template-columns: 1fr 8rem;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+input {
+  min-height: 2.5rem;
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  padding: 0 0.75rem;
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 6px;
+  background: #1678c2;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.comment-list {
+  display: grid;
+  gap: 0.9rem;
+  max-height: calc(100vh - 310px);
+  overflow: auto;
+}
+
+.comment {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr;
+  gap: 0.75rem;
+}
+
+.comment img {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: #eef1f5;
+}
+
+.comment-meta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  color: #5d6978;
+}
+
+.comment p {
+  margin: 0.25rem 0 0;
+}
+
+.state,
+.empty,
+.inline-error {
+  border-radius: 6px;
+  padding: 0.85rem;
+  background: #f7fbff;
+  color: #244c73;
+}
+
+.error,
+.inline-error {
+  background: #fff6f6;
+  color: #a43636;
+}
+
+@media (max-width: 760px) {
+  .detail-layout,
+  .comment-form {
+    grid-template-columns: 1fr;
+  }
+}

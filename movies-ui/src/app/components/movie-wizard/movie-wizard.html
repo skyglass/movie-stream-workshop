@@ -1,0 +1,133 @@
+<section class="wizard-page">
+  <aside class="wizard-nav">
+    <ol>
+      <li [class.active]="step === 1">
+        <span class="material-icons icon">search</span>
+        <div>
+          <strong>Search</strong>
+          <small>Search movie</small>
+        </div>
+      </li>
+      <li [class.active]="step === 2">
+        <span class="material-icons icon">movie</span>
+        <div>
+          <strong>Movie</strong>
+          <small>Movie form</small>
+        </div>
+      </li>
+      <li [class.active]="step === 3">
+        <span class="material-icons icon">check_circle</span>
+        <div>
+          <strong>Complete</strong>
+          <small>Preview and complete</small>
+        </div>
+      </li>
+    </ol>
+
+    <div class="wizard-buttons">
+      <button type="button" (click)="back()" [disabled]="step === 1">Back</button>
+      <button type="button" class="primary" (click)="next()" [disabled]="step === 3">Next</button>
+    </div>
+
+    @if (step === 3) {
+      <button type="button" class="create" (click)="createMovie()" [disabled]="saving">
+        {{ saving ? 'Creating' : 'Create' }}
+      </button>
+    }
+  </aside>
+
+  <main class="wizard-content">
+    @if (step === 1) {
+      <section class="panel">
+        <form [formGroup]="searchForm" (ngSubmit)="search()" class="search-form">
+          <input formControlName="searchText" placeholder="Search for a movie title ..." />
+          <button type="submit" [disabled]="searchForm.invalid || loading">
+            {{ loading ? 'Searching' : 'Search' }}
+          </button>
+        </form>
+
+        @if (errorMessage) {
+          <div class="error">{{ errorMessage }}</div>
+        }
+
+        <table>
+          <thead>
+            <tr>
+              <th>ImdbID</th>
+              <th>Title</th>
+              <th>Director</th>
+              <th>Year</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (movie of searchResults; track movie.imdbId) {
+              <tr [class.selected]="selectedMovie?.imdbId === movie.imdbId" (click)="selectMovie(movie)">
+                <td>{{ movie.imdbId }}</td>
+                <td>{{ movie.title }}</td>
+                <td>{{ movie.director }}</td>
+                <td>{{ movie.year }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4" class="empty-row"></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+
+    @if (step === 2) {
+      <section class="panel">
+        <form [formGroup]="movieForm" class="movie-form">
+          <label>
+            IMDB ID
+            <input formControlName="imdbId" [class.invalid]="movieForm.controls.imdbId.invalid && movieForm.controls.imdbId.touched" />
+          </label>
+          <label>
+            Title
+            <input formControlName="title" [class.invalid]="movieForm.controls.title.invalid && movieForm.controls.title.touched" />
+          </label>
+          <label>
+            Director
+            <input formControlName="director" [class.invalid]="movieForm.controls.director.invalid && movieForm.controls.director.touched" />
+          </label>
+          <label>
+            Year
+            <input formControlName="year" [class.invalid]="movieForm.controls.year.invalid && movieForm.controls.year.touched" />
+          </label>
+          <label>
+            Poster
+            <input formControlName="poster" />
+          </label>
+        </form>
+      </section>
+    }
+
+    @if (step === 3) {
+      <section class="preview-wrap">
+        <article class="movie-card">
+          <img [src]="poster()" alt="Movie poster preview" />
+          <div class="movie-title">{{ movieForm.value.title }}</div>
+          <dl>
+            <div>
+              <dt>imdbID:</dt>
+              <dd>{{ movieForm.value.imdbId }}</dd>
+            </div>
+            <div>
+              <dt>Author:</dt>
+              <dd>{{ movieForm.value.director }}</dd>
+            </div>
+            <div>
+              <dt>Year:</dt>
+              <dd>{{ movieForm.value.year }}</dd>
+            </div>
+          </dl>
+        </article>
+        @if (errorMessage) {
+          <div class="error">{{ errorMessage }}</div>
+        }
+      </section>
+    }
+  </main>
+</section>

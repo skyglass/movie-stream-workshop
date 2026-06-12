@@ -1,0 +1,35 @@
+<section class="admin-page">
+  @if (!auth.isAdmin) {
+    <div class="state error">Admin access required</div>
+  } @else if (loading) {
+    <div class="state">Loading users</div>
+  } @else if (errorMessage) {
+    <div class="state error">{{ errorMessage }}</div>
+  } @else {
+    <div class="panel">
+      <h2>Users</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Username</th>
+              <th>E-mail</th>
+              <th>Avatar seed</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of users; track user.username) {
+              <tr>
+                <td><img [src]="avatar(user.avatar)" alt="" /></td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.avatar }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</section>

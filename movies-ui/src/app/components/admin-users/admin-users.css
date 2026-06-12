@@ -1,0 +1,64 @@
+.admin-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.panel,
+.state {
+  border: 1px solid #dededf;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+
+.panel {
+  padding: 1rem;
+}
+
+.state {
+  padding: 1rem;
+  color: #244c73;
+}
+
+.error {
+  color: #a43636;
+  background: #fff6f6;
+}
+
+h2 {
+  margin: 0 0 1rem;
+  color: #24384f;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  border: 1px solid #e0e4ea;
+}
+
+th,
+td {
+  padding: 0.7rem;
+  border-bottom: 1px solid #e0e4ea;
+  text-align: left;
+}
+
+th {
+  background: #f3f6f9;
+  color: #3f5368;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
+td img {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 50%;
+  background: #eef1f5;
+}

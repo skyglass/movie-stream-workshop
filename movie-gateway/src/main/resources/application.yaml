@@ -1,0 +1,63 @@
+server:
+  port: 8079
+
+spring:
+  application:
+    name: movie-gateway
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/movies}
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: movies-api-movies
+              uri: ${MOVIES_API_URL:http://movies-api:8080}
+              predicates:
+                - Path=/api/movies,/api/movies/**
+
+            - id: movies-api-userextras
+              uri: ${MOVIES_API_URL:http://movies-api:8080}
+              predicates:
+                - Path=/api/userextras,/api/userextras/**
+
+            - id: movies-api-users
+              uri: ${MOVIES_API_URL:http://movies-api:8080}
+              predicates:
+                - Path=/api/users,/api/users/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+security:
+  expected-audience: ${EXPECTED_USER_AUDIENCE:movies-ui}
+
+keycloak:
+  token-uri: ${KEYCLOAK_TOKEN_URI:http://keycloak:8080/realms/movies/protocol/openid-connect/token}
+  exchange:
+    token-uri: ${KEYCLOAK_TOKEN_URI:http://keycloak:8080/realms/movies/protocol/openid-connect/token}
+    client-id: ${KEYCLOAK_EXCHANGE_CLIENT_ID:movie-gateway}
+    client-secret: ${KEYCLOAK_EXCHANGE_CLIENT_SECRET:gateway-secret}
+    audience: ${KEYCLOAK_EXCHANGE_AUDIENCE:movies-api}
+    scope: ${KEYCLOAK_EXCHANGE_SCOPE:}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    urls-primary-name: movies
+    persist-authorization: true
+    oauth:
+      client-id: movies-ui
+    urls:
+      - name: movies
+        url: /v3/api-docs/movies

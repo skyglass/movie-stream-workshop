@@ -1,0 +1,68 @@
+.banking-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(20rem, 0.8fr);
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.accounts-section,
+.transfer-section {
+  min-width: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+h2 {
+  margin: 0 0 1rem;
+  font-size: 1.3rem;
+  letter-spacing: 0;
+}
+
+table {
+  width: 100%;
+}
+
+.transfer-form,
+.transfer-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.transfer-form button,
+.transfer-actions button {
+  min-height: 3.5rem;
+}
+
+.transfer-message {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-left: 4px solid #0a5096;
+  background: #eef5fb;
+  color: #19324a;
+  font-weight: 600;
+}
+
+.transfer-state {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #f6f6f6;
+  overflow: auto;
+}
+
+@media (max-width: 900px) {
+  .banking-page {
+    grid-template-columns: 1fr;
+  }
+
+  .transfer-form,
+  .transfer-actions {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,40 @@
+.auth-form,
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.auth-form mat-form-field {
+  width: 9.5rem;
+}
+
+.auth-form button,
+.auth-status button {
+  min-height: 2.5rem;
+}
+
+.auth-status span {
+  color: #24384f;
+  font-weight: 600;
+}
+
+.auth-error {
+  color: #a43636;
+  font-size: 0.85rem;
+  max-width: 18rem;
+}
+
+.register-link {
+  color: #1678c2;
+  font-weight: 600;
+  text-decoration: none;
+  min-height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.register-link:hover {
+  text-decoration: underline;
+}

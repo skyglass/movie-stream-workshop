@@ -1,0 +1,158 @@
+name: movie-stream
+
+services:
+  postgres-movies:
+    image: postgres:15
+    container_name: movie-stream-postgres-movies
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: movies
+      POSTGRES_USER: movies
+      POSTGRES_PASSWORD: movies
+    volumes:
+      - postgres-movies-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U movies -d movies"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - movie-net
+
+  postgres-keycloak:
+    image: postgres:15
+    container_name: movie-stream-postgres-keycloak
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - postgres-keycloak-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - movie-net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.2
+    container_name: movie-stream-keycloak
+    restart: unless-stopped
+    command:
+      - start-dev
+      - --db=postgres
+      - --db-url=jdbc:postgresql://postgres-keycloak:5432/keycloak
+      - --db-username=keycloak
+      - --db-password=keycloak
+      - --features=token-exchange
+      - --import-realm
+    ports:
+      - "8180:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+    depends_on:
+      postgres-keycloak:
+        condition: service_healthy
+    volumes:
+      - ./config/keycloak:/opt/keycloak/data/import:ro
+    networks:
+      - movie-net
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: movie-stream-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@movies.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      postgres-movies:
+        condition: service_healthy
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - movie-net
+
+  movies-api:
+    build:
+      context: .
+      dockerfile: movies-api/Dockerfile
+    image: movies-api:latest
+    container_name: movies-api
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-movies:5432/movies
+      SPRING_DATASOURCE_USERNAME: movies
+      SPRING_DATASOURCE_PASSWORD: movies
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/movies
+      EXPECTED_AUDIENCE: movies-api
+      JWT_AUTH_RESOURCE_ID: movies-ui
+    depends_on:
+      postgres-movies:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    networks:
+      - movie-net
+
+  movie-gateway:
+    build:
+      context: .
+      dockerfile: movie-gateway/Dockerfile
+    image: movie-gateway:latest
+    container_name: movie-gateway
+    restart: unless-stopped
+    ports:
+      - "8079:8079"
+    environment:
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/movies
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/movies/protocol/openid-connect/token
+      KEYCLOAK_EXCHANGE_CLIENT_ID: movie-gateway
+      KEYCLOAK_EXCHANGE_CLIENT_SECRET: gateway-secret
+      KEYCLOAK_EXCHANGE_AUDIENCE: movies-api
+      EXPECTED_USER_AUDIENCE: movies-ui
+      MOVIES_API_URL: http://movies-api:8080
+    depends_on:
+      keycloak:
+        condition: service_started
+      movies-api:
+        condition: service_started
+    networks:
+      - movie-net
+
+  movies-ui:
+    build:
+      context: ./movies-ui
+      dockerfile: Dockerfile
+      args:
+        OMDB_API_KEY: ${OMDB_API_KEY:?Set OMDB_API_KEY in .env.local and start Compose with --env-file .env.local}
+    image: movies-ui:latest
+    container_name: movies-ui
+    restart: unless-stopped
+    ports:
+      - "7000:80"
+    depends_on:
+      movie-gateway:
+        condition: service_started
+    networks:
+      - movie-net
+
+volumes:
+  postgres-movies-data:
+  postgres-keycloak-data:
+  pgadmin-data:
+
+networks:
+  movie-net:
+    driver: bridge
