@@ -12,6 +12,12 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/movies}
 
   cloud:
+    compatibility-verifier:
+      enabled: false
+    discovery:
+      enabled: false
+      blocking:
+        enabled: false
     gateway:
       server:
         webflux:
