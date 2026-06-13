@@ -1,0 +1,18 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: capabilities-ui
+
+vaadin:
+  launch-browser: false
+
+capabilities:
+  cache-root: ${CAPABILITIES_CACHE_ROOT:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

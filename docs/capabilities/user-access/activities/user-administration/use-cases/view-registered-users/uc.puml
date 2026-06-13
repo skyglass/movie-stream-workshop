@@ -1,0 +1,15 @@
+@startuml
+title UC-006 view-registered-users
+left to right direction
+
+actor "Admin" as admin
+actor "Regular User" as user
+rectangle "user-access" {
+    usecase "view-registered-users" as UC
+    entity "USER_EXTRA" as profile
+}
+
+admin --> UC
+user -[#red,dashed]-> UC : forbidden
+UC --> profile : reads all profiles
+@enduml

@@ -1,0 +1,13 @@
+@startuml
+title UC-003 add-movie-to-catalog
+left to right direction
+
+actor "Authenticated User" as user
+rectangle "movie-catalog" {
+    usecase "add-movie-to-catalog" as UC
+    entity "MOVIE" as movie
+}
+
+user --> UC
+UC --> movie : creates aggregate
+@enduml

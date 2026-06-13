@@ -1,0 +1,43 @@
+.admin-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #d8dde5;
+}
+
+.admin-tabs a {
+  color: #34495f;
+  text-decoration: none;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  font-weight: 700;
+}
+
+.admin-tabs a.active,
+.admin-tabs a:hover {
+  color: #1678c2;
+  background: #ffffff;
+  border-color: #d8dde5;
+}
+
+@media (max-width: 620px) {
+  .admin-shell {
+    padding: 1rem;
+  }
+
+  .admin-tabs {
+    overflow-x: auto;
+  }
+
+  .admin-tabs a {
+    white-space: nowrap;
+  }
+}

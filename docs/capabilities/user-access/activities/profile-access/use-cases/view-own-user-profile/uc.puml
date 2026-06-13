@@ -1,0 +1,13 @@
+@startuml
+title UC-005 view-own-user-profile
+left to right direction
+
+actor "Authenticated User" as user
+rectangle "user-access" {
+    usecase "view-own-user-profile" as UC
+    entity "USER_EXTRA" as profile
+}
+
+user --> UC
+UC --> profile : synchronizes from JWT claims
+@enduml

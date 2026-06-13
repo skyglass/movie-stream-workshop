@@ -1,0 +1,15 @@
+@startuml
+title UC-001 view-movie-catalog
+left to right direction
+
+actor "Authenticated User" as user
+rectangle "movie-catalog" {
+    usecase "view-movie-catalog" as UC
+    entity "MOVIE_CATALOG" as catalog
+    entity "MOVIE" as movie
+}
+
+user --> UC
+UC --> catalog : reads sorted list
+catalog --> movie : contains
+@enduml

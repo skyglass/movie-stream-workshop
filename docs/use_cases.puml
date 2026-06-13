@@ -1,0 +1,58 @@
+@startuml
+title Movie Stream Use Cases Overview
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Visitor" as visitor
+actor "Authenticated User" as user
+actor "Admin" as admin
+
+rectangle "Movie Stream" {
+
+    package "Catalog Discovery" {
+        usecase "view-movie-catalog\nUC-001" as UC001
+        usecase "view-movie-details\nUC-002" as UC002
+    }
+
+    package "Catalog Contribution" {
+        usecase "add-movie-to-catalog\nUC-003" as UC003
+    }
+
+    package "Movie Discussion" {
+        usecase "add-movie-comment\nUC-004" as UC004
+    }
+
+    package "Profile Access" {
+        usecase "view-own-user-profile\nUC-005" as UC005
+    }
+
+    package "User Administration" {
+        usecase "view-registered-users\nUC-006" as UC006
+    }
+
+    package "Catalog Administration" {
+        usecase "administer-movie-catalog\nUC-007" as UC007
+    }
+}
+
+visitor --> UC001
+visitor --> UC002
+
+user --> UC001
+user --> UC002
+user --> UC003
+user --> UC004
+user --> UC005
+
+admin --> UC001
+admin --> UC002
+admin --> UC003
+admin --> UC004
+admin --> UC005
+admin --> UC006
+admin --> UC007
+
+UC004 ..> UC002 : <<extend>>
+UC007 ..> UC002 : <<extend>>
+
+@enduml

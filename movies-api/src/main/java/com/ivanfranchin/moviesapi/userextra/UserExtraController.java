@@ -2,6 +2,7 @@ package com.ivanfranchin.moviesapi.userextra;
 
 import com.ivanfranchin.moviesapi.userextra.dto.UserExtraRequest;
 import com.ivanfranchin.moviesapi.userextra.model.UserExtra;
+import com.ivanfranchin.moviesapi.userextra.application.ViewOwnUserProfileUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -22,11 +23,12 @@ import static com.ivanfranchin.moviesapi.config.SwaggerConfig.BEARER_KEY_SECURIT
 public class UserExtraController {
 
     private final UserExtraService userExtraService;
+    private final ViewOwnUserProfileUseCase viewOwnUserProfile;
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
     @GetMapping("/me")
     public UserExtra getUserExtra(@AuthenticationPrincipal Jwt jwt) {
-        return userExtraService.syncFromJwt(jwt);
+        return viewOwnUserProfile.viewOwnProfile(jwt);
     }
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})

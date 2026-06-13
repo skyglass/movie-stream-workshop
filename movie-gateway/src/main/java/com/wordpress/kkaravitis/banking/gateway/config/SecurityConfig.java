@@ -33,6 +33,7 @@ public class SecurityConfig {
               .csrf(ServerHttpSecurity.CsrfSpec::disable)
               .authorizeExchange(exchanges -> exchanges
                     .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                    .pathMatchers(HttpMethod.GET, "/favicon.ico").permitAll()
                     .pathMatchers("/actuator/**").permitAll()
                     .pathMatchers("/auth/token").permitAll()
                     .pathMatchers("/swagger-ui.html", "/swagger-ui/**", "/webjars/**").permitAll()

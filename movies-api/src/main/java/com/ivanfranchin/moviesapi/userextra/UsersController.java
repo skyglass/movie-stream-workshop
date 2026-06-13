@@ -1,6 +1,7 @@
 package com.ivanfranchin.moviesapi.userextra;
 
 import com.ivanfranchin.moviesapi.userextra.model.UserExtra;
+import com.ivanfranchin.moviesapi.userextra.application.ViewRegisteredUsersUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.util.List;
@@ -16,11 +17,11 @@ import static com.ivanfranchin.moviesapi.config.SwaggerConfig.BEARER_KEY_SECURIT
 @RequestMapping("/api/users")
 public class UsersController {
 
-    private final UserExtraService userExtraService;
+    private final ViewRegisteredUsersUseCase viewRegisteredUsers;
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
     @GetMapping
     public List<UserExtra> getUsers() {
-        return userExtraService.getUsers();
+        return viewRegisteredUsers.viewRegisteredUsers();
     }
 }

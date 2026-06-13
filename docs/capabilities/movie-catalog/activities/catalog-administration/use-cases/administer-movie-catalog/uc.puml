@@ -1,0 +1,15 @@
+@startuml
+title UC-007 administer-movie-catalog
+left to right direction
+
+actor "Admin" as admin
+actor "Regular User" as user
+rectangle "movie-catalog" {
+    usecase "administer-movie-catalog" as UC
+    entity "MOVIE" as movie
+}
+
+admin --> UC
+user -[#red,dashed]-> UC : forbidden
+UC --> movie : updates or removes
+@enduml

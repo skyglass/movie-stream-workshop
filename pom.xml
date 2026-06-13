@@ -15,6 +15,7 @@
     <modules>
         <module>movies-api</module>
         <module>movie-gateway</module>
+        <module>capabilities-ui</module>
     </modules>
 
     <properties>
@@ -23,7 +24,9 @@
         <spring.boot.version>4.1.0</spring.boot.version>
         <spring-cloud.version>2025.1.1</spring-cloud.version>
         <springdoc.version>3.0.1</springdoc.version>
+        <vaadin.version>25.1.1</vaadin.version>
         <lombok.version>1.18.42</lombok.version>
+        <cucumber.version>7.34.3</cucumber.version>
     </properties>
 
     <dependencyManagement>
@@ -51,6 +54,13 @@
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
                 <version>${springdoc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.vaadin</groupId>
+                <artifactId>vaadin-bom</artifactId>
+                <version>${vaadin.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>org.projectlombok</groupId>

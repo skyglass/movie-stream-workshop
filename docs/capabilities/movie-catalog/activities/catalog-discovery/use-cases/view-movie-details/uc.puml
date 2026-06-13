@@ -1,0 +1,15 @@
+@startuml
+title UC-002 view-movie-details
+left to right direction
+
+actor "Authenticated User" as user
+rectangle "movie-catalog" {
+    usecase "view-movie-details" as UC
+    entity "MOVIE" as movie
+    entity "MOVIE_COMMENT" as comment
+}
+
+user --> UC
+UC --> movie : loads by imdb id
+movie --> comment : renders newest first
+@enduml
