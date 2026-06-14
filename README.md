@@ -167,7 +167,10 @@ Keycloak is configured automatically during Compose startup from:
 config/keycloak/realm-movies.json
 ```
 
-The imported realm is `movies`. User registration is enabled. Newly registered users are assigned to the default `USERS` group and receive the `MOVIES_USER` role.
+The imported realm is `movies`. User registration is enabled. The UI `Register` action opens the Keycloak
+registration page and returns to the current UI route after registration. Newly registered users are assigned to the
+default `USERS` group and receive the `MOVIES_USER` role. Username, password, and password confirmation are handled by
+Keycloak. The local realm profile requires a non-empty email value but does not enforce email-address format.
 
 If you change the realm import and need Keycloak to import it from scratch, reset volumes:
 
@@ -190,7 +193,9 @@ The PostgreSQL model uses separate relational tables:
 - `movie_comments`
 - `users`
 
-The `users` table stores `username` and `email` values corresponding to Keycloak users. The API synchronizes the authenticated user from JWT claims when `/api/userextras/me` is called.
+The `users` table stores `username` and `email` values corresponding to Keycloak users. The API synchronizes the
+authenticated user from JWT claims when `/api/userextras/me` is called. This is the application-local user projection:
+Keycloak remains the source of truth for identity, while Postgres stores the movie-app profile fields needed by the UI.
 
 ## Stop The Application
 

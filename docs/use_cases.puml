@@ -24,6 +24,7 @@ rectangle "Movie Stream" {
 
     package "Profile Access" {
         usecase "view-own-user-profile\nUC-005" as UC005
+        usecase "change-own-avatar\nUC-008" as UC008
     }
 
     package "User Administration" {
@@ -43,12 +44,14 @@ user --> UC002
 user --> UC003
 user --> UC004
 user --> UC005
+user --> UC008
 
 admin --> UC001
 admin --> UC002
 admin --> UC003
 admin --> UC004
 admin --> UC005
+admin --> UC008
 admin --> UC006
 admin --> UC007
 

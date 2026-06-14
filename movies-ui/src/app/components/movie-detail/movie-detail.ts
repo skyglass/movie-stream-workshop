@@ -70,6 +70,6 @@ export class MovieDetailComponent implements OnInit {
   }
 
   avatar(seed: string): string {
-    return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed || 'user')}`;
+    return `https://api.dicebear.com/6.x/avataaars/svg?seed=${encodeURIComponent(seed || 'user')}`;
   }
 }

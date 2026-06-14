@@ -34,7 +34,7 @@ name exactly.
 | `movie-catalog` | `catalog-contribution` | `add-movie-to-catalog` | `movie` |
 | `movie-catalog` | `movie-discussion` | `add-movie-comment` | `movie` |
 | `movie-catalog` | `catalog-administration` | `administer-movie-catalog` | `movie`, `security` |
-| `user-access` | `profile-access` | `view-own-user-profile` | `userextra` |
+| `user-access` | `profile-access` | `view-own-user-profile`, `change-own-avatar` | `userextra` |
 | `user-access` | `user-administration` | `view-registered-users` | `userextra`, `security` |
 
 ## Implementation Naming
@@ -49,5 +49,6 @@ but controllers delegate use-case behavior to services named after the use case.
 | `add-movie-to-catalog` | `POST /api/movies` | `AddMovieToCatalogUseCase` | `MOVIE` aggregate |
 | `add-movie-comment` | `POST /api/movies/{imdbId}/comments` | `AddMovieCommentUseCase` | `MOVIE_COMMENT` child entity |
 | `view-own-user-profile` | `GET /api/userextras/me` | `ViewOwnUserProfileUseCase` | `USER_EXTRA` |
+| `change-own-avatar` | `POST /api/userextras/me` | `ChangeOwnAvatarUseCase` | `USER_EXTRA` |
 | `view-registered-users` | `GET /api/users` | `ViewRegisteredUsersUseCase` | `USER_EXTRA` listing |
 | `administer-movie-catalog` | `PUT/DELETE /api/movies/{imdbId}` | `AdministerMovieCatalogUseCase` | `MOVIE` aggregate |

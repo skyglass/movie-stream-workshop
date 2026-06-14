@@ -2,7 +2,8 @@ package com.ivanfranchin.moviesapi.userextra;
 
 import com.ivanfranchin.moviesapi.userextra.dto.UserExtraRequest;
 import com.ivanfranchin.moviesapi.userextra.model.UserExtra;
-import com.ivanfranchin.moviesapi.userextra.application.ViewOwnUserProfileUseCase;
+import com.ivanfranchin.moviesapi.userextra.application.service.ChangeOwnAvatarUseCase;
+import com.ivanfranchin.moviesapi.userextra.application.service.ViewOwnUserProfileUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -22,8 +23,8 @@ import static com.ivanfranchin.moviesapi.config.SwaggerConfig.BEARER_KEY_SECURIT
 @RequestMapping("/api/userextras")
 public class UserExtraController {
 
-    private final UserExtraService userExtraService;
     private final ViewOwnUserProfileUseCase viewOwnUserProfile;
+    private final ChangeOwnAvatarUseCase changeOwnAvatar;
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
     @GetMapping("/me")
@@ -35,10 +36,6 @@ public class UserExtraController {
     @PostMapping("/me")
     public UserExtra saveUserExtra(@Valid @RequestBody UserExtraRequest updateUserExtraRequest,
                                    @AuthenticationPrincipal Jwt jwt) {
-        UserExtra userExtra = userExtraService.syncFromJwt(jwt);
-        if (updateUserExtraRequest.avatar() != null && !updateUserExtraRequest.avatar().isBlank()) {
-            userExtra.setAvatar(updateUserExtraRequest.avatar());
-        }
-        return userExtraService.saveUserExtra(userExtra);
+        return changeOwnAvatar.changeAvatar(jwt, updateUserExtraRequest.avatar());
     }
 }

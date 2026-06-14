@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/movies").authenticated()
                         .requestMatchers("/api/movies", "/api/movies/**").hasRole(MOVIES_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/userextras/me").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/userextras/me").authenticated()
                         .requestMatchers("/api/userextras", "/api/userextras/**").hasRole(MOVIES_ADMIN)
                         .requestMatchers("/api/users", "/api/users/**").hasRole(MOVIES_ADMIN)
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**").permitAll()

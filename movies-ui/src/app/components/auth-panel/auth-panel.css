@@ -20,6 +20,22 @@
   font-weight: 600;
 }
 
+.auth-status a {
+  color: #34495f;
+  text-decoration: none;
+}
+
+.auth-status a.active-profile,
+.auth-status a:hover {
+  background: #eaf4ff;
+  color: #1678c2;
+}
+
+.material-icons {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 .auth-error {
   color: #a43636;
   font-size: 0.85rem;
@@ -27,12 +43,17 @@
 }
 
 .register-link {
+  background: transparent;
+  border: 0;
   color: #1678c2;
+  cursor: pointer;
+  font: inherit;
   font-weight: 600;
   text-decoration: none;
   min-height: 2.5rem;
   display: inline-flex;
   align-items: center;
+  padding: 0;
 }
 
 .register-link:hover {

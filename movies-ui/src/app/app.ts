@@ -24,7 +24,10 @@ export class App implements OnInit {
   ngOnInit(): void {
     this.auth.isAuthenticated$.subscribe(authenticated => {
       if (authenticated) {
-        this.moviesApi.syncMe().subscribe({ error: () => undefined });
+        this.moviesApi.syncMe().subscribe({
+          next: profile => this.auth.applyProfile(profile),
+          error: () => undefined
+        });
       }
     });
   }

@@ -1,5 +1,7 @@
 package com.ivanfranchin.moviesapi.bdd;
 
+import com.ivanfranchin.moviesapi.bdd.movie.fixture.MovieCatalogFixture;
+import com.ivanfranchin.moviesapi.bdd.user.fixture.UserAccessFixture;
 import io.cucumber.java.After;
 import io.cucumber.java.Before;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -9,17 +11,22 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 public class CucumberTransactionHooks {
 
     private final PlatformTransactionManager transactionManager;
-    private final MovieStreamCucumberFixture fixture;
+    private final MovieCatalogFixture movieCatalog;
+    private final UserAccessFixture userAccess;
     private TransactionStatus transaction;
 
-    public CucumberTransactionHooks(PlatformTransactionManager transactionManager, MovieStreamCucumberFixture fixture) {
+    public CucumberTransactionHooks(PlatformTransactionManager transactionManager,
+                                    MovieCatalogFixture movieCatalog,
+                                    UserAccessFixture userAccess) {
         this.transactionManager = transactionManager;
-        this.fixture = fixture;
+        this.movieCatalog = movieCatalog;
+        this.userAccess = userAccess;
     }
 
     @Before
     public void startScenarioTransaction() {
-        fixture.resetPersistentScenarioState();
+        movieCatalog.resetPersistentScenarioState();
+        userAccess.resetPersistentScenarioState();
         transaction = transactionManager.getTransaction(new DefaultTransactionDefinition());
     }
 
@@ -28,6 +35,7 @@ public class CucumberTransactionHooks {
         if (transaction != null && !transaction.isCompleted()) {
             transactionManager.rollback(transaction);
         }
-        fixture.resetPersistentScenarioState();
+        movieCatalog.resetPersistentScenarioState();
+        userAccess.resetPersistentScenarioState();
     }
 }

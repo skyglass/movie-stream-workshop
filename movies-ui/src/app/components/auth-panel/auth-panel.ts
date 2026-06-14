@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { AuthService } from '../../services/auth';
+import { AuthService, AuthUser } from '../../services/auth';
 
 @Component({
   standalone: true,
@@ -12,6 +13,8 @@ import { AuthService } from '../../services/auth';
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    RouterLink,
+    RouterLinkActive,
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule
@@ -34,8 +37,12 @@ export class AuthPanel {
     password: ['user', Validators.required]
   });
 
-  get registrationUrl(): string {
-    return this.auth.registrationUrl;
+  displayUsername(user: AuthUser): string {
+    return user.username || user.email || 'user';
+  }
+
+  register(): void {
+    this.auth.register();
   }
 
   login(): void {

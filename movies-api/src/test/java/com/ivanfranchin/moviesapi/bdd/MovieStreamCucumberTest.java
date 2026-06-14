@@ -11,5 +11,5 @@ import org.junit.platform.suite.api.Suite;
 @ConfigurationParameter(key = "cucumber.glue", value = "com.ivanfranchin.moviesapi.bdd")
 @ConfigurationParameter(key = "cucumber.plugin", value = "pretty")
 @ConfigurationParameter(key = "cucumber.publish.quiet", value = "true")
-class CucumberAcceptanceTest {
+class MovieStreamCucumberTest {
 }

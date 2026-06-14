@@ -10,4 +10,4 @@
 | Comment | Authenticated user feedback attached to a movie.                                |
 | Comment author | Username from the authenticated principal at the time the comment is created.   |
 | Poster fallback | Local placeholder image used when the poster URL is empty or `N/A`.             |
-| Catalog administration | Admin-only ability to view Users and Capabilities Manager.                      |
+| Catalog administration | Admin-only ability to view Admin Menu and Registered Users.                     |

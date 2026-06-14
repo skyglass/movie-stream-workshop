@@ -1,10 +1,18 @@
 @if (authenticated$ | async) {
   <div class="auth-status">
     @if (user$ | async; as user) {
-      <span>Hi {{ user.username }}</span>
+      <span>Hi {{ displayUsername(user) }}</span>
     } @else {
       <span>Signed in</span>
     }
+    <a
+      mat-icon-button
+      routerLink="/profile"
+      routerLinkActive="active-profile"
+      title="Profile"
+      aria-label="Profile">
+      <span class="material-icons" aria-hidden="true">person</span>
+    </a>
     <button mat-stroked-button type="button" (click)="logout()">Logout</button>
   </div>
 } @else {
@@ -28,7 +36,7 @@
       {{ submitting ? 'Signing in' : 'Sign in' }}
     </button>
 
-    <a class="register-link" [href]="registrationUrl">Register</a>
+    <button class="register-link" type="button" (click)="register()">Register</button>
 
     @if (errorMessage) {
       <span class="auth-error">{{ errorMessage }}</span>

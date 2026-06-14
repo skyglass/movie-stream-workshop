@@ -1,13 +1,13 @@
 package com.ivanfranchin.moviesapi.movie;
 
 import com.ivanfranchin.moviesapi.movie.dto.AddCommentRequest;
-import com.ivanfranchin.moviesapi.movie.application.AddMovieCommentUseCase;
-import com.ivanfranchin.moviesapi.movie.application.AddMovieCommentUseCase.AddCommentCommand;
-import com.ivanfranchin.moviesapi.movie.application.AddMovieToCatalogUseCase;
-import com.ivanfranchin.moviesapi.movie.application.AdministerMovieCatalogUseCase;
-import com.ivanfranchin.moviesapi.movie.application.AdministerMovieCatalogUseCase.UpdateMovieCommand;
-import com.ivanfranchin.moviesapi.movie.application.ViewMovieCatalogUseCase;
-import com.ivanfranchin.moviesapi.movie.application.ViewMovieDetailsUseCase;
+import com.ivanfranchin.moviesapi.movie.application.service.AddMovieCommentUseCase;
+import com.ivanfranchin.moviesapi.movie.application.service.AddMovieCommentUseCase.AddCommentCommand;
+import com.ivanfranchin.moviesapi.movie.application.service.AddMovieToCatalogUseCase;
+import com.ivanfranchin.moviesapi.movie.application.service.AdministerMovieCatalogUseCase;
+import com.ivanfranchin.moviesapi.movie.application.service.AdministerMovieCatalogUseCase.UpdateMovieCommand;
+import com.ivanfranchin.moviesapi.movie.application.service.ViewMovieCatalogUseCase;
+import com.ivanfranchin.moviesapi.movie.application.service.ViewMovieDetailsUseCase;
 import com.ivanfranchin.moviesapi.movie.dto.CreateMovieRequest;
 import com.ivanfranchin.moviesapi.movie.dto.MovieDto;
 import com.ivanfranchin.moviesapi.userextra.dto.UpdateMovieRequest;

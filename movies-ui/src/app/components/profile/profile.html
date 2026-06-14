@@ -1,0 +1,50 @@
+<section class="profile-page">
+  @if (loading) {
+    <div class="state">Loading profile</div>
+  } @else if (errorMessage && !profile) {
+    <div class="state error">{{ errorMessage }}</div>
+  } @else if (profile) {
+    <div class="profile-shell">
+      <section class="profile-summary">
+        <img
+          [src]="avatar(avatarForm.value.avatar || profile.avatar)"
+          (load)="imageLoading = false"
+          alt="" />
+        <div>
+          <h2>{{ profile.username }}</h2>
+          <p>{{ profile.email }}</p>
+        </div>
+      </section>
+
+      <form [formGroup]="avatarForm" (ngSubmit)="saveAvatar()" class="avatar-form">
+        <mat-form-field appearance="outline">
+          <mat-label>Avatar seed</mat-label>
+          <input matInput formControlName="avatar" autocomplete="off" />
+        </mat-form-field>
+
+        <div class="profile-actions">
+          <button mat-stroked-button type="button" (click)="shuffleAvatar()" [disabled]="imageLoading || saving">
+            Shuffle
+          </button>
+          <button mat-stroked-button type="button" (click)="cancel()" [disabled]="saving">
+            Cancel
+          </button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="avatarForm.invalid || saving || avatarForm.value.avatar === originalAvatar">
+            {{ saving ? 'Saving' : 'Save' }}
+          </button>
+        </div>
+      </form>
+
+      @if (savedMessage) {
+        <div class="state success">{{ savedMessage }}</div>
+      }
+      @if (errorMessage) {
+        <div class="state error">{{ errorMessage }}</div>
+      }
+    </div>
+  }
+</section>

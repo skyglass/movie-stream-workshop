@@ -7,4 +7,4 @@ Feature: add-movie-to-catalog
 
   Scenario: Anonymous caller cannot add a movie through the API
     When an anonymous caller tries to add movie "tt0000001"
-    Then the API response status is 401 or 403
+    Then the movie API response status is 401 or 403

@@ -1,10 +1,8 @@
 package com.wordpress.kkaravitis.banking.gateway.adapter;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import java.util.Iterator;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -36,7 +34,7 @@ public class OpenApiProxyController {
     }
 
     @GetMapping("/{serviceName}")
-    public Mono<ResponseEntity<JsonNode>> serviceDocs(@PathVariable String serviceName) {
+    public Mono<ResponseEntity<String>> serviceDocs(@PathVariable String serviceName) {
         ServiceDoc service = services.get(serviceName);
         if (service == null) {
             return Mono.just(ResponseEntity.notFound().build());
@@ -47,18 +45,18 @@ public class OpenApiProxyController {
               .retrieve()
               .bodyToMono(String.class)
               .map(body -> rewrite(body, service))
-              .map(ResponseEntity::ok);
+              .map(body -> ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body));
     }
 
-    private JsonNode rewrite(String body, ServiceDoc service) {
+    private String rewrite(String body, ServiceDoc service) {
         try {
             ObjectNode root = (ObjectNode) objectMapper.readTree(body);
-            JsonNode pathsNode = root.get("paths");
+            var pathsNode = root.get("paths");
             if (pathsNode instanceof ObjectNode paths) {
                 ObjectNode rewrittenPaths = objectMapper.createObjectNode();
-                Iterator<Map.Entry<String, JsonNode>> fields = paths.fields();
+                var fields = paths.fields();
                 while (fields.hasNext()) {
-                    Map.Entry<String, JsonNode> entry = fields.next();
+                    var entry = fields.next();
                     rewrittenPaths.set(rewritePath(entry.getKey(), service.rewrites()), entry.getValue());
                 }
                 root.set("paths", rewrittenPaths);
@@ -67,7 +65,7 @@ public class OpenApiProxyController {
             ArrayNode servers = objectMapper.createArrayNode();
             servers.addObject().put("url", "");
             root.set("servers", servers);
-            return root;
+            return objectMapper.writeValueAsString(root);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to rewrite OpenAPI document", e);
         }

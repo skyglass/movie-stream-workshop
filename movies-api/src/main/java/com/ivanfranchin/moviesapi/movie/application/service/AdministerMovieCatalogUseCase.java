@@ -1,4 +1,4 @@
-package com.ivanfranchin.moviesapi.movie.application;
+package com.ivanfranchin.moviesapi.movie.application.service;
 
 import com.ivanfranchin.moviesapi.movie.MovieService;
 import com.ivanfranchin.moviesapi.movie.dto.MovieDto;

@@ -23,6 +23,11 @@ export interface AuthUser {
   roles: string[];
 }
 
+export interface AuthProfile {
+  username: string;
+  email: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly tokenKey = 'movies.accessToken';
@@ -45,10 +50,17 @@ export class AuthService {
     return this.currentUser?.roles.includes('MOVIES_ADMIN') ?? false;
   }
 
-  get registrationUrl(): string {
+  getRegistrationUrl(redirectUrl: string = window.location.href): string {
     const c = this.cfg.config;
-    const redirectUri = encodeURIComponent(c.uiBaseUrl || window.location.origin);
-    return `${c.keycloakBaseUrl}/realms/${c.keycloakRealm}/protocol/openid-connect/registrations?client_id=${c.clientId}&response_type=code&scope=openid%20profile%20email&redirect_uri=${redirectUri}`;
+    const url = new URL(`${c.keycloakBaseUrl}/realms/${c.keycloakRealm}/protocol/openid-connect/registrations`);
+    url.searchParams.set('client_id', c.clientId);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('redirect_uri', this.cleanRedirectUrl(redirectUrl));
+    return url.toString();
+  }
+
+  register(): void {
+    window.location.assign(this.getRegistrationUrl());
   }
 
   login(request: LoginRequest): Observable<void> {
@@ -77,6 +89,17 @@ export class AuthService {
     this.authState.next(false);
   }
 
+  applyProfile(profile: AuthProfile): void {
+    const current = this.userState.value;
+    if (!current) return;
+
+    this.userState.next({
+      ...current,
+      username: this.firstNonBlank(profile.username, current.username, current.email),
+      email: this.firstNonBlank(profile.email, current.email)
+    });
+  }
+
   private decodeToken(token: string | null): AuthUser | null {
     if (!token) return null;
     try {
@@ -85,13 +108,30 @@ export class AuthService {
       const payload = JSON.parse(atob(padded));
       const resourceRoles = payload.resource_access?.['movies-ui']?.roles ?? [];
       const realmRoles = payload.realm_access?.roles ?? [];
+      const email = this.firstNonBlank(payload.email);
       return {
-        username: payload.preferred_username ?? payload.username ?? payload.sub,
-        email: payload.email ?? '',
+        username: this.firstNonBlank(
+          payload.preferred_username,
+          payload.username,
+          payload.name,
+          email ? email.split('@')[0] : '',
+          payload.sub
+        ),
+        email,
         roles: [...new Set([...realmRoles, ...resourceRoles])]
       };
     } catch {
       return null;
     }
+  }
+
+  private firstNonBlank(...values: Array<string | null | undefined>): string {
+    return values.find(value => !!value && value.trim().length > 0)?.trim() ?? '';
+  }
+
+  private cleanRedirectUrl(redirectUrl: string): string {
+    const url = new URL(redirectUrl);
+    ['code', 'state', 'session_state', 'iss', 'error', 'error_description'].forEach(param => url.searchParams.delete(param));
+    return url.toString();
   }
 }

@@ -1,4 +1,4 @@
-package com.ivanfranchin.moviesapi.userextra.application;
+package com.ivanfranchin.moviesapi.userextra.application.service;
 
 import com.ivanfranchin.moviesapi.userextra.UserExtraService;
 import com.ivanfranchin.moviesapi.userextra.model.UserExtra;

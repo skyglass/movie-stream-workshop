@@ -76,6 +76,10 @@ export class MoviesApiService {
     return this.http.get<MovieUser>(`${this.userExtrasBase}/me`);
   }
 
+  changeAvatar(avatar: string): Observable<MovieUser> {
+    return this.http.post<MovieUser>(`${this.userExtrasBase}/me`, { avatar });
+  }
+
   listUsers(): Observable<MovieUser[]> {
     return this.http.get<MovieUser[]>(this.usersBase);
   }

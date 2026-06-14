@@ -1,0 +1,15 @@
+@startuml
+title UC-008 change-own-avatar
+left to right direction
+
+actor "Authenticated User" as user
+actor "Visitor" as visitor
+rectangle "user-access" {
+    usecase "change-own-avatar" as UC
+    entity "USER_EXTRA" as profile
+}
+
+user --> UC
+visitor -[#red,dashed]-> UC : forbidden
+UC --> profile : changes avatar seed
+@enduml

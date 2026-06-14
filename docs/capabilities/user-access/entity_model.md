@@ -48,11 +48,12 @@ Access policy concept derived from JWT role claims. Roles are not persisted in t
 
 | Role | Meaning |
 |------|---------|
-| `MOVIES_USER` | Authenticated regular user. Can create movies, comment, and view own profile. |
+| `MOVIES_USER` | Authenticated regular user. Can create movies, comment, view own profile, and change own avatar. |
 | `MOVIES_ADMIN` | Admin user. Inherits regular access and can view registered users and administer movies. |
 
 ## Access Rules
 
 - `GET /api/userextras/me` is available to any authenticated user and synchronizes the user's profile projection.
+- `POST /api/userextras/me` is available to any authenticated user for changing only the authenticated user's avatar seed.
 - `/api/users` and `/api/users/**` require `MOVIES_ADMIN`.
 - The UI hides the Admin menu for non-admin users, but API authorization remains enforced by Spring Security.

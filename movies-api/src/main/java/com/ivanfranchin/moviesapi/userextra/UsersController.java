@@ -1,7 +1,7 @@
 package com.ivanfranchin.moviesapi.userextra;
 
 import com.ivanfranchin.moviesapi.userextra.model.UserExtra;
-import com.ivanfranchin.moviesapi.userextra.application.ViewRegisteredUsersUseCase;
+import com.ivanfranchin.moviesapi.userextra.application.service.ViewRegisteredUsersUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.util.List;
