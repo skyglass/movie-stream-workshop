@@ -16,6 +16,7 @@ export interface Movie {
   director: string;
   year: string;
   poster: string;
+  recommended: boolean;
   comments: MovieComment[];
 }
 
@@ -70,6 +71,14 @@ export class MoviesApiService {
 
   addComment(imdbId: string, text: string): Observable<Movie> {
     return this.http.post<Movie>(`${this.moviesBase}/${imdbId}/comments`, { text });
+  }
+
+  recommendMovie(imdbId: string): Observable<Movie> {
+    return this.http.post<Movie>(`${this.moviesBase}/${imdbId}/recommendation`, {});
+  }
+
+  unrecommendMovie(imdbId: string): Observable<Movie> {
+    return this.http.delete<Movie>(`${this.moviesBase}/${imdbId}/recommendation`);
   }
 
   syncMe(): Observable<MovieUser> {

@@ -2,6 +2,7 @@ package com.ivanfranchin.moviesapi.bdd;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ivanfranchin.moviesapi.movie.MovieRepository;
+import com.ivanfranchin.moviesapi.movie.MovieRecommendationRepository;
 import com.ivanfranchin.moviesapi.bdd.movie.fixture.MovieCatalogFixture;
 import com.ivanfranchin.moviesapi.bdd.user.fixture.UserAccessFixture;
 import com.ivanfranchin.moviesapi.userextra.UserExtraRepository;
@@ -14,8 +15,9 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 public class CucumberFixtureConfiguration {
 
     @Bean
-    MovieCatalogFixture movieCatalogFixture(MovieRepository movieRepository) {
-        return new MovieCatalogFixture(movieRepository);
+    MovieCatalogFixture movieCatalogFixture(MovieRepository movieRepository,
+                                            MovieRecommendationRepository movieRecommendationRepository) {
+        return new MovieCatalogFixture(movieRepository, movieRecommendationRepository);
     }
 
     @Bean

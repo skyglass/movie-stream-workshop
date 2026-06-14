@@ -6,6 +6,7 @@ import com.ivanfranchin.moviesapi.movie.application.service.AddMovieCommentUseCa
 import com.ivanfranchin.moviesapi.movie.application.service.AddMovieToCatalogUseCase;
 import com.ivanfranchin.moviesapi.movie.application.service.AdministerMovieCatalogUseCase;
 import com.ivanfranchin.moviesapi.movie.application.service.AdministerMovieCatalogUseCase.UpdateMovieCommand;
+import com.ivanfranchin.moviesapi.movie.application.service.RecommendMovieUseCase;
 import com.ivanfranchin.moviesapi.movie.application.service.ViewMovieCatalogUseCase;
 import com.ivanfranchin.moviesapi.movie.application.service.ViewMovieDetailsUseCase;
 import com.ivanfranchin.moviesapi.movie.dto.CreateMovieRequest;
@@ -16,6 +17,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,15 +44,18 @@ public class MoviesController {
     private final AddMovieToCatalogUseCase addMovieToCatalog;
     private final AddMovieCommentUseCase addMovieComment;
     private final AdministerMovieCatalogUseCase administerMovieCatalog;
+    private final RecommendMovieUseCase recommendMovie;
 
     @GetMapping
-    public List<MovieDto> getMovies() {
-        return viewMovieCatalog.viewCatalog();
+    public List<MovieDto> getMovies(@AuthenticationPrincipal Jwt jwt) {
+        String username = username(jwt);
+        return username == null ? viewMovieCatalog.viewCatalog() : viewMovieCatalog.viewCatalog(username);
     }
 
     @GetMapping("/{imdbId}")
-    public MovieDto getMovie(@PathVariable String imdbId) {
-        return viewMovieDetails.viewMovie(imdbId);
+    public MovieDto getMovie(@PathVariable String imdbId, @AuthenticationPrincipal Jwt jwt) {
+        String username = username(jwt);
+        return username == null ? viewMovieDetails.viewMovie(imdbId) : viewMovieDetails.viewMovie(imdbId, username);
     }
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
@@ -77,11 +83,42 @@ public class MoviesController {
     }
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
+    @PostMapping("/{imdbId}/recommendation")
+    public MovieDto recommendMovie(@PathVariable String imdbId, @AuthenticationPrincipal Jwt jwt) {
+        return recommendMovie.recommendMovie(jwt, imdbId);
+    }
+
+    @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
+    @DeleteMapping("/{imdbId}/recommendation")
+    public MovieDto unrecommendMovie(@PathVariable String imdbId, @AuthenticationPrincipal Jwt jwt) {
+        return recommendMovie.unrecommendMovie(jwt, imdbId);
+    }
+
+    @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/{imdbId}/comments")
     public MovieDto addMovieComment(@PathVariable String imdbId,
                                     @Valid @RequestBody AddCommentRequest addCommentRequest,
                                     Principal principal) {
         return addMovieComment.addComment(new AddCommentCommand(imdbId, principal.getName(), addCommentRequest.text()));
+    }
+
+    private String username(Jwt jwt) {
+        if (jwt == null) {
+            return null;
+        }
+        return firstNonBlank(
+                jwt.getClaimAsString("preferred_username"),
+                jwt.getClaimAsString("username"),
+                jwt.getSubject());
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 }

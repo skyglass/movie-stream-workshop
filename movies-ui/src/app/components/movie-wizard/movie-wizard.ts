@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { AuthService } from '../../services/auth';
 import { MoviesApiService, Movie } from '../../services/movies-api';
 
 @Component({
@@ -11,10 +13,12 @@ import { MoviesApiService, Movie } from '../../services/movies-api';
   templateUrl: './movie-wizard.html',
   styleUrl: './movie-wizard.css'
 })
-export class MovieWizardComponent {
+export class MovieWizardComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly moviesApi = inject(MoviesApiService);
   private readonly router = inject(Router);
+  readonly auth = inject(AuthService);
+  private authSub?: Subscription;
 
   step = 1;
   loading = false;
@@ -35,14 +39,27 @@ export class MovieWizardComponent {
     poster: ['']
   });
 
+  ngOnInit(): void {
+    this.authSub = this.auth.isAuthenticated$.subscribe(authenticated => {
+      if (!authenticated) {
+        this.clearWizard();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.authSub?.unsubscribe();
+  }
+
   search(): void {
-    if (this.searchForm.invalid) return;
+    if (!this.auth.token || this.searchForm.invalid) return;
     const title = this.searchForm.getRawValue().searchText ?? '';
     this.loading = true;
     this.errorMessage = '';
     this.searchResults = [];
     this.moviesApi.searchOmdb(title).subscribe({
       next: result => {
+        if (!this.auth.token) return;
         if (result.Response === 'False') {
           this.errorMessage = result.Error ?? 'No movie found';
         } else {
@@ -52,12 +69,14 @@ export class MovieWizardComponent {
             director: result.Director,
             year: result.Year,
             poster: result.Poster,
+            recommended: false,
             comments: []
           }];
         }
         this.loading = false;
       },
       error: err => {
+        if (!this.auth.token) return;
         this.errorMessage = err?.message ?? 'OMDb search failed';
         this.loading = false;
       }
@@ -92,6 +111,7 @@ export class MovieWizardComponent {
   }
 
   createMovie(): void {
+    if (!this.auth.token) return;
     if (this.movieForm.invalid) {
       this.movieForm.markAllAsTouched();
       return;
@@ -107,8 +127,12 @@ export class MovieWizardComponent {
       poster: value.poster ?? ''
     };
     this.moviesApi.createMovie(movie).subscribe({
-      next: () => this.router.navigateByUrl('/home'),
+      next: () => {
+        if (!this.auth.token) return;
+        this.router.navigateByUrl('/home');
+      },
       error: err => {
+        if (!this.auth.token) return;
         this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not create movie';
         this.saving = false;
       }
@@ -118,5 +142,16 @@ export class MovieWizardComponent {
   poster(): string {
     const poster = this.movieForm.getRawValue().poster;
     return poster && poster !== 'N/A' ? poster : '/images/movie-poster.jpg';
+  }
+
+  private clearWizard(): void {
+    this.step = 1;
+    this.loading = false;
+    this.saving = false;
+    this.errorMessage = '';
+    this.searchResults = [];
+    this.selectedMovie = null;
+    this.searchForm.reset();
+    this.movieForm.reset();
   }
 }

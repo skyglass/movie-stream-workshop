@@ -21,6 +21,11 @@ public class ViewMovieDetailsUseCaseTest {
         fixture.selectedMovie(viewMovieDetails.viewMovie(imdbId));
     }
 
+    @When("regular user {string} opens details for movie {string}")
+    public void regularUserOpensDetailsForMovie(String username, String imdbId) {
+        fixture.selectedMovie(viewMovieDetails.viewMovie(imdbId, username));
+    }
+
     @Given("movie {string} for detail viewing has comment {string} by {string}")
     public void movieForDetailViewingHasCommentBy(String imdbId, String text, String username) {
         fixture.addComment(imdbId, username, text);
@@ -34,5 +39,10 @@ public class ViewMovieDetailsUseCaseTest {
     @Then("the first viewed movie comment is {string}")
     public void theFirstViewedMovieCommentIs(String text) {
         fixture.assertFirstSelectedMovieCommentTextIs(text);
+    }
+
+    @Then("the viewed movie is marked recommended")
+    public void theViewedMovieIsMarkedRecommended() {
+        fixture.assertSelectedMovieRecommendationIs(true);
     }
 }

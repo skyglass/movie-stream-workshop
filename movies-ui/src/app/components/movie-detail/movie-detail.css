@@ -110,6 +110,35 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.recommend-button {
+  width: calc(100% - 1rem);
+  min-height: 2.4rem;
+  margin: 0.5rem;
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2933;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.recommend-button .material-icons {
+  color: #c74444;
+  font-size: 1.2rem;
+}
+
+.recommend-button.recommended {
+  border-color: #66ad78;
+  color: #1d6b36;
+  background: #f3fbf5;
+}
+
+.recommend-button.recommended .material-icons {
+  color: #268242;
+}
+
 .comment-list {
   display: grid;
   gap: 0.9rem;

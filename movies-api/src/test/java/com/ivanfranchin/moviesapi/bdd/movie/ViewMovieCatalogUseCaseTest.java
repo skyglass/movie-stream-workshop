@@ -26,6 +26,11 @@ public class ViewMovieCatalogUseCaseTest {
         fixture.movieList(viewMovieCatalog.viewCatalog());
     }
 
+    @When("regular user {string} requests the personalized movie catalog")
+    public void regularUserRequestsThePersonalizedMovieCatalog(String username) {
+        fixture.movieList(viewMovieCatalog.viewCatalog(username));
+    }
+
     @Then("the catalog discovery list shows {string} before {string}")
     public void theCatalogDiscoveryListShowsBefore(String firstTitle, String secondTitle) {
         fixture.assertMovieListOrdersTitleBefore(firstTitle, secondTitle);
@@ -34,5 +39,10 @@ public class ViewMovieCatalogUseCaseTest {
     @Then("the catalog discovery list contains {int} movies")
     public void theCatalogDiscoveryListContainsMovies(int count) {
         fixture.assertMovieListSizeIs(count);
+    }
+
+    @Then("catalog movie {string} is marked recommended")
+    public void catalogMovieIsMarkedRecommended(String imdbId) {
+        fixture.assertMovieListItemRecommendationIs(imdbId, true);
     }
 }

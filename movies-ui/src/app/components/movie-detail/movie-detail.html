@@ -1,7 +1,9 @@
 <section class="detail-page">
   <a routerLink="/home" class="back-link">Back to movies</a>
 
-  @if (loading) {
+  @if (!auth.token) {
+    <div class="empty">Sign in to see movie details</div>
+  } @else if (loading) {
     <div class="state">Loading movie</div>
   } @else if (errorMessage && !movie) {
     <div class="state error">{{ errorMessage }}</div>
@@ -9,6 +11,16 @@
     <div class="detail-layout">
       <article class="movie-card">
         <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+        <button
+          type="button"
+          class="recommend-button"
+          [class.recommended]="movie.recommended"
+          [title]="movie.recommended ? 'Unrecommend' : 'Recommend'"
+          [disabled]="recommendationSaving"
+          (click)="toggleRecommendation()">
+          <span class="material-icons" aria-hidden="true">{{ movie.recommended ? 'check_circle' : 'favorite_border' }}</span>
+          {{ movie.recommended ? 'Recommended' : 'Recommend' }}
+        </button>
         <div class="movie-title">{{ movie.title }}</div>
         <dl>
           <div>

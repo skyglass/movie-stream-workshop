@@ -39,7 +39,7 @@ erDiagram
 | Attribute | Description | Data Type | Validation Rules |
 |-----------|-------------|-----------|------------------|
 | username | Application username | String | Primary Key, Not Blank |
-| email | Email copied from JWT or fallback | String | Not Null |
+| email | Email copied from JWT or fallback | String | Unique, Not Null |
 | avatar | Avatar seed used by the UI | String | Not Null |
 
 ### ROLE

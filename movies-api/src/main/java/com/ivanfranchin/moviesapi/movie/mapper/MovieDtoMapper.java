@@ -18,6 +18,10 @@ public class MovieDtoMapper {
     private final UserExtraService userExtraService;
 
     public MovieDto toMovieDto(Movie movie) {
+        return toMovieDto(movie, false);
+    }
+
+    public MovieDto toMovieDto(Movie movie, boolean recommended) {
         List<MovieDto.CommentDto> comments = movie.getComments().stream()
                 .map(this::toMovieDtoCommentDto)
                 .toList();
@@ -28,6 +32,7 @@ public class MovieDtoMapper {
                 movie.getDirector(),
                 movie.getYear(),
                 movie.getPoster(),
+                recommended,
                 comments
         );
     }

@@ -1,9 +1,11 @@
 package com.ivanfranchin.moviesapi.bdd.movie.fixture;
 
 import com.ivanfranchin.moviesapi.movie.MovieRepository;
+import com.ivanfranchin.moviesapi.movie.MovieRecommendationRepository;
 import com.ivanfranchin.moviesapi.movie.dto.MovieDto;
 import com.ivanfranchin.moviesapi.movie.model.Movie;
 import com.ivanfranchin.moviesapi.movie.model.MovieComment;
+import com.ivanfranchin.moviesapi.movie.model.MovieRecommendation;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -11,12 +13,14 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 public class MovieCatalogFixture {
 
     private final MovieRepository movieRepository;
+    private final MovieRecommendationRepository movieRecommendationRepository;
     private List<MovieDto> movieList;
     private MovieDto selectedMovie;
     private RuntimeException lastError;
@@ -24,8 +28,9 @@ public class MovieCatalogFixture {
     private String currentUsername;
     private String currentRole;
 
-    public MovieCatalogFixture(MovieRepository movieRepository) {
+    public MovieCatalogFixture(MovieRepository movieRepository, MovieRecommendationRepository movieRecommendationRepository) {
         this.movieRepository = movieRepository;
+        this.movieRecommendationRepository = movieRecommendationRepository;
     }
 
     public void resetPersistentScenarioState() {
@@ -43,6 +48,8 @@ public class MovieCatalogFixture {
     }
 
     public void clearMovies() {
+        movieRecommendationRepository.deleteAll();
+        movieRecommendationRepository.flush();
         movieRepository.deleteAll();
         movieRepository.flush();
     }
@@ -74,6 +81,14 @@ public class MovieCatalogFixture {
                 .anyMatch(comment -> comment.getUsername().equals(username) && comment.getText().equals(text));
     }
 
+    public void recommendMovie(String imdbId, String username) {
+        movieRecommendationRepository.saveAndFlush(new MovieRecommendation(username, imdbId));
+    }
+
+    public boolean movieIsRecommendedBy(String imdbId, String username) {
+        return movieRecommendationRepository.existsByUsernameAndMovieImdbId(username, imdbId);
+    }
+
     public void assertMovieListOrdersTitleBefore(String firstTitle, String secondTitle) {
         List<String> titles = movieList.stream().map(MovieDto::title).toList();
         assertTrue(titles.indexOf(firstTitle) < titles.indexOf(secondTitle),
@@ -88,8 +103,24 @@ public class MovieCatalogFixture {
         assertEquals(title, selectedMovie.title());
     }
 
+    public void assertSelectedMovieImdbIdIs(String imdbId) {
+        assertEquals(imdbId, selectedMovie.imdbId());
+    }
+
     public void assertFirstSelectedMovieCommentTextIs(String text) {
         assertEquals(text, selectedMovie.comments().getFirst().text());
+    }
+
+    public void assertSelectedMovieRecommendationIs(boolean recommended) {
+        assertEquals(recommended, selectedMovie.recommended());
+    }
+
+    public void assertMovieListItemRecommendationIs(String imdbId, boolean recommended) {
+        MovieDto movie = movieList.stream()
+                .filter(item -> item.imdbId().equals(imdbId))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(recommended, movie.recommended());
     }
 
     public void assertMovieTitleIs(String imdbId, String title) {
@@ -99,6 +130,14 @@ public class MovieCatalogFixture {
 
     public void assertMovieHasComment(String imdbId, String username, String text) {
         assertTrue(movieHasComment(imdbId, username, text));
+    }
+
+    public void assertMovieRecommendedBy(String imdbId, String username) {
+        assertTrue(movieIsRecommendedBy(imdbId, username));
+    }
+
+    public void assertMovieNotRecommendedBy(String imdbId, String username) {
+        assertFalse(movieIsRecommendedBy(imdbId, username));
     }
 
     public void assertLastErrorIsIllegalArgumentException() {

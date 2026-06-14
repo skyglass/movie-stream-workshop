@@ -9,5 +9,6 @@
 | Movie details | The selected movie plus its comments.                                           |
 | Comment | Authenticated user feedback attached to a movie.                                |
 | Comment author | Username from the authenticated principal at the time the comment is created.   |
+| Recommendation | Authenticated user's persisted endorsement of one movie.                        |
 | Poster fallback | Local placeholder image used when the poster URL is empty or `N/A`.             |
 | Catalog administration | Admin-only ability to view Admin Menu and Registered Users.                     |

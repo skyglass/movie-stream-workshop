@@ -17,7 +17,7 @@ public class UserExtra {
     @Column(nullable = false, updatable = false)
     private String username;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Column(nullable = false)

@@ -19,6 +19,7 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   movies: Movie[] = [];
   loading = false;
   errorMessage = '';
+  recommendationBusy: Record<string, boolean> = {};
   private authSub?: Subscription;
 
   ngOnInit(): void {
@@ -53,5 +54,25 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
 
   poster(movie: Movie): string {
     return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';
+  }
+
+  toggleRecommendation(movie: Movie): void {
+    if (!this.auth.token || this.recommendationBusy[movie.imdbId]) return;
+
+    this.recommendationBusy[movie.imdbId] = true;
+    const request = movie.recommended
+      ? this.moviesApi.unrecommendMovie(movie.imdbId)
+      : this.moviesApi.recommendMovie(movie.imdbId);
+
+    request.subscribe({
+      next: updatedMovie => {
+        movie.recommended = updatedMovie.recommended;
+        this.recommendationBusy[movie.imdbId] = false;
+      },
+      error: err => {
+        this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not update recommendation';
+        this.recommendationBusy[movie.imdbId] = false;
+      }
+    });
   }
 }

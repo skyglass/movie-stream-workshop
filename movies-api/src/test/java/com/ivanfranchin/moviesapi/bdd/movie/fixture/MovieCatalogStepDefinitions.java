@@ -21,6 +21,11 @@ public class MovieCatalogStepDefinitions {
         fixture.saveMovie(imdbId, title);
     }
 
+    @Given("movie {string} is already recommended by {string}")
+    public void movieIsAlreadyRecommendedBy(String imdbId, String username) {
+        fixture.recommendMovie(imdbId, username);
+    }
+
     @Then("movie {string} exists in the catalog with title {string}")
     public void movieExistsInTheCatalogWithTitle(String imdbId, String title) {
         fixture.assertMovieTitleIs(imdbId, title);

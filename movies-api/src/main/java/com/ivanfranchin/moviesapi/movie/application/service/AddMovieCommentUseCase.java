@@ -1,6 +1,7 @@
 package com.ivanfranchin.moviesapi.movie.application.service;
 
 import com.ivanfranchin.moviesapi.movie.MovieService;
+import com.ivanfranchin.moviesapi.movie.MovieRecommendationService;
 import com.ivanfranchin.moviesapi.movie.dto.MovieDto;
 import com.ivanfranchin.moviesapi.movie.mapper.MovieDtoMapper;
 import com.ivanfranchin.moviesapi.movie.model.Movie;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AddMovieCommentUseCase {
 
     private final MovieService movieService;
+    private final MovieRecommendationService movieRecommendationService;
     private final MovieDtoMapper movieMapper;
 
     @Transactional
@@ -24,7 +26,8 @@ public class AddMovieCommentUseCase {
         }
         Movie movie = movieService.validateAndGetMovie(command.imdbId());
         movie.addComment(new MovieComment(command.username(), command.text(), Instant.now()));
-        return movieMapper.toMovieDto(movieService.saveMovie(movie));
+        Movie savedMovie = movieService.saveMovie(movie);
+        return movieMapper.toMovieDto(savedMovie, movieRecommendationService.isRecommended(command.username(), command.imdbId()));
     }
 
     public record AddCommentCommand(String imdbId, String username, String text) {
