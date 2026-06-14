@@ -7,6 +7,7 @@
   "uiBaseUrl": "http://localhost:7000",
   "moviesApiPath": "/api/movies",
   "movieChallengesPath": "/api/movie-challenges",
+  "favoriteMoviesPath": "/api/favorite-movies",
   "userExtrasPath": "/api/userextras",
   "usersApiPath": "/api/users",
   "omdbBaseUrl": "https://www.omdbapi.com/",

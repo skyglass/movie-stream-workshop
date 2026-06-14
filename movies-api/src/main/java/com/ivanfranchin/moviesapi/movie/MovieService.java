@@ -25,6 +25,11 @@ public class MovieService {
         return movieRepository.findAll(Sort.by(Sort.Direction.ASC, "title"));
     }
 
+    @Transactional(readOnly = true)
+    public List<Movie> getFavoriteMovies(String username) {
+        return movieRepository.findFavoriteMoviesByUsername(username);
+    }
+
     @Transactional
     public Movie saveMovie(Movie movie) {
         return movieRepository.save(movie);

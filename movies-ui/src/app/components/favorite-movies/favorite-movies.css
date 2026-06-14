@@ -1,0 +1,9 @@
+@import '../movies-home/movies-home.css';
+
+.recommend-button {
+  cursor: default;
+}
+
+.recommend-button .material-icons {
+  color: #268242;
+}

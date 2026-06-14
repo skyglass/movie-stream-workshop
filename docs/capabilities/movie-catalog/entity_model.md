@@ -136,9 +136,18 @@ Read model used by `movie-challenge`.
 | movie2 | Second recommended movie in the challenge pair | MOVIE metadata | Different from movie1 |
 | completed_pair | Alphabetically sorted pair identity | USER_MOVIE_PAIR_CHALLENGE | Must not already exist for the user |
 
+### FAVORITE_MOVIES
+
+Read model used by `view-favorite-movies`.
+
+| Attribute | Description | Data Type | Validation Rules |
+|-----------|-------------|-----------|------------------|
+| movies | Movies with at least one vote by the current user | List<MOVIE> | Sorted by `movie_user_votes.vote_count` descending |
+| recommended | Whether each favorite movie is still recommended by the current user | Boolean | Enriched from MOVIE_RECOMMENDATION |
+
 ## Aggregate Insight
 
 `add-movie-to-catalog`, `add-movie-comment`, `recommend-movie`, `movie-challenge`, and `administer-movie-catalog` mutate
-the movie-catalog model. Catalog and detail views are read use cases over the same aggregate and include recommendation
-state when the viewer is authenticated. Comment avatar enrichment crosses into `user-access` only as a read lookup by
-username.
+the movie-catalog model. Catalog, detail, and favorite views are read use cases over the same aggregate and include
+recommendation state when the viewer is authenticated. Comment avatar enrichment crosses into `user-access` only as a
+read lookup by username.

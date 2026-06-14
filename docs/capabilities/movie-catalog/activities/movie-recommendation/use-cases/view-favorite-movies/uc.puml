@@ -1,0 +1,17 @@
+@startuml
+title UC-013 view-favorite-movies
+left to right direction
+
+actor "Authenticated User" as user
+rectangle "movie-catalog" {
+    usecase "view-favorite-movies" as UC
+    entity "MOVIE_USER_VOTE" as vote
+    entity "MOVIE" as movie
+    entity "MOVIE_RECOMMENDATION" as recommendation
+}
+
+user --> UC
+UC --> vote : orders by vote_count desc
+vote --> movie : references favorite movie
+UC --> recommendation : enriches current recommended state
+@enduml

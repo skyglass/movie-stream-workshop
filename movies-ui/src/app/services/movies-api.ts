@@ -51,6 +51,7 @@ export interface OmdbMovie {
 export class MoviesApiService {
   private readonly moviesBase: string;
   private readonly movieChallengesBase: string;
+  private readonly favoriteMoviesBase: string;
   private readonly userExtrasBase: string;
   private readonly usersBase: string;
 
@@ -58,12 +59,17 @@ export class MoviesApiService {
     const c = cfg.config;
     this.moviesBase = `${c.apiBaseUrl}${c.moviesApiPath}`;
     this.movieChallengesBase = `${c.apiBaseUrl}${c.movieChallengesPath}`;
+    this.favoriteMoviesBase = `${c.apiBaseUrl}${c.favoriteMoviesPath}`;
     this.userExtrasBase = `${c.apiBaseUrl}${c.userExtrasPath}`;
     this.usersBase = `${c.apiBaseUrl}${c.usersApiPath}`;
   }
 
   listMovies(): Observable<Movie[]> {
     return this.http.get<Movie[]>(this.moviesBase);
+  }
+
+  listFavoriteMovies(): Observable<Movie[]> {
+    return this.http.get<Movie[]>(this.favoriteMoviesBase);
   }
 
   getMovie(imdbId: string): Observable<Movie> {

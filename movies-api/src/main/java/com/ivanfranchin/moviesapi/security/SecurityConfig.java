@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/movies/*/comments").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/movies/*/recommendation").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/movie-challenges", "/api/movie-challenges/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
+                        .requestMatchers("/api/favorite-movies", "/api/favorite-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers(HttpMethod.POST, "/api/movies").authenticated()
                         .requestMatchers("/api/movies", "/api/movies/**").hasRole(MOVIES_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/userextras/me").authenticated()

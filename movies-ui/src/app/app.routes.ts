@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { MoviesHomeComponent } from './components/movies-home/movies-home';
 import { MovieDetailComponent } from './components/movie-detail/movie-detail';
 import { MovieWizardComponent } from './components/movie-wizard/movie-wizard';
+import { FavoriteMoviesComponent } from './components/favorite-movies/favorite-movies';
 import { AdminLayoutComponent } from './components/admin-layout/admin-layout';
 import { AdminUsersComponent } from './components/admin-users/admin-users';
 import { ProfileComponent } from './components/profile/profile';
@@ -11,6 +12,7 @@ export const routes: Routes = [
   { path: 'home', component: MoviesHomeComponent },
   { path: 'movies/:imdbId', component: MovieDetailComponent },
   { path: 'wizard', component: MovieWizardComponent, canActivate: [authGuard] },
+  { path: 'favorites', component: FavoriteMoviesComponent, canActivate: [authGuard] },
   { path: 'profile', component: ProfileComponent, canActivate: [authGuard] },
   {
     path: 'admin',

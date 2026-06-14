@@ -25,6 +25,7 @@ public class TokenExchangeGlobalFilter implements GlobalFilter, Ordered {
         String path = exchange.getRequest().getURI().getPath();
         if (!path.startsWith("/api/movies")
               && !path.startsWith("/api/movie-challenges")
+              && !path.startsWith("/api/favorite-movies")
               && !path.startsWith("/api/userextras")
               && !path.startsWith("/api/users")) {
             return chain.filter(exchange);

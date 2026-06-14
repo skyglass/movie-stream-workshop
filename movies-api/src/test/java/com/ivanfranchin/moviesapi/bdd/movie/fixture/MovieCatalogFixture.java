@@ -112,6 +112,12 @@ public class MovieCatalogFixture {
         }
     }
 
+    public void incrementVoteCount(String imdbId, String username, int times) {
+        for (int i = 0; i < times; i++) {
+            movieChallengeRepository.incrementVoteCount(username, imdbId);
+        }
+    }
+
     public void completeMoviePairChallenge(String username, String firstMovieId, String secondMovieId) {
         MoviePair pair = sortedPair(firstMovieId, secondMovieId);
         assertTrue(movieChallengeRepository.insertPairChallenge(username, pair.movie1Id(), pair.movie2Id()));
@@ -121,6 +127,12 @@ public class MovieCatalogFixture {
         List<String> titles = movieList.stream().map(MovieDto::title).toList();
         assertTrue(titles.indexOf(firstTitle) < titles.indexOf(secondTitle),
                 "Expected " + firstTitle + " before " + secondTitle + " but got " + titles);
+    }
+
+    public void assertMovieListOrdersImdbIdBefore(String firstImdbId, String secondImdbId) {
+        List<String> imdbIds = movieList.stream().map(MovieDto::imdbId).toList();
+        assertTrue(imdbIds.indexOf(firstImdbId) < imdbIds.indexOf(secondImdbId),
+                "Expected " + firstImdbId + " before " + secondImdbId + " but got " + imdbIds);
     }
 
     public void assertMovieListSizeIs(int count) {
