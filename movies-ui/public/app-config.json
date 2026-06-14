@@ -8,6 +8,7 @@
   "moviesApiPath": "/api/movies",
   "movieChallengesPath": "/api/movie-challenges",
   "favoriteMoviesPath": "/api/favorite-movies",
+  "usersFavoriteMoviesPath": "/api/users-favorite-movies",
   "userExtrasPath": "/api/userextras",
   "usersApiPath": "/api/users",
   "omdbBaseUrl": "https://www.omdbapi.com/",

@@ -30,6 +30,11 @@ public class MovieService {
         return movieRepository.findFavoriteMoviesByUsername(username);
     }
 
+    @Transactional(readOnly = true)
+    public List<Movie> getUsersFavoriteMovies() {
+        return movieRepository.findUsersFavoriteMovies();
+    }
+
     @Transactional
     public Movie saveMovie(Movie movie) {
         return movieRepository.save(movie);

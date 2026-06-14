@@ -145,6 +145,15 @@ Read model used by `view-favorite-movies`.
 | movies | Movies with at least one vote by the current user | List<MOVIE> | Sorted by `movie_user_votes.vote_count` descending |
 | recommended | Whether each favorite movie is still recommended by the current user | Boolean | Enriched from MOVIE_RECOMMENDATION |
 
+### USERS_FAVORITE_MOVIES
+
+Read model used by `view-users-favorite-movies`.
+
+| Attribute | Description | Data Type | Validation Rules |
+|-----------|-------------|-----------|------------------|
+| movies | Movies with at least one vote from any user | List<MOVIE> | Sorted by `sum(movie_user_votes.vote_count)` descending |
+| recommended | Whether each community favorite movie is recommended by the current user | Boolean | Enriched from MOVIE_RECOMMENDATION |
+
 ## Aggregate Insight
 
 `add-movie-to-catalog`, `add-movie-comment`, `recommend-movie`, `movie-challenge`, and `administer-movie-catalog` mutate

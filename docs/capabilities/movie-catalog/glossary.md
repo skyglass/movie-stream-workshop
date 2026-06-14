@@ -15,5 +15,6 @@
 | Challenge count | Number of times a movie has appeared in that user's movie challenges.           |
 | Movie vote | Count of times a user selected a movie as a movie challenge winner.             |
 | Favorite movie | Movie ordered by the current user's Movie Challenge vote count.                 |
+| Users favorite movie | Community favorite movie ordered by total Movie Challenge votes across users.   |
 | Poster fallback | Local placeholder image used when the poster URL is empty or `N/A`.             |
 | Catalog administration | Admin-only ability to view Admin Menu and Registered Users.                     |

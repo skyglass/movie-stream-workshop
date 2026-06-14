@@ -39,6 +39,11 @@ spring:
               predicates:
                 - Path=/api/favorite-movies,/api/favorite-movies/**
 
+            - id: movies-api-users-favorite-movies
+              uri: ${MOVIES_API_URL:http://movies-api:8080}
+              predicates:
+                - Path=/api/users-favorite-movies,/api/users-favorite-movies/**
+
             - id: movies-api-websocket
               uri: ${MOVIES_API_URL:http://movies-api:8080}
               predicates:

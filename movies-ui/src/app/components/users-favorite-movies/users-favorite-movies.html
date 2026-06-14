@@ -1,0 +1,42 @@
+<section class="movie-page">
+  @if (!auth.token) {
+    <div class="empty">Sign in to see users favorite movies</div>
+  } @else if (loading) {
+    <div class="state">Loading users favorite movies</div>
+  } @else if (errorMessage) {
+    <div class="state error">{{ errorMessage }}</div>
+  } @else if (movies.length > 0) {
+    <div class="movie-grid">
+      @for (movie of movies; track movie.imdbId) {
+        <article class="movie-card">
+          <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
+            <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+          </a>
+          <div class="recommend-button recommended">
+            <span class="material-icons" aria-hidden="true">leaderboard</span>
+            Users Favorite
+          </div>
+          <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
+            <div class="movie-title">{{ movie.title }}</div>
+            <dl>
+              <div>
+                <dt>imdbID:</dt>
+                <dd>{{ movie.imdbId }}</dd>
+              </div>
+              <div>
+                <dt>Author:</dt>
+                <dd>{{ movie.director }}</dd>
+              </div>
+              <div>
+                <dt>Year:</dt>
+                <dd>{{ movie.year }}</dd>
+              </div>
+            </dl>
+          </a>
+        </article>
+      }
+    </div>
+  } @else {
+    <div class="empty">No users favorite movies yet</div>
+  }
+</section>

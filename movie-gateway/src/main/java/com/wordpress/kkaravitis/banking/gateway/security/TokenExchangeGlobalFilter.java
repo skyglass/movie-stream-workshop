@@ -26,6 +26,7 @@ public class TokenExchangeGlobalFilter implements GlobalFilter, Ordered {
         if (!path.startsWith("/api/movies")
               && !path.startsWith("/api/movie-challenges")
               && !path.startsWith("/api/favorite-movies")
+              && !path.startsWith("/api/users-favorite-movies")
               && !path.startsWith("/api/userextras")
               && !path.startsWith("/api/users")) {
             return chain.filter(exchange);
