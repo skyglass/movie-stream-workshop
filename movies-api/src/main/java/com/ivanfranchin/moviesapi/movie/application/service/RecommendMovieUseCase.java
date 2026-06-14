@@ -1,5 +1,6 @@
 package com.ivanfranchin.moviesapi.movie.application.service;
 
+import com.ivanfranchin.moviesapi.movie.MovieRecommendedEvent;
 import com.ivanfranchin.moviesapi.movie.MovieRecommendationService;
 import com.ivanfranchin.moviesapi.movie.MovieService;
 import com.ivanfranchin.moviesapi.movie.dto.MovieDto;
@@ -8,6 +9,7 @@ import com.ivanfranchin.moviesapi.movie.model.Movie;
 import com.ivanfranchin.moviesapi.userextra.UserExtraService;
 import com.ivanfranchin.moviesapi.userextra.model.UserExtra;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ public class RecommendMovieUseCase {
     private final MovieRecommendationService movieRecommendationService;
     private final MovieDtoMapper movieMapper;
     private final UserExtraService userExtraService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public MovieDto recommendMovie(Jwt jwt, String imdbId) {
@@ -48,6 +51,7 @@ public class RecommendMovieUseCase {
     private MovieDto recommendMovie(String username, String imdbId) {
         Movie movie = movieService.validateAndGetMovie(imdbId);
         movieRecommendationService.recommend(username, imdbId);
+        eventPublisher.publishEvent(new MovieRecommendedEvent(username));
         return movieMapper.toMovieDto(movie, true);
     }
 

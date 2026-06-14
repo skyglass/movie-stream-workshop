@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { map, Observable } from 'rxjs';
 import { AppConfigService } from '../config/app-config.service';
 
 export interface MovieComment {
@@ -26,6 +26,17 @@ export interface MovieUser {
   avatar: string;
 }
 
+export interface MovieChallengeMovie {
+  imdbId: string;
+  title: string;
+  poster: string;
+}
+
+export interface MovieChallenge {
+  movie1: MovieChallengeMovie;
+  movie2: MovieChallengeMovie;
+}
+
 export interface OmdbMovie {
   imdbID: string;
   Title: string;
@@ -39,12 +50,14 @@ export interface OmdbMovie {
 @Injectable({ providedIn: 'root' })
 export class MoviesApiService {
   private readonly moviesBase: string;
+  private readonly movieChallengesBase: string;
   private readonly userExtrasBase: string;
   private readonly usersBase: string;
 
   constructor(private http: HttpClient, private cfg: AppConfigService) {
     const c = cfg.config;
     this.moviesBase = `${c.apiBaseUrl}${c.moviesApiPath}`;
+    this.movieChallengesBase = `${c.apiBaseUrl}${c.movieChallengesPath}`;
     this.userExtrasBase = `${c.apiBaseUrl}${c.userExtrasPath}`;
     this.usersBase = `${c.apiBaseUrl}${c.usersApiPath}`;
   }
@@ -79,6 +92,16 @@ export class MoviesApiService {
 
   unrecommendMovie(imdbId: string): Observable<Movie> {
     return this.http.delete<Movie>(`${this.moviesBase}/${imdbId}/recommendation`);
+  }
+
+  nextMovieChallenge(): Observable<MovieChallenge | null> {
+    return this.http.get<MovieChallenge>(`${this.movieChallengesBase}/next`, {
+      observe: 'response'
+    }).pipe(map(response => response.status === 204 ? null : response.body));
+  }
+
+  selectMovieChallengeWinner(movie1Id: string, movie2Id: string, selectedMovieId: string): Observable<void> {
+    return this.http.post<void>(`${this.movieChallengesBase}/votes`, { movie1Id, movie2Id, selectedMovieId });
   }
 
   syncMe(): Observable<MovieUser> {

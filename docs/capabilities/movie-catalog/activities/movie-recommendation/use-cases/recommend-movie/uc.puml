@@ -7,11 +7,13 @@ actor "Visitor" as visitor
 rectangle "movie-catalog" {
     usecase "recommend-movie" as UC
     entity "MOVIE_RECOMMENDATION" as recommendation
+    entity "MOVIE_RECOMMENDED_EVENT" as event
     entity "MOVIE" as movie
 }
 
 user --> UC
 visitor -[#red,dashed]-> UC : unauthorized
 UC --> recommendation : toggles recommendation
+UC --> event : publishes after recommendation
 recommendation --> movie : references
 @enduml

@@ -29,22 +29,62 @@
 nav {
   display: flex;
   gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
-nav a {
+nav a,
+.nav-button {
   color: #34495f;
   text-decoration: none;
   padding: 0.45rem 0.75rem;
   border-radius: 6px;
   font-weight: 600;
+  line-height: 1.2;
+}
+
+nav .nav-button {
+  min-height: 2.15rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 nav a.active,
-nav a:hover {
+nav a:hover,
+.nav-button:hover,
+.nav-button.available {
   background: #eaf4ff;
   color: #1678c2;
 }
 
+.availability-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #1f9d55;
+  box-shadow: 0 0 0 3px rgba(31, 157, 85, 0.16);
+}
+
 main {
   min-height: calc(100vh - 4.5rem);
+}
+
+.challenge-toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 50;
+  max-width: min(24rem, calc(100vw - 2rem));
+  border: 1px solid #67b47c;
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  background: #f0fbf3;
+  color: #1d6b36;
+  font-weight: 700;
+  box-shadow: 0 12px 30px rgba(16, 24, 40, 0.16);
 }

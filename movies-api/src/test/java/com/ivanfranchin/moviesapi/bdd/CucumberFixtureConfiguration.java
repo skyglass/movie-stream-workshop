@@ -1,11 +1,13 @@
 package com.ivanfranchin.moviesapi.bdd;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ivanfranchin.moviesapi.movie.MovieChallengeRepository;
 import com.ivanfranchin.moviesapi.movie.MovieRepository;
 import com.ivanfranchin.moviesapi.movie.MovieRecommendationRepository;
 import com.ivanfranchin.moviesapi.bdd.movie.fixture.MovieCatalogFixture;
 import com.ivanfranchin.moviesapi.bdd.user.fixture.UserAccessFixture;
 import com.ivanfranchin.moviesapi.userextra.UserExtraRepository;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -16,8 +18,10 @@ public class CucumberFixtureConfiguration {
 
     @Bean
     MovieCatalogFixture movieCatalogFixture(MovieRepository movieRepository,
-                                            MovieRecommendationRepository movieRecommendationRepository) {
-        return new MovieCatalogFixture(movieRepository, movieRecommendationRepository);
+                                            MovieRecommendationRepository movieRecommendationRepository,
+                                            MovieChallengeRepository movieChallengeRepository,
+                                            JdbcTemplate jdbcTemplate) {
+        return new MovieCatalogFixture(movieRepository, movieRecommendationRepository, movieChallengeRepository, jdbcTemplate);
     }
 
     @Bean

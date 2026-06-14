@@ -6,6 +6,7 @@
   "keycloakRealm": "movies",
   "uiBaseUrl": "http://localhost:7000",
   "moviesApiPath": "/api/movies",
+  "movieChallengesPath": "/api/movie-challenges",
   "userExtrasPath": "/api/userextras",
   "usersApiPath": "/api/users",
   "omdbBaseUrl": "https://www.omdbapi.com/",
@@ -15,5 +16,5 @@
   "competitorApiPath": "",
   "accountApiPath": "",
   "transferApiPath": "",
-  "wsPath": ""
+  "wsPath": "/ws"
 }

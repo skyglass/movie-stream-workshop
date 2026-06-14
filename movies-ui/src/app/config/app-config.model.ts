@@ -6,6 +6,7 @@ export interface AppConfig {
   keycloakRealm: string;
   uiBaseUrl: string;
   moviesApiPath: string;
+  movieChallengesPath: string;
   userExtrasPath: string;
   usersApiPath: string;
   omdbBaseUrl: string;

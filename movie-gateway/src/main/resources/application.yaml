@@ -29,6 +29,16 @@ spring:
               predicates:
                 - Path=/api/movies,/api/movies/**
 
+            - id: movies-api-movie-challenges
+              uri: ${MOVIES_API_URL:http://movies-api:8080}
+              predicates:
+                - Path=/api/movie-challenges,/api/movie-challenges/**
+
+            - id: movies-api-websocket
+              uri: ${MOVIES_API_URL:http://movies-api:8080}
+              predicates:
+                - Path=/ws,/ws/**
+
             - id: movies-api-userextras
               uri: ${MOVIES_API_URL:http://movies-api:8080}
               predicates:

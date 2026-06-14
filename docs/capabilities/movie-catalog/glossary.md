@@ -10,5 +10,9 @@
 | Comment | Authenticated user feedback attached to a movie.                                |
 | Comment author | Username from the authenticated principal at the time the comment is created.   |
 | Recommendation | Authenticated user's persisted endorsement of one movie.                        |
+| Movie challenge | A two-movie comparison chosen from a user's recommended movies.                 |
+| Completed challenge pair | Alphabetically sorted recommended movie pair already shown to a user.           |
+| Challenge count | Number of times a movie has appeared in that user's movie challenges.           |
+| Movie vote | Count of times a user selected a movie as a movie challenge winner.             |
 | Poster fallback | Local placeholder image used when the poster URL is empty or `N/A`.             |
 | Catalog administration | Admin-only ability to view Admin Menu and Registered Users.                     |

@@ -1,19 +1,24 @@
 package com.ivanfranchin.moviesapi.bdd.movie.fixture;
 
+import com.ivanfranchin.moviesapi.movie.MovieChallengeRepository;
 import com.ivanfranchin.moviesapi.movie.MovieRepository;
 import com.ivanfranchin.moviesapi.movie.MovieRecommendationRepository;
+import com.ivanfranchin.moviesapi.movie.dto.MovieChallengeDto;
 import com.ivanfranchin.moviesapi.movie.dto.MovieDto;
 import com.ivanfranchin.moviesapi.movie.model.Movie;
 import com.ivanfranchin.moviesapi.movie.model.MovieComment;
 import com.ivanfranchin.moviesapi.movie.model.MovieRecommendation;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
@@ -21,16 +26,24 @@ public class MovieCatalogFixture {
 
     private final MovieRepository movieRepository;
     private final MovieRecommendationRepository movieRecommendationRepository;
+    private final MovieChallengeRepository movieChallengeRepository;
+    private final JdbcTemplate jdbcTemplate;
     private List<MovieDto> movieList;
     private MovieDto selectedMovie;
+    private MovieChallengeDto selectedMovieChallenge;
     private RuntimeException lastError;
     private MvcResult lastResponse;
     private String currentUsername;
     private String currentRole;
 
-    public MovieCatalogFixture(MovieRepository movieRepository, MovieRecommendationRepository movieRecommendationRepository) {
+    public MovieCatalogFixture(MovieRepository movieRepository,
+                               MovieRecommendationRepository movieRecommendationRepository,
+                               MovieChallengeRepository movieChallengeRepository,
+                               JdbcTemplate jdbcTemplate) {
         this.movieRepository = movieRepository;
         this.movieRecommendationRepository = movieRecommendationRepository;
+        this.movieChallengeRepository = movieChallengeRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public void resetPersistentScenarioState() {
@@ -41,6 +54,7 @@ public class MovieCatalogFixture {
     public void resetScenarioState() {
         movieList = null;
         selectedMovie = null;
+        selectedMovieChallenge = null;
         lastError = null;
         lastResponse = null;
         currentUsername = null;
@@ -48,6 +62,9 @@ public class MovieCatalogFixture {
     }
 
     public void clearMovies() {
+        jdbcTemplate.update("delete from movie_user_votes");
+        jdbcTemplate.update("delete from user_movie_pair_challenge");
+        jdbcTemplate.update("delete from user_movie_challenge");
         movieRecommendationRepository.deleteAll();
         movieRecommendationRepository.flush();
         movieRepository.deleteAll();
@@ -89,6 +106,17 @@ public class MovieCatalogFixture {
         return movieRecommendationRepository.existsByUsernameAndMovieImdbId(username, imdbId);
     }
 
+    public void incrementChallengeCount(String imdbId, String username, int times) {
+        for (int i = 0; i < times; i++) {
+            movieChallengeRepository.incrementChallengeCount(username, imdbId);
+        }
+    }
+
+    public void completeMoviePairChallenge(String username, String firstMovieId, String secondMovieId) {
+        MoviePair pair = sortedPair(firstMovieId, secondMovieId);
+        assertTrue(movieChallengeRepository.insertPairChallenge(username, pair.movie1Id(), pair.movie2Id()));
+    }
+
     public void assertMovieListOrdersTitleBefore(String firstTitle, String secondTitle) {
         List<String> titles = movieList.stream().map(MovieDto::title).toList();
         assertTrue(titles.indexOf(firstTitle) < titles.indexOf(secondTitle),
@@ -113,6 +141,32 @@ public class MovieCatalogFixture {
 
     public void assertSelectedMovieRecommendationIs(boolean recommended) {
         assertEquals(recommended, selectedMovie.recommended());
+    }
+
+    public void assertSelectedMovieChallengeContains(String firstMovieId, String secondMovieId) {
+        assertNotNull(selectedMovieChallenge, "Expected a movie challenge to be available");
+        MoviePair expected = sortedPair(firstMovieId, secondMovieId);
+        MoviePair actual = sortedPair(
+                selectedMovieChallenge.movie1().imdbId(),
+                selectedMovieChallenge.movie2().imdbId());
+        assertEquals(expected, actual);
+    }
+
+    public void assertNoMovieChallengeAvailable() {
+        assertNull(selectedMovieChallenge);
+    }
+
+    public void assertMovieVoteCount(String imdbId, String username, int expectedCount) {
+        assertEquals(expectedCount, movieChallengeRepository.voteCount(username, imdbId));
+    }
+
+    public void assertMovieChallengeCount(String imdbId, String username, int expectedCount) {
+        assertEquals(expectedCount, movieChallengeRepository.challengeCount(username, imdbId));
+    }
+
+    public void assertMoviePairChallengeExists(String username, String firstMovieId, String secondMovieId) {
+        MoviePair pair = sortedPair(firstMovieId, secondMovieId);
+        assertTrue(movieChallengeRepository.pairChallengeExists(username, pair.movie1Id(), pair.movie2Id()));
     }
 
     public void assertMovieListItemRecommendationIs(String imdbId, boolean recommended) {
@@ -179,11 +233,24 @@ public class MovieCatalogFixture {
         this.selectedMovie = selectedMovie;
     }
 
+    public void selectedMovieChallenge(MovieChallengeDto selectedMovieChallenge) {
+        this.selectedMovieChallenge = selectedMovieChallenge;
+    }
+
     public void lastError(RuntimeException lastError) {
         this.lastError = lastError;
     }
 
     public void lastResponse(MvcResult lastResponse) {
         this.lastResponse = lastResponse;
+    }
+
+    private MoviePair sortedPair(String firstMovieId, String secondMovieId) {
+        return firstMovieId.compareTo(secondMovieId) < 0
+                ? new MoviePair(firstMovieId, secondMovieId)
+                : new MoviePair(secondMovieId, firstMovieId);
+    }
+
+    private record MoviePair(String movie1Id, String movie2Id) {
     }
 }

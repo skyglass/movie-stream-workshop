@@ -5,6 +5,16 @@
       <a routerLink="/home" routerLinkActive="active">Home</a>
       @if (auth.token) {
         <a routerLink="/wizard" routerLinkActive="active">Movie Wizard</a>
+        <button
+          type="button"
+          class="nav-button"
+          [class.available]="movieChallengeAvailable"
+          (click)="openMovieChallenge()">
+          Movie Challenge
+          @if (movieChallengeAvailable) {
+            <span class="availability-dot" aria-hidden="true"></span>
+          }
+        </button>
       }
       @if (auth.isAdmin) {
         <a routerLink="/admin" routerLinkActive="active">Admin</a>
@@ -16,3 +26,12 @@
 <main>
   <router-outlet></router-outlet>
 </main>
+<app-movie-challenge-dialog
+  [open]="movieChallengeOpen"
+  [availabilityVersion]="movieChallengeAvailabilityVersion"
+  (closed)="closeMovieChallenge()"
+  (challengeConsumed)="markMovieChallengeConsumed()">
+</app-movie-challenge-dialog>
+@if (movieChallengeToastVisible) {
+  <div class="challenge-toast">Movie Challenge is available</div>
+}
