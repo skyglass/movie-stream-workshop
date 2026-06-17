@@ -120,7 +120,7 @@ public class MovieCatalogFixture {
 
     public void completeMoviePairChallenge(String username, String firstMovieId, String secondMovieId) {
         MoviePair pair = sortedPair(firstMovieId, secondMovieId);
-        assertTrue(movieChallengeRepository.insertPairChallenge(username, pair.movie1Id(), pair.movie2Id()));
+        assertTrue(movieChallengeRepository.insertPairChallenge(username, pair.movie1Id(), pair.movie2Id(), true));
     }
 
     public void assertMovieListOrdersTitleBefore(String firstTitle, String secondTitle) {
@@ -179,6 +179,15 @@ public class MovieCatalogFixture {
     public void assertMoviePairChallengeExists(String username, String firstMovieId, String secondMovieId) {
         MoviePair pair = sortedPair(firstMovieId, secondMovieId);
         assertTrue(movieChallengeRepository.pairChallengeExists(username, pair.movie1Id(), pair.movie2Id()));
+    }
+
+    public void assertMoviePairChallengeMovie1Wins(String username,
+                                                   String firstMovieId,
+                                                   String secondMovieId,
+                                                   boolean expectedMovie1Wins) {
+        MoviePair pair = sortedPair(firstMovieId, secondMovieId);
+        assertEquals(expectedMovie1Wins,
+                movieChallengeRepository.pairChallengeMovie1Wins(username, pair.movie1Id(), pair.movie2Id()));
     }
 
     public void assertMovieListItemRecommendationIs(String imdbId, boolean recommended) {

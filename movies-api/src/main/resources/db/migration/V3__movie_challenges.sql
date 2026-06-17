@@ -23,9 +23,11 @@ create table user_movie_pair_challenge (
     user_id varchar(255) not null references users (username) on delete cascade,
     movie1_id varchar(32) not null references movies (imdb_id) on delete cascade,
     movie2_id varchar(32) not null references movies (imdb_id) on delete cascade,
+    movie1_wins boolean not null,
     primary key (user_id, movie1_id, movie2_id),
     constraint chk_user_movie_pair_challenge_order check (movie1_id < movie2_id)
 );
 
 create index idx_user_movie_pair_challenge_movie1 on user_movie_pair_challenge (movie1_id);
 create index idx_user_movie_pair_challenge_movie2 on user_movie_pair_challenge (movie2_id);
+create index idx_user_movie_pair_challenge_movie1_wins on user_movie_pair_challenge (movie1_wins);

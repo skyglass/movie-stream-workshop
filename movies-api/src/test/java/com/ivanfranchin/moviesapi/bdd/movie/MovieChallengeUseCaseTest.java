@@ -63,4 +63,13 @@ public class MovieChallengeUseCaseTest {
     public void moviePairIsCompletedFor(String firstMovieId, String secondMovieId, String username) {
         fixture.assertMoviePairChallengeExists(username, firstMovieId, secondMovieId);
     }
+
+    @Then("movie pair {string} and {string} records movie1_wins {word} for {string}")
+    public void moviePairRecordsMovie1WinsFor(String firstMovieId,
+                                              String secondMovieId,
+                                              String movie1Wins,
+                                              String username) {
+        fixture.assertMoviePairChallengeMovie1Wins(username, firstMovieId, secondMovieId,
+                Boolean.parseBoolean(movie1Wins));
+    }
 }

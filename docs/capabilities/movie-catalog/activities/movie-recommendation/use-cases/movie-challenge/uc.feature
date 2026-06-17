@@ -24,6 +24,7 @@ Feature: movie-challenge
     And movie "tt101" has participated 1 time in challenges for "user"
     And movie "tt102" has participated 1 time in challenges for "user"
     And movie pair "tt101" and "tt102" is completed for "user"
+    And movie pair "tt101" and "tt102" records movie1_wins true for "user"
 
   Scenario: Movie challenge stores completed pairs alphabetically
     Given movie "tt101" exists with title "Movie One"
@@ -32,6 +33,7 @@ Feature: movie-challenge
     And movie "tt102" is already recommended by "user"
     When regular user "user" selects movie "tt102" from movie challenge pair "tt102" and "tt101"
     Then movie pair "tt101" and "tt102" is completed for "user"
+    And movie pair "tt101" and "tt102" records movie1_wins false for "user"
 
   Scenario: Completed movie pairs are not offered again
     Given movie "tt101" exists with title "Movie One"

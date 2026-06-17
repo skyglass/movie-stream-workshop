@@ -42,7 +42,8 @@ public class MovieChallengeUseCase {
         }
 
         MoviePair pair = MoviePair.sorted(movie1Id, movie2Id);
-        if (!movieChallengeRepository.insertPairChallenge(username, pair.movie1Id(), pair.movie2Id())) {
+        boolean movie1Wins = selectedMovieId.equals(pair.movie1Id());
+        if (!movieChallengeRepository.insertPairChallenge(username, pair.movie1Id(), pair.movie2Id(), movie1Wins)) {
             throw new MovieChallengeUnavailableException();
         }
 

@@ -80,10 +80,10 @@ public class MovieChallengeRepository {
         return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, Map.of("username", username), Boolean.class));
     }
 
-    public boolean insertPairChallenge(String username, String movie1Id, String movie2Id) {
+    public boolean insertPairChallenge(String username, String movie1Id, String movie2Id, boolean movie1Wins) {
         String sql = """
-                insert into user_movie_pair_challenge (user_id, movie1_id, movie2_id)
-                select :username, :movie1Id, :movie2Id
+                insert into user_movie_pair_challenge (user_id, movie1_id, movie2_id, movie1_wins)
+                select :username, :movie1Id, :movie2Id, :movie1Wins
                 where :movie1Id < :movie2Id
                     and exists (
                         select 1
@@ -105,7 +105,7 @@ public class MovieChallengeRepository {
                             and movie2_id = :movie2Id
                     )
                 """;
-        return jdbcTemplate.update(sql, params(username, movie1Id, movie2Id)) == 1;
+        return jdbcTemplate.update(sql, params(username, movie1Id, movie2Id, movie1Wins)) == 1;
     }
 
     public void incrementVoteCount(String username, String movieId) {
@@ -175,7 +175,22 @@ public class MovieChallengeRepository {
         return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, params(username, movie1Id, movie2Id), Boolean.class));
     }
 
-    private Map<String, String> params(String username, String movie1Id, String movie2Id) {
+    public boolean pairChallengeMovie1Wins(String username, String movie1Id, String movie2Id) {
+        String sql = """
+                select movie1_wins
+                from user_movie_pair_challenge
+                where user_id = :username
+                    and movie1_id = :movie1Id
+                    and movie2_id = :movie2Id
+                """;
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, params(username, movie1Id, movie2Id), Boolean.class));
+    }
+
+    private Map<String, Object> params(String username, String movie1Id, String movie2Id) {
         return Map.of("username", username, "movie1Id", movie1Id, "movie2Id", movie2Id);
+    }
+
+    private Map<String, Object> params(String username, String movie1Id, String movie2Id, boolean movie1Wins) {
+        return Map.of("username", username, "movie1Id", movie1Id, "movie2Id", movie2Id, "movie1Wins", movie1Wins);
     }
 }
