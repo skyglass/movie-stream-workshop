@@ -6,9 +6,9 @@ spring:
     name: movies-api
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/movies
-    username: movies
-    password: movies
+    url: ${MOVIES_JDBC_URL:jdbc:postgresql://localhost:5432/movies}
+    username: ${MOVIES_JDBC_USERNAME:movies}
+    password: ${MOVIES_JDBC_PASSWORD:movies}
     driver-class-name: org.postgresql.Driver
 
   jpa:

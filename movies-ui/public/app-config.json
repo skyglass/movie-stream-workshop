@@ -5,12 +5,12 @@
   "keycloakBaseUrl": "http://localhost:8180",
   "keycloakRealm": "movies",
   "uiBaseUrl": "http://localhost:7000",
-  "moviesApiPath": "/api/movies",
-  "movieChallengesPath": "/api/movie-challenges",
-  "favoriteMoviesPath": "/api/favorite-movies",
-  "usersFavoriteMoviesPath": "/api/users-favorite-movies",
-  "userExtrasPath": "/api/userextras",
-  "usersApiPath": "/api/users",
+  "moviesApiPath": "/api/movies/movies",
+  "movieChallengesPath": "/api/movies/movie-challenges",
+  "favoriteMoviesPath": "/api/movies/favorite-movies",
+  "usersFavoriteMoviesPath": "/api/movies/users-favorite-movies",
+  "userExtrasPath": "/api/movies/userextras",
+  "usersApiPath": "/api/movies/users",
   "omdbBaseUrl": "https://www.omdbapi.com/",
   "omdbApiKey": "",
   "pricingApiPath": "",
@@ -18,5 +18,5 @@
   "competitorApiPath": "",
   "accountApiPath": "",
   "transferApiPath": "",
-  "wsPath": "/ws"
+  "wsPath": "/api/movies/ws"
 }

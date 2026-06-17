@@ -35,7 +35,6 @@ public class AuthTokenController {
                   String username = first(form, "username", "");
                   String password = first(form, "password", "");
                   String scope = form.getFirst("scope");
-                  String clientSecret = first(form, "client_secret", null);
 
                   MultiValueMap<String, String> keycloakForm = new LinkedMultiValueMap<>();
                   keycloakForm.add("grant_type", "password");
@@ -44,9 +43,6 @@ public class AuthTokenController {
                   keycloakForm.add("password", password);
                   if (scope != null && !scope.isBlank()) {
                       keycloakForm.add("scope", scope);
-                  }
-                  if (clientSecret != null && !clientSecret.isBlank()) {
-                      keycloakForm.add("client_secret", clientSecret);
                   }
 
                   return webClient.post()

@@ -1,0 +1,15 @@
+aws_region       = "eu-central-1"
+name_prefix      = "movie-stream"
+cluster_version  = "1.32"
+single_nat_gateway = true
+
+node_instance_types = ["m6i.large"]
+node_min_size       = 2
+node_desired_size   = 2
+node_max_size       = 4
+
+stateful_availability_zone     = "eu-central-1a"
+stateful_node_instance_types   = ["m6i.large"]
+stateful_node_min_size         = 1
+stateful_node_desired_size     = 1
+stateful_node_max_size         = 2

@@ -7,7 +7,7 @@ Read this before adding production code.
 Movie Stream is split into three deployable parts:
 
 - `movies-ui` - Angular UI served by Nginx.
-- `movie-gateway` - Spring Cloud Gateway, public REST edge, Keycloak token adapter, and token exchange boundary.
+- `movie-gateway` - Spring Cloud Gateway public REST edge. It validates UI bearer tokens and forwards them to `movies-api`.
 - `movies-api` - Spring Boot resource server that owns movie and user-profile data.
 
 The documentation hierarchy is capability-first:

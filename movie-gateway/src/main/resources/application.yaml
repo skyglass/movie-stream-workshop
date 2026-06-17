@@ -24,40 +24,27 @@ spring:
           default-filters:
             - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
           routes:
-            - id: movies-api-movies
-              uri: ${MOVIES_API_URL:http://movies-api:8080}
-              predicates:
-                - Path=/api/movies,/api/movies/**
-
-            - id: movies-api-movie-challenges
-              uri: ${MOVIES_API_URL:http://movies-api:8080}
-              predicates:
-                - Path=/api/movie-challenges,/api/movie-challenges/**
-
-            - id: movies-api-favorite-movies
-              uri: ${MOVIES_API_URL:http://movies-api:8080}
-              predicates:
-                - Path=/api/favorite-movies,/api/favorite-movies/**
-
-            - id: movies-api-users-favorite-movies
-              uri: ${MOVIES_API_URL:http://movies-api:8080}
-              predicates:
-                - Path=/api/users-favorite-movies,/api/users-favorite-movies/**
-
             - id: movies-api-websocket
               uri: ${MOVIES_API_URL:http://movies-api:8080}
+              order: -1
               predicates:
-                - Path=/ws,/ws/**
+                - Path=/api/movies/ws,/api/movies/ws/**
+              filters:
+                - RewritePath=/api/movies/ws(?<segment>/?.*), /ws$\{segment}
 
-            - id: movies-api-userextras
+            - id: movies-api
               uri: ${MOVIES_API_URL:http://movies-api:8080}
+              order: 0
               predicates:
-                - Path=/api/userextras,/api/userextras/**
+                - Path=/api/movies
 
-            - id: movies-api-users
+            - id: movies-api-relative-paths
               uri: ${MOVIES_API_URL:http://movies-api:8080}
+              order: 1
               predicates:
-                - Path=/api/users,/api/users/**
+                - Path=/api/movies/**
+              filters:
+                - RewritePath=/api/movies/(?<segment>.*), /api/$\{segment}
 
 management:
   endpoints:
@@ -70,12 +57,6 @@ security:
 
 keycloak:
   token-uri: ${KEYCLOAK_TOKEN_URI:http://keycloak:8080/realms/movies/protocol/openid-connect/token}
-  exchange:
-    token-uri: ${KEYCLOAK_TOKEN_URI:http://keycloak:8080/realms/movies/protocol/openid-connect/token}
-    client-id: ${KEYCLOAK_EXCHANGE_CLIENT_ID:movie-gateway}
-    client-secret: ${KEYCLOAK_EXCHANGE_CLIENT_SECRET:gateway-secret}
-    audience: ${KEYCLOAK_EXCHANGE_AUDIENCE:movies-api}
-    scope: ${KEYCLOAK_EXCHANGE_SCOPE:}
 
 springdoc:
   api-docs:

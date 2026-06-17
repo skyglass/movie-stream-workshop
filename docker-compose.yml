@@ -49,7 +49,6 @@ services:
       - --db-url=jdbc:postgresql://postgres-keycloak:5432/keycloak
       - --db-username=keycloak
       - --db-password=keycloak
-      - --features=token-exchange
       - --import-realm
     ports:
       - "8180:8080"
@@ -103,9 +102,9 @@ services:
     container_name: movies-api
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-movies:5432/movies
-      SPRING_DATASOURCE_USERNAME: movies
-      SPRING_DATASOURCE_PASSWORD: movies
+      MOVIES_JDBC_URL: jdbc:postgresql://postgres-movies:5432/movies
+      MOVIES_JDBC_USERNAME: movies
+      MOVIES_JDBC_PASSWORD: movies
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/movies
       EXPECTED_AUDIENCE: movies-api
       JWT_AUTH_RESOURCE_ID: movies-ui
@@ -129,9 +128,6 @@ services:
     environment:
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/movies
       KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/movies/protocol/openid-connect/token
-      KEYCLOAK_EXCHANGE_CLIENT_ID: movie-gateway
-      KEYCLOAK_EXCHANGE_CLIENT_SECRET: gateway-secret
-      KEYCLOAK_EXCHANGE_AUDIENCE: movies-api
       EXPECTED_USER_AUDIENCE: movies-ui
       MOVIES_API_URL: http://movies-api:8080
     depends_on:
