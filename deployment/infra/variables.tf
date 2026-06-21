@@ -1,6 +1,6 @@
 variable "aws_region" {
   type        = string
-  description = "AWS region where the EKS cluster and VPC will be created."
+  description = "AWS region where the EC2 deployment will be created."
 }
 
 variable "name_prefix" {
@@ -9,88 +9,110 @@ variable "name_prefix" {
   default     = "movie-stream"
 }
 
-variable "cluster_version" {
+variable "availability_zone" {
   type        = string
-  description = "EKS Kubernetes version."
-  default     = "1.32"
+  description = "Availability Zone for the public subnet, EC2 instance, and attached EBS database volumes."
+  default     = "eu-central-1a"
 }
 
 variable "vpc_cidr" {
   type        = string
-  description = "CIDR block for the EKS VPC."
+  description = "CIDR block for the deployment VPC."
   default     = "10.52.0.0/16"
 }
 
-variable "private_subnet_cidrs" {
-  type        = list(string)
-  description = "Private subnet CIDRs for EKS worker nodes."
-  default     = ["10.52.0.0/19", "10.52.32.0/19", "10.52.64.0/19"]
-}
-
-variable "public_subnet_cidrs" {
-  type        = list(string)
-  description = "Public subnet CIDRs for NAT gateways and public load balancers."
-  default     = ["10.52.96.0/22", "10.52.100.0/22", "10.52.104.0/22"]
-}
-
-variable "single_nat_gateway" {
-  type        = bool
-  description = "Use a single NAT gateway to reduce workshop cost. Use false for stronger production AZ isolation."
-  default     = true
-}
-
-variable "node_instance_types" {
-  type        = list(string)
-  description = "Instance types for the default managed node group."
-  default     = ["m6i.large"]
-}
-
-variable "node_min_size" {
-  type        = number
-  description = "Minimum node count."
-  default     = 2
-}
-
-variable "node_desired_size" {
-  type        = number
-  description = "Desired node count."
-  default     = 2
-}
-
-variable "node_max_size" {
-  type        = number
-  description = "Maximum node count."
-  default     = 4
-}
-
-variable "stateful_availability_zone" {
+variable "public_subnet_cidr" {
   type        = string
-  description = "Availability zone for the dedicated node group that can mount pre-created EBS volumes used by Postgres."
-  default     = "eu-central-1a"
+  description = "CIDR block for the public subnet that hosts the EC2 instance."
+  default     = "10.52.0.0/24"
 }
 
-variable "stateful_node_instance_types" {
-  type        = list(string)
-  description = "Instance types for the stateful node group pinned to stateful_availability_zone."
-  default     = ["m6i.large"]
+variable "ec2_instance_type" {
+  type        = string
+  description = "EC2 instance type used to run Docker Compose."
+  default     = "t3.large"
 }
 
-variable "stateful_node_min_size" {
+variable "ec2_ami_architecture" {
+  type        = string
+  description = "Amazon Linux 2023 AMI architecture. Use x86_64 for t3/t3a/m instances and arm64 for t4g."
+  default     = "x86_64"
+
+  validation {
+    condition     = contains(["x86_64", "arm64"], var.ec2_ami_architecture)
+    error_message = "ec2_ami_architecture must be x86_64 or arm64."
+  }
+}
+
+variable "ec2_ami_id" {
+  type        = string
+  description = "Optional explicit AMI ID. Leave empty to use the latest Amazon Linux 2023 AMI for ec2_ami_architecture."
+  default     = ""
+}
+
+variable "ec2_root_volume_size" {
   type        = number
-  description = "Minimum node count for the stateful node group."
-  default     = 1
+  description = "Root EBS volume size in GiB."
+  default     = 30
 }
 
-variable "stateful_node_desired_size" {
-  type        = number
-  description = "Desired node count for the stateful node group."
-  default     = 1
+variable "ssh_allowed_cidr" {
+  type        = string
+  description = "CIDR block allowed to SSH to the EC2 instance."
 }
 
-variable "stateful_node_max_size" {
-  type        = number
-  description = "Maximum node count for the stateful node group."
-  default     = 2
+variable "ssh_key_name" {
+  type        = string
+  description = "Existing EC2 key pair name. Leave empty to create one from ssh_public_key_path."
+  default     = ""
+}
+
+variable "ssh_public_key_path" {
+  type        = string
+  description = "Path to the SSH public key used when ssh_key_name is empty."
+  default     = "../../.ssh/movie-stream.pub"
+}
+
+variable "app_domain" {
+  type        = string
+  description = "Public application domain, for example example.com."
+  default     = ""
+}
+
+variable "manage_route53_record" {
+  type        = bool
+  description = "Create or update the Route 53 A record for app_domain."
+  default     = false
+}
+
+variable "route53_hosted_zone_id" {
+  type        = string
+  description = "Route 53 hosted zone ID used when manage_route53_record is true."
+  default     = ""
+}
+
+variable "movies_postgres_volume_id" {
+  type        = string
+  description = "Existing EBS volume ID for the movie catalog Postgres data."
+  default     = ""
+}
+
+variable "keycloak_postgres_volume_id" {
+  type        = string
+  description = "Existing EBS volume ID for the Keycloak Postgres data."
+  default     = ""
+}
+
+variable "movies_postgres_device_name" {
+  type        = string
+  description = "Requested EC2 device name for the movie catalog Postgres EBS volume."
+  default     = "/dev/sdf"
+}
+
+variable "keycloak_postgres_device_name" {
+  type        = string
+  description = "Requested EC2 device name for the Keycloak Postgres EBS volume."
+  default     = "/dev/sdg"
 }
 
 variable "tags" {

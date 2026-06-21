@@ -184,3 +184,8 @@ buildNumber.properties
 .env.local
 deployment/.env.prod
 deployment/env/**
+.ssh/
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/terraform.auto.tfvars

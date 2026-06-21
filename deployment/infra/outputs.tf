@@ -3,52 +3,52 @@ output "aws_region" {
   value       = var.aws_region
 }
 
-output "cluster_name" {
-  description = "EKS cluster name."
-  value       = module.eks.cluster_name
-}
-
-output "cluster_endpoint" {
-  description = "EKS API endpoint."
-  value       = module.eks.cluster_endpoint
+output "availability_zone" {
+  description = "Availability Zone used by the EC2 instance and attached EBS volumes."
+  value       = var.availability_zone
 }
 
 output "vpc_id" {
   description = "VPC ID."
-  value       = module.vpc.vpc_id
+  value       = aws_vpc.app.id
 }
 
-output "private_subnet_ids" {
-  description = "Private subnet IDs used by EKS nodes."
-  value       = module.vpc.private_subnets
+output "public_subnet_id" {
+  description = "Public subnet ID."
+  value       = aws_subnet.public.id
 }
 
-output "public_subnet_ids" {
-  description = "Public subnet IDs used by public load balancers."
-  value       = module.vpc.public_subnets
+output "security_group_id" {
+  description = "EC2 security group ID."
+  value       = aws_security_group.app.id
 }
 
-output "node_security_group_id" {
-  description = "EKS managed node security group ID."
-  value       = module.eks.node_security_group_id
+output "instance_id" {
+  description = "Movie Stream EC2 instance ID."
+  value       = aws_instance.app.id
 }
 
-output "cluster_security_group_id" {
-  description = "EKS cluster security group ID."
-  value       = module.eks.cluster_security_group_id
+output "instance_public_ip" {
+  description = "Current EC2 public IP."
+  value       = aws_eip.app.public_ip
 }
 
-output "nat_public_ips" {
-  description = "NAT gateway public IPs."
-  value       = module.vpc.nat_public_ips
+output "elastic_ip" {
+  description = "Elastic IP attached to the EC2 instance."
+  value       = aws_eip.app.public_ip
 }
 
-output "stateful_availability_zone" {
-  description = "Availability zone for the dedicated stateful node group."
-  value       = var.stateful_availability_zone
+output "ssh_user" {
+  description = "Default SSH user for the Amazon Linux instance."
+  value       = "ec2-user"
 }
 
-output "stateful_private_subnet_id" {
-  description = "Private subnet ID used by the dedicated stateful node group."
-  value       = local.stateful_subnet_id
+output "ssh_command" {
+  description = "SSH command for the EC2 instance."
+  value       = "ssh ec2-user@${aws_eip.app.public_ip}"
+}
+
+output "app_url" {
+  description = "Application URL."
+  value       = var.app_domain != "" ? "https://${var.app_domain}" : ""
 }

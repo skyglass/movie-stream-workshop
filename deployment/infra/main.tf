@@ -2,16 +2,14 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
 locals {
-  cluster_name         = "${var.name_prefix}-eks"
-  azs                  = slice(data.aws_availability_zones.available.names, 0, 3)
-  oidc_provider        = replace(module.eks.cluster_oidc_issuer_url, "https://", "")
-  stateful_subnet_id   = module.vpc.private_subnets[index(local.azs, var.stateful_availability_zone)]
-  stateful_subnet_name = replace(var.stateful_availability_zone, "/[^a-zA-Z0-9-]/", "-")
+  ami_name_pattern = (
+    var.ec2_ami_architecture == "arm64"
+    ? "al2023-ami-2023.*-kernel-6.1-arm64"
+    : "al2023-ami-2023.*-kernel-6.1-x86_64"
+  )
+
+  ssh_key_name = var.ssh_key_name != "" ? var.ssh_key_name : aws_key_pair.app[0].key_name
 
   tags = merge(
     {
@@ -22,333 +20,217 @@ locals {
   )
 }
 
-provider "kubernetes" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
 
-  exec {
-    api_version = "client.authentication.k8s.io/v1beta1"
-    command     = "aws"
-    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
+  filter {
+    name   = "name"
+    values = [local.ami_name_pattern]
+  }
+
+  filter {
+    name   = "architecture"
+    values = [var.ec2_ami_architecture]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
   }
 }
 
-provider "helm" {
-  kubernetes {
-    host                   = module.eks.cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+resource "aws_key_pair" "app" {
+  count = var.ssh_key_name == "" ? 1 : 0
 
-    exec {
-      api_version = "client.authentication.k8s.io/v1beta1"
-      command     = "aws"
-      args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
-    }
-  }
+  key_name   = "${var.name_prefix}-deploy"
+  public_key = file(pathexpand(var.ssh_public_key_path))
+
+  tags = local.tags
 }
 
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
-
-  name = "${var.name_prefix}-vpc"
-  cidr = var.vpc_cidr
-
-  azs             = local.azs
-  private_subnets = var.private_subnet_cidrs
-  public_subnets  = var.public_subnet_cidrs
-
-  enable_nat_gateway = true
-  single_nat_gateway = var.single_nat_gateway
-
+resource "aws_vpc" "app" {
+  cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  private_subnet_tags = {
-    "kubernetes.io/role/internal-elb" = "1"
-  }
-
-  public_subnet_tags = {
-    "kubernetes.io/role/elb" = "1"
-  }
-
-  tags = local.tags
-}
-
-module "eks" {
-  source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.0"
-
-  cluster_name    = local.cluster_name
-  cluster_version = var.cluster_version
-
-  cluster_endpoint_public_access = true
-
-  enable_cluster_creator_admin_permissions = true
-  enable_irsa                              = true
-  authentication_mode                      = "API_AND_CONFIG_MAP"
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
-
-  cluster_addons = {
-    coredns = {
-      most_recent = true
-    }
-    eks-pod-identity-agent = {
-      most_recent = true
-    }
-    kube-proxy = {
-      most_recent = true
-    }
-    vpc-cni = {
-      most_recent = true
-    }
-  }
-
-  eks_managed_node_groups = {
-    default = {
-      name = "${var.name_prefix}-default"
-
-      instance_types = var.node_instance_types
-
-      min_size     = var.node_min_size
-      desired_size = var.node_desired_size
-      max_size     = var.node_max_size
-    }
-    stateful = {
-      name = "${var.name_prefix}-stateful-${local.stateful_subnet_name}"
-
-      subnet_ids     = [local.stateful_subnet_id]
-      instance_types = var.stateful_node_instance_types
-      min_size       = var.stateful_node_min_size
-      desired_size   = var.stateful_node_desired_size
-      max_size       = var.stateful_node_max_size
-      labels = {
-        workload = "stateful"
-      }
-    }
-  }
-
-  tags = local.tags
-}
-
-data "aws_iam_policy_document" "ebs_csi_assume_role" {
-  statement {
-    actions = ["sts:AssumeRoleWithWebIdentity"]
-    effect  = "Allow"
-
-    principals {
-      type        = "Federated"
-      identifiers = [module.eks.oidc_provider_arn]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "${local.oidc_provider}:aud"
-      values   = ["sts.amazonaws.com"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "${local.oidc_provider}:sub"
-      values   = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
-    }
-  }
-}
-
-resource "aws_iam_role" "ebs_csi" {
-  name               = "${local.cluster_name}-ebs-csi"
-  assume_role_policy = data.aws_iam_policy_document.ebs_csi_assume_role.json
-  tags               = local.tags
-}
-
-resource "aws_iam_role_policy_attachment" "ebs_csi" {
-  role       = aws_iam_role.ebs_csi.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
-}
-
-resource "aws_eks_addon" "ebs_csi" {
-  cluster_name             = module.eks.cluster_name
-  addon_name               = "aws-ebs-csi-driver"
-  addon_version            = null
-  service_account_role_arn = aws_iam_role.ebs_csi.arn
-
-  depends_on = [
-    module.eks,
-    aws_iam_role_policy_attachment.ebs_csi
-  ]
-}
-
-resource "kubernetes_storage_class_v1" "ebs_sc" {
-  metadata {
-    name = "ebs-sc"
-  }
-
-  storage_provisioner    = "ebs.csi.aws.com"
-  reclaim_policy         = "Retain"
-  volume_binding_mode    = "WaitForFirstConsumer"
-  allow_volume_expansion = true
-
-  parameters = {
-    type      = "gp3"
-    encrypted = "true"
-  }
-
-  depends_on = [
-    aws_eks_addon.ebs_csi
-  ]
-}
-
-data "aws_iam_policy_document" "load_balancer_controller_assume_role" {
-  statement {
-    actions = ["sts:AssumeRoleWithWebIdentity"]
-    effect  = "Allow"
-
-    principals {
-      type        = "Federated"
-      identifiers = [module.eks.oidc_provider_arn]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "${local.oidc_provider}:aud"
-      values   = ["sts.amazonaws.com"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "${local.oidc_provider}:sub"
-      values   = ["system:serviceaccount:kube-system:aws-load-balancer-controller"]
-    }
-  }
-}
-
-resource "aws_iam_role" "load_balancer_controller" {
-  name               = "${local.cluster_name}-alb-controller"
-  assume_role_policy = data.aws_iam_policy_document.load_balancer_controller_assume_role.json
-  tags               = local.tags
-}
-
-resource "aws_iam_policy" "load_balancer_controller" {
-  name        = "${local.cluster_name}-alb-controller"
-  description = "Permissions for AWS Load Balancer Controller in ${local.cluster_name}."
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "iam:CreateServiceLinkedRole",
-          "ec2:DescribeAccountAttributes",
-          "ec2:DescribeAddresses",
-          "ec2:DescribeAvailabilityZones",
-          "ec2:DescribeCoipPools",
-          "ec2:DescribeInstances",
-          "ec2:DescribeInternetGateways",
-          "ec2:DescribeLocalGatewayRouteTableVpcAssociations",
-          "ec2:DescribeLocalGatewayRouteTables",
-          "ec2:DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations",
-          "ec2:DescribeLocalGatewayRouteTableVpcs",
-          "ec2:DescribeLocalGatewayVirtualInterfaceGroups",
-          "ec2:DescribeLocalGateways",
-          "ec2:DescribeManagedPrefixLists",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:DescribeSecurityGroups",
-          "ec2:DescribeSubnets",
-          "ec2:DescribeTags",
-          "ec2:DescribeVpcPeeringConnections",
-          "ec2:DescribeVpcs",
-          "ec2:GetCoipPoolUsage",
-          "ec2:GetSecurityGroupsForVpc",
-          "ec2:AuthorizeSecurityGroupIngress",
-          "ec2:CreateSecurityGroup",
-          "ec2:CreateTags",
-          "ec2:DeleteSecurityGroup",
-          "ec2:DeleteTags",
-          "ec2:RevokeSecurityGroupIngress",
-          "elasticloadbalancing:*",
-          "acm:DescribeCertificate",
-          "acm:GetCertificate",
-          "acm:ListCertificates",
-          "cognito-idp:DescribeUserPoolClient",
-          "iam:GetServerCertificate",
-          "iam:ListServerCertificates",
-          "shield:CreateProtection",
-          "shield:DeleteProtection",
-          "shield:DescribeProtection",
-          "shield:GetSubscriptionState",
-          "waf-regional:GetWebACL",
-          "waf-regional:GetWebACLForResource",
-          "waf-regional:AssociateWebACL",
-          "waf-regional:DisassociateWebACL",
-          "wafv2:GetWebACL",
-          "wafv2:GetWebACLForResource",
-          "wafv2:AssociateWebACL",
-          "wafv2:DisassociateWebACL"
-        ]
-        Resource = "*"
-      }
-    ]
+  tags = merge(local.tags, {
+    Name = "${var.name_prefix}-vpc"
   })
-
-  tags = local.tags
 }
 
-resource "aws_iam_role_policy_attachment" "load_balancer_controller" {
-  role       = aws_iam_role.load_balancer_controller.name
-  policy_arn = aws_iam_policy.load_balancer_controller.arn
+resource "aws_internet_gateway" "app" {
+  vpc_id = aws_vpc.app.id
+
+  tags = merge(local.tags, {
+    Name = "${var.name_prefix}-igw"
+  })
 }
 
-resource "kubernetes_service_account" "load_balancer_controller" {
-  metadata {
-    name      = "aws-load-balancer-controller"
-    namespace = "kube-system"
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.app.id
+  cidr_block              = var.public_subnet_cidr
+  availability_zone       = var.availability_zone
+  map_public_ip_on_launch = true
 
-    annotations = {
-      "eks.amazonaws.com/role-arn" = aws_iam_role.load_balancer_controller.arn
-    }
-  }
-
-  depends_on = [
-    module.eks,
-    aws_iam_role_policy_attachment.load_balancer_controller
-  ]
+  tags = merge(local.tags, {
+    Name = "${var.name_prefix}-public-${var.availability_zone}"
+  })
 }
 
-resource "helm_release" "load_balancer_controller" {
-  name       = "aws-load-balancer-controller"
-  namespace  = "kube-system"
-  repository = "https://aws.github.io/eks-charts"
-  chart      = "aws-load-balancer-controller"
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.app.id
 
-  set {
-    name  = "clusterName"
-    value = module.eks.cluster_name
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.app.id
   }
 
-  set {
-    name  = "region"
-    value = var.aws_region
+  tags = merge(local.tags, {
+    Name = "${var.name_prefix}-public"
+  })
+}
+
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_security_group" "app" {
+  name        = "${var.name_prefix}-ec2"
+  description = "Movie Stream EC2 ingress."
+  vpc_id      = aws_vpc.app.id
+
+  ingress {
+    description = "HTTP for Lets Encrypt and redirect to HTTPS"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  set {
-    name  = "vpcId"
-    value = module.vpc.vpc_id
+  ingress {
+    description = "HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  set {
-    name  = "serviceAccount.create"
-    value = "false"
+  ingress {
+    description = "SSH deployment access"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.ssh_allowed_cidr]
   }
 
-  set {
-    name  = "serviceAccount.name"
-    value = kubernetes_service_account.load_balancer_controller.metadata[0].name
+  egress {
+    description = "Outbound internet access"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  depends_on = [
-    aws_eks_addon.ebs_csi,
-    kubernetes_service_account.load_balancer_controller
-  ]
+  tags = merge(local.tags, {
+    Name = "${var.name_prefix}-ec2"
+  })
+}
+
+resource "aws_instance" "app" {
+  ami                         = var.ec2_ami_id != "" ? var.ec2_ami_id : data.aws_ami.amazon_linux.id
+  instance_type               = var.ec2_instance_type
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.app.id]
+  key_name                    = local.ssh_key_name
+  associate_public_ip_address = true
+
+  user_data_replace_on_change = true
+  user_data                   = <<-EOF
+    #!/bin/bash
+    set -euxo pipefail
+
+    dnf update -y
+    dnf install -y docker util-linux xfsprogs
+    if ! command -v curl >/dev/null 2>&1; then
+      dnf install -y curl-minimal
+    fi
+    systemctl enable --now docker
+    usermod -aG docker ec2-user
+
+    mkdir -p /usr/local/lib/docker/cli-plugins
+    arch="$(uname -m)"
+    case "$arch" in
+      x86_64) compose_arch="x86_64" ;;
+      aarch64) compose_arch="aarch64" ;;
+      *) echo "Unsupported architecture for Docker Compose: $arch" >&2; exit 1 ;;
+    esac
+    curl -fsSL \
+      "https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-$compose_arch" \
+      -o /usr/local/lib/docker/cli-plugins/docker-compose
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+    mkdir -p /opt/movie-stream
+    chown ec2-user:ec2-user /opt/movie-stream
+  EOF
+
+  root_block_device {
+    volume_type           = "gp3"
+    volume_size           = var.ec2_root_volume_size
+    encrypted             = true
+    delete_on_termination = true
+
+    tags = merge(local.tags, {
+      Name = "${var.name_prefix}-root"
+    })
+  }
+
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
+
+  tags = merge(local.tags, {
+    Name = "${var.name_prefix}-app"
+  })
+}
+
+resource "aws_eip" "app" {
+  domain = "vpc"
+
+  tags = merge(local.tags, {
+    Name = "${var.name_prefix}-app"
+  })
+}
+
+resource "aws_eip_association" "app" {
+  allocation_id = aws_eip.app.id
+  instance_id   = aws_instance.app.id
+}
+
+resource "aws_volume_attachment" "movies_postgres" {
+  count = var.movies_postgres_volume_id != "" ? 1 : 0
+
+  device_name = var.movies_postgres_device_name
+  volume_id   = var.movies_postgres_volume_id
+  instance_id = aws_instance.app.id
+}
+
+resource "aws_volume_attachment" "keycloak_postgres" {
+  count = var.keycloak_postgres_volume_id != "" ? 1 : 0
+
+  device_name = var.keycloak_postgres_device_name
+  volume_id   = var.keycloak_postgres_volume_id
+  instance_id = aws_instance.app.id
+}
+
+resource "aws_route53_record" "app" {
+  count = var.manage_route53_record && var.route53_hosted_zone_id != "" ? 1 : 0
+
+  zone_id = var.route53_hosted_zone_id
+  name    = var.app_domain
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.app.public_ip]
 }

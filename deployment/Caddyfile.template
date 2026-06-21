@@ -1,0 +1,26 @@
+${APP_DOMAIN} {
+  encode zstd gzip
+
+  @gateway path /api /api/* /auth /auth/* /v3/api-docs /v3/api-docs/* /swagger-ui /swagger-ui/* /swagger-ui.html /webjars /webjars/*
+  handle @gateway {
+    reverse_proxy movie-gateway:8079
+  }
+
+  @keycloak path /keycloak /keycloak/*
+  handle @keycloak {
+    reverse_proxy keycloak:8080
+  }
+
+  redir /pgadmin /pgadmin/ 308
+  handle_path /pgadmin/* {
+    reverse_proxy pgadmin:80 {
+      header_up X-Script-Name /pgadmin
+      header_up X-Scheme https
+      header_up Host {host}
+    }
+  }
+
+  handle {
+    reverse_proxy movies-ui:80
+  }
+}

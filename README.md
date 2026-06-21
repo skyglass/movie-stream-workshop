@@ -211,6 +211,18 @@ Stop containers and remove persisted database and Keycloak state:
 docker compose down -v
 ```
 
+## AWS EC2 Deployment
+
+The AWS deployment guide lives in `deployment/README.md`.
+
+To run the full EC2 start workflow while reusing already published Docker images for the configured `IMAGE_VERSION`, skip Docker publishing:
+
+```bash
+./deployment/start.sh all skipDockerPublish=true
+```
+
+`skipDockerPublish` defaults to `false`; omitting it keeps Docker publishing enabled in `all` mode.
+
 ## Java Maven Project
 
 Build all Java modules:

@@ -1,0 +1,172 @@
+name: movie-stream
+
+x-app-hosts: &app-hosts
+  extra_hosts:
+    - "${APP_DOMAIN}:host-gateway"
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    container_name: movie-stream-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - movie-net
+
+  postgres-movies:
+    image: postgres:15
+    container_name: movie-stream-postgres-movies
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${MOVIES_POSTGRES_DB}
+      POSTGRES_USER: ${MOVIES_JDBC_USERNAME}
+      POSTGRES_PASSWORD: ${MOVIES_JDBC_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ${MOVIES_POSTGRES_HOST_DIR}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MOVIES_JDBC_USERNAME} -d ${MOVIES_POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - movie-net
+
+  postgres-keycloak:
+    image: postgres:15
+    container_name: movie-stream-postgres-keycloak
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_POSTGRES_DB}
+      POSTGRES_USER: ${KEYCLOAK_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ${KEYCLOAK_POSTGRES_HOST_DIR}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_POSTGRES_USER} -d ${KEYCLOAK_POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - movie-net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.2
+    container_name: movie-stream-keycloak
+    restart: unless-stopped
+    command:
+      - start
+      - --db=postgres
+      - --db-url=jdbc:postgresql://postgres-keycloak:5432/${KEYCLOAK_POSTGRES_DB}
+      - --db-username=${KEYCLOAK_POSTGRES_USER}
+      - --db-password=${KEYCLOAK_POSTGRES_PASSWORD}
+      - --http-enabled=true
+      - --http-relative-path=/keycloak
+      - --hostname=${KEYCLOAK_EXTERNAL_URL}
+      - --proxy-headers=xforwarded
+      - --import-realm
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    depends_on:
+      postgres-keycloak:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          timeout 5 bash -c 'exec 3<>/dev/tcp/localhost/8080;
+          printf "GET /keycloak/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3;
+          grep -q "200 OK" <&3'
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    volumes:
+      - ./keycloak-realm.json:/opt/keycloak/data/import/realm-movies.json:ro
+    networks:
+      - movie-net
+
+  movies-api:
+    image: ${CONTAINER_REGISTRY}/movies-api:${IMAGE_VERSION}
+    container_name: movies-api
+    restart: unless-stopped
+    <<: *app-hosts
+    environment:
+      MOVIES_JDBC_URL: ${MOVIES_JDBC_URL}
+      MOVIES_JDBC_USERNAME: ${MOVIES_JDBC_USERNAME}
+      MOVIES_JDBC_PASSWORD: ${MOVIES_JDBC_PASSWORD}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      EXPECTED_AUDIENCE: movies-api
+      JWT_AUTH_RESOURCE_ID: movies-ui
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
+      JAVA_OPTS: ${JAVA_OPTS}
+    depends_on:
+      postgres-movies:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - movie-net
+
+  movie-gateway:
+    image: ${CONTAINER_REGISTRY}/movie-gateway:${IMAGE_VERSION}
+    container_name: movie-gateway
+    restart: unless-stopped
+    <<: *app-hosts
+    environment:
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      KEYCLOAK_TOKEN_URI: ${KEYCLOAK_TOKEN_URI}
+      EXPECTED_USER_AUDIENCE: movies-ui
+      MOVIES_API_URL: http://movies-api:8080
+      JAVA_OPTS: ${JAVA_OPTS}
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      movies-api:
+        condition: service_started
+    networks:
+      - movie-net
+
+  movies-ui:
+    image: ${CONTAINER_REGISTRY}/movies-ui:${IMAGE_VERSION}
+    container_name: movies-ui
+    restart: unless-stopped
+    volumes:
+      - ./app-config.json:/usr/share/nginx/html/app-config.json:ro
+    depends_on:
+      movie-gateway:
+        condition: service_started
+    networks:
+      - movie-net
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: movie-stream-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_DISABLE_POSTFIX: "true"
+    volumes:
+      - ${PGADMIN_HOST_DIR}:/var/lib/pgadmin
+    depends_on:
+      postgres-movies:
+        condition: service_healthy
+    networks:
+      - movie-net
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  movie-net:
+    driver: bridge
