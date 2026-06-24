@@ -2,13 +2,33 @@
   "realm": "movies",
   "enabled": true,
   "sslRequired": "external",
+  "accessTokenLifespan": 315360000,
+  "accessTokenLifespanForImplicitFlow": 315360000,
+  "ssoSessionIdleTimeout": 315360000,
+  "ssoSessionMaxLifespan": 315360000,
+  "clientSessionIdleTimeout": 315360000,
+  "clientSessionMaxLifespan": 315360000,
+  "loginTheme": "movie-stream",
   "registrationAllowed": true,
   "verifyEmail": false,
-  "loginWithEmailAllowed": true,
+  "loginWithEmailAllowed": false,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": false,
   "editUsernameAllowed": false,
   "bruteForceProtected": false,
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "subComponents": {},
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":320}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
+          ]
+        }
+      }
+    ]
+  },
   "roles": {
     "realm": [
       {
@@ -167,9 +187,7 @@
       "username": "user",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Regular",
-      "lastName": "User",
-      "email": "user@example.com",
+      "email": "user@skycomposer.net",
       "groups": [
         "/USERS"
       ],
@@ -188,9 +206,7 @@
       "username": "admin",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Admin",
-      "lastName": "User",
-      "email": "admin@example.com",
+      "email": "admin@skycomposer.net",
       "groups": [
         "/ADMINS"
       ],

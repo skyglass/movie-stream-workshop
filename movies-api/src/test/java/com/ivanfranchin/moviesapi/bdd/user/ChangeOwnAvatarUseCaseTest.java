@@ -31,7 +31,7 @@ public class ChangeOwnAvatarUseCaseTest {
 
     @When("the regular user changes own avatar seed to {string}")
     public void theRegularUserChangesOwnAvatarSeedTo(String avatarSeed) {
-        fixture.userExtra(changeOwnAvatar.changeAvatar(fixture.currentUsername(), fixture.currentUserEmail(), avatarSeed));
+        fixture.userExtra(changeOwnAvatar.changeAvatar(fixture.currentUsername(), avatarSeed));
     }
 
     @Then("own profile avatar seed is {string}")
@@ -43,7 +43,7 @@ public class ChangeOwnAvatarUseCaseTest {
     @When("the regular user tries to change own avatar seed to blank")
     public void theRegularUserTriesToChangeOwnAvatarSeedToBlank() {
         fixture.lastError(assertThrows(IllegalArgumentException.class,
-                () -> changeOwnAvatar.changeAvatar(fixture.currentUsername(), fixture.currentUserEmail(), " ")));
+                () -> changeOwnAvatar.changeAvatar(fixture.currentUsername(), " ")));
     }
 
     @Then("the avatar change is rejected because avatar seed is required")

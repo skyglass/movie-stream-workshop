@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ivanfranchin.moviesapi.userextra.UserExtraRepository;
 import com.ivanfranchin.moviesapi.userextra.model.UserExtra;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -16,22 +17,24 @@ public class UserAccessFixture {
 
     private final UserExtraRepository userExtraRepository;
     private final ObjectMapper objectMapper;
+    private final JdbcTemplate jdbcTemplate;
     private UserExtra userExtra;
     private RuntimeException lastError;
     private MvcResult lastResponse;
     private String currentUsername;
     private String currentRole;
 
-    public UserAccessFixture(UserExtraRepository userExtraRepository, ObjectMapper objectMapper) {
+    public UserAccessFixture(UserExtraRepository userExtraRepository, ObjectMapper objectMapper, JdbcTemplate jdbcTemplate) {
         this.userExtraRepository = userExtraRepository;
         this.objectMapper = objectMapper;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public void resetPersistentScenarioState() {
         resetScenarioState();
         userExtraRepository.deleteAll();
-        userExtraRepository.save(new UserExtra("admin", "admin@example.com"));
-        userExtraRepository.save(new UserExtra("user", "user@example.com"));
+        userExtraRepository.save(new UserExtra("admin", "admin@skycomposer.net"));
+        userExtraRepository.save(new UserExtra("user", "user@skycomposer.net"));
         userExtraRepository.flush();
     }
 
@@ -75,6 +78,16 @@ public class UserAccessFixture {
         assertTrue(body.findValuesAsText("username").contains(username));
     }
 
+    public void assertUsersTableHasNoNameColumns() {
+        Integer count = jdbcTemplate.queryForObject("""
+                select count(*)
+                from information_schema.columns
+                where table_name = 'users'
+                  and column_name in ('first_name', 'last_name')
+                """, Integer.class);
+        assertEquals(0, count);
+    }
+
     public UserExtra getUserExtra(String username) {
         return userExtraRepository.findById(username).orElseThrow();
     }
@@ -94,7 +107,7 @@ public class UserAccessFixture {
     }
 
     public String currentUserEmail() {
-        return currentUsername + "@example.com";
+        return currentUsername + "@skycomposer.net";
     }
 
     public RequestPostProcessor jwtForCurrentUser() {

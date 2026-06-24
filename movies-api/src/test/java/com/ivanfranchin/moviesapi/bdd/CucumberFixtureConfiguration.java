@@ -25,8 +25,10 @@ public class CucumberFixtureConfiguration {
     }
 
     @Bean
-    UserAccessFixture userAccessFixture(UserExtraRepository userExtraRepository, ObjectMapper objectMapper) {
-        return new UserAccessFixture(userExtraRepository, objectMapper);
+    UserAccessFixture userAccessFixture(UserExtraRepository userExtraRepository,
+                                        ObjectMapper objectMapper,
+                                        JdbcTemplate jdbcTemplate) {
+        return new UserAccessFixture(userExtraRepository, objectMapper, jdbcTemplate);
     }
 
     @Bean

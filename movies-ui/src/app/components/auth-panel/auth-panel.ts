@@ -32,7 +32,6 @@ export class AuthPanel {
   submitting = false;
 
   readonly loginForm = this.fb.group({
-    clientId: ['movies-ui', Validators.required],
     username: ['user', Validators.required],
     password: ['user', Validators.required]
   });
@@ -53,7 +52,6 @@ export class AuthPanel {
     this.submitting = true;
 
     this.auth.login({
-      clientId: value.clientId ?? 'movies-ui',
       username: value.username ?? '',
       password: value.password ?? ''
     }).subscribe({

@@ -27,44 +27,45 @@ public class RecommendMovieUseCase {
     @Transactional
     public MovieDto recommendMovie(Jwt jwt, String imdbId) {
         UserExtra userExtra = userExtraService.syncFromJwt(jwt);
-        return recommendMovie(userExtra.getUsername(), imdbId);
+        return recommendExistingMovie(userExtra.getUsername(), imdbId);
     }
 
     @Transactional
-    public MovieDto recommendMovie(String username, String email, String imdbId) {
-        syncUser(username, email);
-        return recommendMovie(username, imdbId);
+    public MovieDto recommendMovie(String username, String imdbId) {
+        syncUser(username);
+        return recommendExistingMovie(username, imdbId);
     }
 
     @Transactional
     public MovieDto unrecommendMovie(Jwt jwt, String imdbId) {
         UserExtra userExtra = userExtraService.syncFromJwt(jwt);
-        return unrecommendMovie(userExtra.getUsername(), imdbId);
+        return unrecommendExistingMovie(userExtra.getUsername(), imdbId);
     }
 
     @Transactional
-    public MovieDto unrecommendMovie(String username, String email, String imdbId) {
-        syncUser(username, email);
-        return unrecommendMovie(username, imdbId);
+    public MovieDto unrecommendMovie(String username, String imdbId) {
+        syncUser(username);
+        return unrecommendExistingMovie(username, imdbId);
     }
 
-    private MovieDto recommendMovie(String username, String imdbId) {
+    private MovieDto recommendExistingMovie(String username, String imdbId) {
         Movie movie = movieService.validateAndGetMovie(imdbId);
         movieRecommendationService.recommend(username, imdbId);
         eventPublisher.publishEvent(new MovieRecommendedEvent(username));
         return movieMapper.toMovieDto(movie, true);
     }
 
-    private MovieDto unrecommendMovie(String username, String imdbId) {
+    private MovieDto unrecommendExistingMovie(String username, String imdbId) {
         Movie movie = movieService.validateAndGetMovie(imdbId);
         movieRecommendationService.unrecommend(username, imdbId);
         return movieMapper.toMovieDto(movie, false);
     }
 
-    private void syncUser(String username, String email) {
+    private void syncUser(String username) {
+        String syntheticEmail = UserExtra.emailForUsername(username);
         UserExtra userExtra = userExtraService.getUserExtra(username)
-                .orElseGet(() -> new UserExtra(username, email));
-        userExtra.setEmail(email);
+                .orElseGet(() -> new UserExtra(username, syntheticEmail));
+        userExtra.setEmail(syntheticEmail);
         userExtraService.saveUserExtra(userExtra);
     }
 }

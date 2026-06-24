@@ -169,8 +169,10 @@ config/keycloak/realm-movies.json
 
 The imported realm is `movies`. User registration is enabled. The UI `Register` action opens the Keycloak
 registration page and returns to the current UI route after registration. Newly registered users are assigned to the
-default `USERS` group and receive the `MOVIES_USER` role. Username, password, and password confirmation are handled by
-Keycloak. The local realm profile requires a non-empty email value but does not enforce email-address format.
+default `USERS` group and receive the `MOVIES_USER` role. The registration form asks for username, password, and
+password confirmation only. Keycloak receives a hidden synthetic email value derived from the username.
+The workshop realm uses long-lived access and SSO session lifetimes so an open browser session does not start returning
+401 responses after Keycloak's short default token timeout.
 
 If you change the realm import and need Keycloak to import it from scratch, reset volumes:
 

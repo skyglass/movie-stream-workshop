@@ -38,7 +38,7 @@ public class UserExtraService {
                 jwt.getClaimAsString("preferred_username"),
                 jwt.getClaimAsString("username"),
                 jwt.getSubject());
-        String email = firstNonBlank(jwt.getClaimAsString("email"), username + "@example.com");
+        String email = UserExtra.emailForUsername(username);
 
         UserExtra userExtra = getUserExtra(username).orElseGet(() -> new UserExtra(username, email));
         userExtra.setEmail(email);

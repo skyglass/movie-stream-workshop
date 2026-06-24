@@ -4,7 +4,6 @@ import { BehaviorSubject, map, Observable, tap } from 'rxjs';
 import { AppConfigService } from '../config/app-config.service';
 
 export interface LoginRequest {
-  clientId: string;
   username: string;
   password: string;
 }
@@ -67,7 +66,7 @@ export class AuthService {
     const c = this.cfg.config;
     const body = new URLSearchParams();
     body.set('grant_type', 'password');
-    body.set('client_id', request.clientId);
+    body.set('client_id', c.clientId);
     body.set('username', request.username);
     body.set('password', request.password);
 

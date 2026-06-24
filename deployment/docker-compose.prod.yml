@@ -36,7 +36,9 @@ services:
       timeout: 5s
       retries: 12
     networks:
-      - movie-net
+      movie-net:
+        aliases:
+          - movies-postgres
 
   postgres-keycloak:
     image: postgres:15
@@ -55,7 +57,9 @@ services:
       timeout: 5s
       retries: 12
     networks:
-      - movie-net
+      movie-net:
+        aliases:
+          - keycloak-postgres
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.5.2
@@ -75,6 +79,9 @@ services:
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_SPI_THEME_CACHE_THEMES: "false"
+      KC_SPI_THEME_CACHE_TEMPLATES: "false"
+      KC_SPI_THEME_STATIC_MAX_AGE: "-1"
     depends_on:
       postgres-keycloak:
         condition: service_healthy
@@ -91,6 +98,7 @@ services:
       start_period: 60s
     volumes:
       - ./keycloak-realm.json:/opt/keycloak/data/import/realm-movies.json:ro
+      - ./keycloak-theme:/opt/keycloak/themes/movie-stream:ro
     networks:
       - movie-net
 

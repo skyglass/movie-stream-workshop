@@ -18,11 +18,6 @@
 } @else {
   <form [formGroup]="loginForm" (ngSubmit)="login()" class="auth-form">
     <mat-form-field appearance="outline">
-      <mat-label>Client ID</mat-label>
-      <input matInput formControlName="clientId" autocomplete="off" />
-    </mat-form-field>
-
-    <mat-form-field appearance="outline">
       <mat-label>Username</mat-label>
       <input matInput formControlName="username" autocomplete="username" />
     </mat-form-field>

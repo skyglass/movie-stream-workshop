@@ -24,7 +24,7 @@ public class RecommendMovieUseCaseTest {
 
     @When("regular user {string} recommends movie {string}")
     public void regularUserRecommendsMovie(String username, String imdbId) {
-        fixture.selectedMovie(recommendMovie.recommendMovie(username, username + "@example.com", imdbId));
+        fixture.selectedMovie(recommendMovie.recommendMovie(username, imdbId));
     }
 
     @Then("movie {string} is recommended by {string}")
@@ -40,7 +40,7 @@ public class RecommendMovieUseCaseTest {
 
     @When("regular user {string} unrecommends movie {string}")
     public void regularUserUnrecommendsMovie(String username, String imdbId) {
-        fixture.selectedMovie(recommendMovie.unrecommendMovie(username, username + "@example.com", imdbId));
+        fixture.selectedMovie(recommendMovie.unrecommendMovie(username, imdbId));
     }
 
     @Then("movie {string} is not recommended by {string}")

@@ -5,4 +5,5 @@ Feature: view-own-user-profile
     When the regular user requests own user profile
     Then the user access API response status is 200
     And own profile username is "user"
-    And own profile email is "user@example.com"
+    And own profile email is "user@skycomposer.net"
+    And the local users table has no first-name or last-name columns

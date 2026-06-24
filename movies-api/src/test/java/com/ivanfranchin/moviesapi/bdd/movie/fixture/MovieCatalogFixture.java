@@ -234,7 +234,7 @@ public class MovieCatalogFixture {
     }
 
     public String currentUserEmail() {
-        return currentUsername + "@example.com";
+        return currentUsername + "@skycomposer.net";
     }
 
     public RequestPostProcessor jwtForCurrentUser() {

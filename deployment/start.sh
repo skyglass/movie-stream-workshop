@@ -360,6 +360,18 @@ copy_to_remote() {
   scp -i "$key_path" -o StrictHostKeyChecking=accept-new "$@" "$target:$REMOTE_APP_DIR/"
 }
 
+copy_keycloak_theme_to_remote() {
+  local target="$1"
+  local key_path
+  key_path="$(expand_path "$SSH_PRIVATE_KEY_PATH")"
+
+  remote_run "$target" "mkdir -p '$REMOTE_APP_DIR/keycloak-theme/login'"
+  scp -i "$key_path" -o StrictHostKeyChecking=accept-new \
+    "$ROOT_DIR/config/keycloak-themes/movie-stream/login/theme.properties" \
+    "$ROOT_DIR/config/keycloak-themes/movie-stream/login/register.ftl" \
+    "$target:$REMOTE_APP_DIR/keycloak-theme/login/"
+}
+
 prepare_remote_host() {
   local target="$1"
   local key_path
@@ -536,6 +548,136 @@ sudo docker compose --env-file .env -f docker-compose.prod.yml ps
 REMOTE_SCRIPT
 }
 
+configure_remote_keycloak_registration() {
+  local target="$1"
+  local key_path
+  key_path="$(expand_path "$SSH_PRIVATE_KEY_PATH")"
+
+  ssh -i "$key_path" -o StrictHostKeyChecking=accept-new "$target" "cd '$REMOTE_APP_DIR' && bash -s" <<'REMOTE_SCRIPT'
+set -euo pipefail
+set -a
+# shellcheck source=/dev/null
+. ./.env
+set +a
+
+configured=false
+for _ in {1..30}; do
+  if sudo docker compose --env-file .env -f docker-compose.prod.yml exec -T keycloak \
+    /opt/keycloak/bin/kcadm.sh config credentials \
+      --server http://localhost:8080/keycloak \
+      --realm master \
+      --user "$KEYCLOAK_ADMIN" \
+      --password "$KEYCLOAK_ADMIN_PASSWORD" >/dev/null 2>&1; then
+    configured=true
+    break
+  fi
+  sleep 5
+done
+
+if [[ "$configured" != "true" ]]; then
+  echo "Could not authenticate to Keycloak admin API." >&2
+  exit 1
+fi
+
+sudo docker compose --env-file .env -f docker-compose.prod.yml exec -T -e KEYCLOAK_REALM="$KEYCLOAK_REALM" keycloak bash -s <<'KEYCLOAK_SCRIPT'
+set -euo pipefail
+cat >/tmp/movie-stream-user-profile.json <<'USER_PROFILE_JSON'
+{
+  "attributes": [
+    {
+      "name": "username",
+      "displayName": "${username}",
+      "validations": {
+        "length": {
+          "min": 3,
+          "max": 255
+        },
+        "username-prohibited-characters": {},
+        "up-username-not-idn-homograph": {}
+      },
+      "permissions": {
+        "view": [
+          "admin",
+          "user"
+        ],
+        "edit": [
+          "admin",
+          "user"
+        ]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "email",
+      "displayName": "${email}",
+      "validations": {
+        "email": {},
+        "length": {
+          "max": 320
+        }
+      },
+      "required": {
+        "roles": [
+          "user"
+        ]
+      },
+      "permissions": {
+        "view": [
+          "admin",
+          "user"
+        ],
+        "edit": [
+          "admin",
+          "user"
+        ]
+      },
+      "multivalued": false
+    }
+  ],
+  "groups": [
+    {
+      "name": "user-metadata",
+      "displayHeader": "User metadata",
+      "displayDescription": "Attributes, which refer to user metadata"
+    }
+  ]
+}
+USER_PROFILE_JSON
+/opt/keycloak/bin/kcadm.sh update users/profile -r "$KEYCLOAK_REALM" -f /tmp/movie-stream-user-profile.json
+KEYCLOAK_SCRIPT
+
+sudo docker compose --env-file .env -f docker-compose.prod.yml exec -T keycloak \
+  /opt/keycloak/bin/kcadm.sh update "realms/$KEYCLOAK_REALM" \
+    -s accessTokenLifespan=315360000 \
+    -s accessTokenLifespanForImplicitFlow=315360000 \
+    -s ssoSessionIdleTimeout=315360000 \
+    -s ssoSessionMaxLifespan=315360000 \
+    -s clientSessionIdleTimeout=315360000 \
+    -s clientSessionMaxLifespan=315360000 \
+    -s loginTheme=movie-stream \
+    -s loginWithEmailAllowed=false \
+    -s duplicateEmailsAllowed=false \
+    -s verifyEmail=false
+
+for username in user admin; do
+  user_id="$(sudo docker compose --env-file .env -f docker-compose.prod.yml exec -T keycloak \
+    /opt/keycloak/bin/kcadm.sh get users \
+      -r "$KEYCLOAK_REALM" \
+      -q username="$username" \
+      --fields id \
+      --format csv \
+      --noquotes | tr -d '\r' | head -n 1)"
+  if [[ -n "$user_id" ]]; then
+    sudo docker compose --env-file .env -f docker-compose.prod.yml exec -T keycloak \
+      /opt/keycloak/bin/kcadm.sh update "users/$user_id" \
+        -r "$KEYCLOAK_REALM" \
+        -s firstName= \
+        -s lastName=
+  fi
+done
+REMOTE_SCRIPT
+}
+
 deploy_app() {
   require_cmd terraform
   require_cmd ssh
@@ -606,9 +748,11 @@ deploy_app() {
     "$DEPLOY_TMP_DIR/Caddyfile" \
     "$DEPLOY_TMP_DIR/app-config.json" \
     "$DEPLOY_TMP_DIR/keycloak-realm.json"
+  copy_keycloak_theme_to_remote "$target"
 
   mount_remote_volumes "$target"
   run_remote_compose "$target"
+  configure_remote_keycloak_registration "$target"
 
   echo "Application deployed."
   echo "Movie Stream URL: $APP_BASE_URL"

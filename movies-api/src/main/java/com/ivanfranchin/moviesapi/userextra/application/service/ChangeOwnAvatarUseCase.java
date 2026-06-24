@@ -20,10 +20,11 @@ public class ChangeOwnAvatarUseCase {
     }
 
     @Transactional
-    public UserExtra changeAvatar(String username, String email, String avatar) {
+    public UserExtra changeAvatar(String username, String avatar) {
+        String syntheticEmail = UserExtra.emailForUsername(username);
         UserExtra userExtra = userExtraService.getUserExtra(username)
-                .orElseGet(() -> new UserExtra(username, email));
-        userExtra.setEmail(email);
+                .orElseGet(() -> new UserExtra(username, syntheticEmail));
+        userExtra.setEmail(syntheticEmail);
         return changeAvatar(userExtra, avatar);
     }
 

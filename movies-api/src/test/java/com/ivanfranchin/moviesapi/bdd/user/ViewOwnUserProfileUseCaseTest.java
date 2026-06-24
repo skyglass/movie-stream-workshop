@@ -33,4 +33,9 @@ public class ViewOwnUserProfileUseCaseTest {
     public void ownProfileEmailIs(String email) throws Exception {
         fixture.assertLastResponseJsonFieldIs("email", email);
     }
+
+    @Then("the local users table has no first-name or last-name columns")
+    public void theLocalUsersTableHasNoFirstNameOrLastNameColumns() {
+        fixture.assertUsersTableHasNoNameColumns();
+    }
 }

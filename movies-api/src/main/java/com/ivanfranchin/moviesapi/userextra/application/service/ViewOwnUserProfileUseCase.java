@@ -17,15 +17,4 @@ public class ViewOwnUserProfileUseCase {
     public UserExtra viewOwnProfile(Jwt jwt) {
         return userExtraService.syncFromJwt(jwt);
     }
-
-    @Transactional
-    public UserExtra viewOwnProfile(String username, String email) {
-        UserExtra userExtra = userExtraService.getUserExtra(username)
-                .orElseGet(() -> new UserExtra(username, email));
-        userExtra.setEmail(email);
-        if (userExtra.getAvatar() == null || userExtra.getAvatar().isBlank()) {
-            userExtra.setAvatar(username);
-        }
-        return userExtraService.saveUserExtra(userExtra);
-    }
 }
