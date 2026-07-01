@@ -5,7 +5,8 @@ recommendations, movie challenges, and admin movie maintenance. The `MOVIE` aggr
 `MOVIE_COMMENT` is a child entity because comments cannot exist without a movie and are deleted with it.
 `MOVIE_RECOMMENDATION` records the current user's endorsement of a movie. Movie challenge records are per-user
 projections over recommended movies: completed pairs prevent duplicate challenges, challenge counts prioritize
-under-participating movies, and votes count selected winners.
+under-participating movies, and votes count selected winners. Users recommended movies are a weighted read model over
+completed challenge-pair agreement and other users' movie votes.
 
 ## Aggregate Boundary Diagram
 
@@ -90,6 +91,7 @@ erDiagram
 | user_id | Challenged username | String | Foreign Key to users.username, Primary Key part |
 | movie1_id | Alphabetically first IMDb id in the completed pair | String | Foreign Key to movies.imdb_id, Primary Key part, less than movie2_id |
 | movie2_id | Alphabetically second IMDb id in the completed pair | String | Foreign Key to movies.imdb_id, Primary Key part |
+| movie1_wins | Whether the alphabetically first movie won the completed pair | Boolean | Not Null |
 
 ### USER_MOVIE_CHALLENGE
 
@@ -154,9 +156,20 @@ Read model used by `view-users-favorite-movies`.
 | movies | Movies with at least one vote from any user | List<MOVIE> | Sorted by `sum(movie_user_votes.vote_count)` descending |
 | recommended | Whether each community favorite movie is recommended by the current user | Boolean | Enriched from MOVIE_RECOMMENDATION |
 
+### USERS_RECOMMENDED_MOVIES
+
+Read model used by `view-users-recommended-movies`.
+
+| Attribute | Description | Data Type | Validation Rules |
+|-----------|-------------|-----------|------------------|
+| movies | Movies with a positive weighted vote score from other users | List<MOVIE> | Excludes movies recommended by the current user |
+| relative_user_rating | Matching completed challenge-pair winner count for each other user | Integer | Current user is excluded; zero-weight users are ignored |
+| weighted_movie_rating | Weighted score used for descending sort | Decimal | `sum(vote_count * relative_user_rating) / sum(relative_user_rating)` |
+| recommended | Whether each listed movie is recommended by the current user | Boolean | Always false for returned rows because already recommended movies are excluded |
+
 ## Aggregate Insight
 
 `add-movie-to-catalog`, `add-movie-comment`, `recommend-movie`, `movie-challenge`, and `administer-movie-catalog` mutate
-the movie-catalog model. Catalog, detail, and favorite views are read use cases over the same aggregate and include
-recommendation state when the viewer is authenticated. Comment avatar enrichment crosses into `user-access` only as a
-read lookup by username.
+the movie-catalog model. Catalog, detail, favorite, and users recommended views are read use cases over the same
+aggregate and include recommendation state when the viewer is authenticated. Comment avatar enrichment crosses into
+`user-access` only as a read lookup by username.

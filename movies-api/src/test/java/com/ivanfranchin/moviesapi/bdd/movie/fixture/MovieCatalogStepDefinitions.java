@@ -26,6 +26,11 @@ public class MovieCatalogStepDefinitions {
         fixture.recommendMovie(imdbId, username);
     }
 
+    @Given("movie {string} has already received {int} vote(s) from {string}")
+    public void movieHasAlreadyReceivedVotesFrom(String imdbId, int count, String username) {
+        fixture.incrementVoteCount(imdbId, username, count);
+    }
+
     @Then("movie {string} exists in the catalog with title {string}")
     public void movieExistsInTheCatalogWithTitle(String imdbId, String title) {
         fixture.assertMovieTitleIs(imdbId, title);

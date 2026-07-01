@@ -33,7 +33,7 @@ name exactly.
 | `movie-catalog` | `catalog-discovery` | `view-movie-catalog`, `view-movie-details` | `movie` |
 | `movie-catalog` | `catalog-contribution` | `add-movie-to-catalog` | `movie` |
 | `movie-catalog` | `movie-discussion` | `add-movie-comment` | `movie` |
-| `movie-catalog` | `movie-recommendation` | `recommend-movie`, `movie-challenge`, `view-favorite-movies`, `view-users-favorite-movies` | `movie` |
+| `movie-catalog` | `movie-recommendation` | `recommend-movie`, `movie-challenge`, `view-favorite-movies`, `view-users-favorite-movies`, `view-users-recommended-movies` | `movie` |
 | `movie-catalog` | `catalog-administration` | `administer-movie-catalog` | `movie`, `security` |
 | `user-access` | `profile-access` | `view-own-user-profile`, `change-own-avatar` | `userextra` |
 | `user-access` | `user-administration` | `view-registered-users` | `userextra`, `security` |
@@ -53,6 +53,7 @@ but controllers delegate use-case behavior to services named after the use case.
 | `movie-challenge` | `GET /api/movie-challenges/next`, `POST /api/movie-challenges/votes` | `MovieChallengeUseCase` | `USER_MOVIE_PAIR_CHALLENGE`, `USER_MOVIE_CHALLENGE`, `MOVIE_USER_VOTE` |
 | `view-favorite-movies` | `GET /api/favorite-movies` | `ViewFavoriteMoviesUseCase` | `MOVIE_USER_VOTE` read model |
 | `view-users-favorite-movies` | `GET /api/users-favorite-movies` | `ViewUsersFavoriteMoviesUseCase` | `MOVIE_USER_VOTE` aggregate read model |
+| `view-users-recommended-movies` | `GET /api/users-recommended-movies` | `ViewUsersRecommendedMoviesUseCase` | `USER_MOVIE_PAIR_CHALLENGE`, `MOVIE_USER_VOTE` weighted read model |
 | `view-own-user-profile` | `GET /api/userextras/me` | `ViewOwnUserProfileUseCase` | `USER_EXTRA` |
 | `change-own-avatar` | `POST /api/userextras/me` | `ChangeOwnAvatarUseCase` | `USER_EXTRA` |
 | `view-registered-users` | `GET /api/users` | `ViewRegisteredUsersUseCase` | `USER_EXTRA` listing |

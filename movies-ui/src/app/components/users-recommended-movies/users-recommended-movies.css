@@ -1,0 +1,15 @@
+@import '../movies-home/movies-home.css';
+
+.recommend-button {
+  cursor: default;
+}
+
+.recommend-button.recommended {
+  border-color: #6aa5c8;
+  color: #245f82;
+  background: #f3f9fc;
+}
+
+.recommend-button .material-icons {
+  color: #2d78a0;
+}

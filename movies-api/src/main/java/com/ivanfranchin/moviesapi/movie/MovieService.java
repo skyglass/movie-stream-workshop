@@ -35,6 +35,11 @@ public class MovieService {
         return movieRepository.findUsersFavoriteMovies();
     }
 
+    @Transactional(readOnly = true)
+    public List<Movie> getUsersRecommendedMovies(String username) {
+        return movieRepository.findUsersRecommendedMoviesByUsername(username);
+    }
+
     @Transactional
     public Movie saveMovie(Movie movie) {
         return movieRepository.save(movie);

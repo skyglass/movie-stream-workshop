@@ -2,7 +2,6 @@ package com.ivanfranchin.moviesapi.bdd.movie;
 
 import com.ivanfranchin.moviesapi.bdd.movie.fixture.MovieCatalogFixture;
 import com.ivanfranchin.moviesapi.movie.application.service.ViewFavoriteMoviesUseCase;
-import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 
@@ -14,11 +13,6 @@ public class ViewFavoriteMoviesUseCaseTest {
     public ViewFavoriteMoviesUseCaseTest(MovieCatalogFixture fixture, ViewFavoriteMoviesUseCase viewFavoriteMovies) {
         this.fixture = fixture;
         this.viewFavoriteMovies = viewFavoriteMovies;
-    }
-
-    @Given("movie {string} has already received {int} vote(s) from {string}")
-    public void movieHasAlreadyReceivedVotesFrom(String imdbId, int count, String username) {
-        fixture.incrementVoteCount(imdbId, username, count);
     }
 
     @When("regular user {string} requests favorite movies")

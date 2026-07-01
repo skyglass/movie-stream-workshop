@@ -327,6 +327,77 @@ The external database EBS volumes are not deleted. They are detached and remain 
 
 ## Troubleshooting
 
+### Update SSH Access After Your Public IP Changes
+
+The EC2 security group allows SSH only from `SSH_ALLOWED_CIDR`. When your public IP changes, updating that value is
+required, but it may not be sufficient by itself. If the EC2 instance was replaced or the Elastic IP was moved, SSH can
+also fail because your local `~/.ssh/known_hosts` still contains the old host key for that IP address.
+
+1. Get your current public IPv4 address:
+
+```bash
+curl -4 -s https://checkip.amazonaws.com
+```
+
+2. Update `deployment/.env.prod`:
+
+```bash
+SSH_ALLOWED_CIDR=<your-current-public-ip>/32
+```
+
+For example:
+
+```bash
+SSH_ALLOWED_CIDR=198.51.100.25/32
+```
+
+3. Apply only the infrastructure update:
+
+```bash
+./deployment/start.sh infra
+```
+
+This updates the Terraform-managed EC2 security group rule. It does not publish Docker images or redeploy containers.
+
+4. Verify that Terraform still points to the expected EC2 instance and Elastic IP:
+
+```bash
+terraform -chdir=deployment/infra output -raw elastic_ip
+terraform -chdir=deployment/infra output -raw instance_id
+```
+
+Optionally confirm the instance details in AWS:
+
+```bash
+aws ec2 describe-instances \
+  --instance-ids $(terraform -chdir=deployment/infra output -raw instance_id) \
+  --query 'Reservations[0].Instances[0].{State:State.Name,PublicIp:PublicIpAddress,KeyName:KeyName,LaunchTime:LaunchTime}' \
+  --output table
+```
+
+5. Remove the stale local SSH host key for the Elastic IP:
+
+```bash
+ssh-keygen -R $(terraform -chdir=deployment/infra output -raw elastic_ip)
+```
+
+Do this before retrying SSH when you see `WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!`. Changing
+`SSH_ALLOWED_CIDR` only opens the firewall; it does not update your local `known_hosts` file.
+
+6. Retry SSH and accept the new host key:
+
+```bash
+ssh -i .ssh/movie-stream \
+  -o StrictHostKeyChecking=accept-new \
+  ec2-user@$(terraform -chdir=deployment/infra output -raw elastic_ip)
+```
+
+7. If Docker images are already published, redeploy only the app:
+
+```bash
+./deployment/start.sh app
+```
+
 If HTTPS is not issued, check:
 
 - `APP_DOMAIN` resolves to the EC2 Elastic IP.
@@ -356,7 +427,12 @@ KEYCLOAK_ISSUER_URI='https://example.com/keycloak/realms/movies'
 
 ## Publish And Redeploy
 
-After changing application code, build and push new images and redeploy the EC2 Docker Compose application:
+After changing application code, use a new `IMAGE_VERSION` and redeploy the EC2 Docker Compose application with the same
+tag.
+
+### Option A: One Command
+
+Build, push, and redeploy with the current `IMAGE_VERSION` from `deployment/.env.prod`:
 
 ```bash
 ./deployment/publish-and-redeploy.sh
@@ -364,10 +440,49 @@ After changing application code, build and push new images and redeploy the EC2 
 
 The script reads `IMAGE_VERSION` from `deployment/.env.prod`, publishes `movie-gateway`, `movies-api`, and `movies-ui` with that tag, then redeploys the EC2 containers with the same tag.
 
-For a one-off version without editing `deployment/.env.prod`, pass the image tag:
+### Option B: Separate Publish And Deploy Steps
+
+1. Set the new tag in `deployment/.env.prod`:
 
 ```bash
-./deployment/publish-and-redeploy.sh 1.2.1
+IMAGE_VERSION=1.2.1-users-recommended-movies
 ```
 
-That temporary override is used only for the current run.
+2. Build and publish the three application images:
+
+```bash
+./deployment/docker-publish.sh
+```
+
+This publishes:
+
+```text
+$CONTAINER_REGISTRY/movie-gateway:$IMAGE_VERSION
+$CONTAINER_REGISTRY/movies-api:$IMAGE_VERSION
+$CONTAINER_REGISTRY/movies-ui:$IMAGE_VERSION
+```
+
+3. Deploy the already-published images to the existing EC2 instance:
+
+Before running the deploy command, change `IMAGE_VERSION` in `deployment/.env.prod` to the already-published tag that
+EC2 should pull:
+
+```bash
+IMAGE_VERSION=2.0.0-users-recommended-movies
+```
+
+```bash
+./deployment/start.sh app
+```
+
+Use this step by itself when Docker publishing already succeeded and you only need to retry deployment. Do not run
+`./deployment/start.sh infra` unless you need to change infrastructure, such as updating `SSH_ALLOWED_CIDR`.
+
+### Remote Verification
+
+```bash
+ssh -i .ssh/movie-stream ec2-user@$(terraform -chdir=deployment/infra output -raw elastic_ip)
+cd /opt/movie-stream
+sudo docker compose --env-file .env -f docker-compose.prod.yml ps
+sudo docker compose --env-file .env -f docker-compose.prod.yml logs -f movies-api movie-gateway movies-ui
+```

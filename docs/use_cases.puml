@@ -24,6 +24,10 @@ rectangle "Movie Stream" {
 
     package "Movie Recommendation" {
         usecase "recommend-movie\nUC-009" as UC009
+        usecase "movie-challenge\nUC-012" as UC012
+        usecase "view-favorite-movies\nUC-013" as UC013
+        usecase "view-users-favorite-movies\nUC-014" as UC014
+        usecase "view-users-recommended-movies\nUC-015" as UC015
     }
 
     package "Profile Access" {
@@ -48,6 +52,10 @@ user --> UC002
 user --> UC003
 user --> UC004
 user --> UC009
+user --> UC012
+user --> UC013
+user --> UC014
+user --> UC015
 user --> UC005
 user --> UC008
 
@@ -56,6 +64,10 @@ admin --> UC002
 admin --> UC003
 admin --> UC004
 admin --> UC009
+admin --> UC012
+admin --> UC013
+admin --> UC014
+admin --> UC015
 admin --> UC005
 admin --> UC008
 admin --> UC006
@@ -64,6 +76,10 @@ admin --> UC007
 UC004 ..> UC002 : <<extend>>
 UC009 ..> UC001 : <<extend>>
 UC009 ..> UC002 : <<extend>>
+UC012 ..> UC009 : <<include>>
+UC013 ..> UC012 : <<extend>>
+UC014 ..> UC012 : <<extend>>
+UC015 ..> UC012 : <<extend>>
 UC007 ..> UC002 : <<extend>>
 
 @enduml

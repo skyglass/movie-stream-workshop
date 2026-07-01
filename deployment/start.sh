@@ -237,6 +237,7 @@ render_app_config() {
   "movieChallengesPath": "/api/movies/movie-challenges",
   "favoriteMoviesPath": "/api/movies/favorite-movies",
   "usersFavoriteMoviesPath": "/api/movies/users-favorite-movies",
+  "usersRecommendedMoviesPath": "/api/movies/users-recommended-movies",
   "userExtrasPath": "/api/movies/userextras",
   "usersApiPath": "/api/movies/users",
   "omdbBaseUrl": "https://www.omdbapi.com/",

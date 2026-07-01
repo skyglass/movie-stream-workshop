@@ -87,6 +87,20 @@ public class MovieCatalogFixture {
         return movieRepository.saveAndFlush(movie);
     }
 
+    public void ensureUser(String username) {
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from users where username = ?",
+                Integer.class,
+                username);
+        if (count == null || count == 0) {
+            jdbcTemplate.update(
+                    "insert into users (username, email, avatar) values (?, ?, ?)",
+                    username,
+                    username + "@skycomposer.net",
+                    username);
+        }
+    }
+
     public void addComment(String imdbId, String username, String text) {
         Movie movie = movieRepository.findById(imdbId).orElseThrow();
         movie.addComment(new MovieComment(username, text, Instant.now()));
@@ -99,6 +113,7 @@ public class MovieCatalogFixture {
     }
 
     public void recommendMovie(String imdbId, String username) {
+        ensureUser(username);
         movieRecommendationRepository.saveAndFlush(new MovieRecommendation(username, imdbId));
     }
 
@@ -107,20 +122,41 @@ public class MovieCatalogFixture {
     }
 
     public void incrementChallengeCount(String imdbId, String username, int times) {
+        ensureUser(username);
         for (int i = 0; i < times; i++) {
             movieChallengeRepository.incrementChallengeCount(username, imdbId);
         }
     }
 
     public void incrementVoteCount(String imdbId, String username, int times) {
+        ensureUser(username);
         for (int i = 0; i < times; i++) {
             movieChallengeRepository.incrementVoteCount(username, imdbId);
         }
     }
 
     public void completeMoviePairChallenge(String username, String firstMovieId, String secondMovieId) {
+        ensureUser(username);
         MoviePair pair = sortedPair(firstMovieId, secondMovieId);
         assertTrue(movieChallengeRepository.insertPairChallenge(username, pair.movie1Id(), pair.movie2Id(), true));
+    }
+
+    public void recordMoviePairChallenge(String username,
+                                         String firstMovieId,
+                                         String secondMovieId,
+                                         boolean movie1Wins) {
+        ensureUser(username);
+        MoviePair pair = sortedPair(firstMovieId, secondMovieId);
+        jdbcTemplate.update("""
+                delete from user_movie_pair_challenge
+                where user_id = ?
+                    and movie1_id = ?
+                    and movie2_id = ?
+                """, username, pair.movie1Id(), pair.movie2Id());
+        jdbcTemplate.update("""
+                insert into user_movie_pair_challenge (user_id, movie1_id, movie2_id, movie1_wins)
+                values (?, ?, ?, ?)
+                """, username, pair.movie1Id(), pair.movie2Id(), movie1Wins);
     }
 
     public void assertMovieListOrdersTitleBefore(String firstTitle, String secondTitle) {
@@ -133,6 +169,11 @@ public class MovieCatalogFixture {
         List<String> imdbIds = movieList.stream().map(MovieDto::imdbId).toList();
         assertTrue(imdbIds.indexOf(firstImdbId) < imdbIds.indexOf(secondImdbId),
                 "Expected " + firstImdbId + " before " + secondImdbId + " but got " + imdbIds);
+    }
+
+    public void assertMovieListDoesNotContainImdbId(String imdbId) {
+        List<String> imdbIds = movieList.stream().map(MovieDto::imdbId).toList();
+        assertFalse(imdbIds.contains(imdbId), "Expected movie list not to contain " + imdbId + " but got " + imdbIds);
     }
 
     public void assertMovieListSizeIs(int count) {

@@ -53,6 +53,7 @@ export class MoviesApiService {
   private readonly movieChallengesBase: string;
   private readonly favoriteMoviesBase: string;
   private readonly usersFavoriteMoviesBase: string;
+  private readonly usersRecommendedMoviesBase: string;
   private readonly userExtrasBase: string;
   private readonly usersBase: string;
 
@@ -62,6 +63,7 @@ export class MoviesApiService {
     this.movieChallengesBase = `${c.apiBaseUrl}${c.movieChallengesPath}`;
     this.favoriteMoviesBase = `${c.apiBaseUrl}${c.favoriteMoviesPath}`;
     this.usersFavoriteMoviesBase = `${c.apiBaseUrl}${c.usersFavoriteMoviesPath}`;
+    this.usersRecommendedMoviesBase = `${c.apiBaseUrl}${c.usersRecommendedMoviesPath}`;
     this.userExtrasBase = `${c.apiBaseUrl}${c.userExtrasPath}`;
     this.usersBase = `${c.apiBaseUrl}${c.usersApiPath}`;
   }
@@ -76,6 +78,10 @@ export class MoviesApiService {
 
   listUsersFavoriteMovies(): Observable<Movie[]> {
     return this.http.get<Movie[]>(this.usersFavoriteMoviesBase);
+  }
+
+  listUsersRecommendedMovies(): Observable<Movie[]> {
+    return this.http.get<Movie[]>(this.usersRecommendedMoviesBase);
   }
 
   getMovie(imdbId: string): Observable<Movie> {
