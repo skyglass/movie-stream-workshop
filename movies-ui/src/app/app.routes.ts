@@ -12,7 +12,7 @@ import { adminGuard, authGuard } from './services/auth-guard';
 
 export const routes: Routes = [
   { path: 'home', component: MoviesHomeComponent },
-  { path: 'movies/:imdbId', component: MovieDetailComponent },
+  { path: 'movies/:imdbId', component: MovieDetailComponent, canActivate: [authGuard] },
   { path: 'wizard', component: MovieWizardComponent, canActivate: [authGuard] },
   { path: 'favorites', component: FavoriteMoviesComponent, canActivate: [authGuard] },
   { path: 'users-favorites', component: UsersFavoriteMoviesComponent, canActivate: [authGuard] },

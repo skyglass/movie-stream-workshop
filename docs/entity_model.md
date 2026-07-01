@@ -11,8 +11,8 @@ flowchart LR
         MOVIE["MOVIE\nAggregate Root"]
         MOVIE_COMMENT["MOVIE_COMMENT\nChild Entity"]
         MOVIE_RECOMMENDATION["MOVIE_RECOMMENDATION\nUser recommendation"]
-        USER_MOVIE_PAIR_CHALLENGE["USER_MOVIE_PAIR_CHALLENGE\nCompleted pair"]
-        MOVIE_USER_VOTE["MOVIE_USER_VOTE\nChallenge winner votes"]
+        USER_MOVIE_WINNER_LOSER["USER_MOVIE_WINNER_LOSER\nDirect challenge result"]
+        USER_MOVIE_WINNER_LOSER_ALL["USER_MOVIE_WINNER_LOSER_ALL\nTransitive challenge result"]
     end
 
     subgraph user_access["user-access"]
@@ -22,8 +22,8 @@ flowchart LR
 
     MOVIE ||--o{ MOVIE_COMMENT : receives
     MOVIE ||--o{ MOVIE_RECOMMENDATION : recommended_by
-    MOVIE ||--o{ USER_MOVIE_PAIR_CHALLENGE : appears_in_pair
-    MOVIE ||--o{ MOVIE_USER_VOTE : receives_vote
+    MOVIE ||--o{ USER_MOVIE_WINNER_LOSER : wins_or_loses_directly
+    MOVIE ||--o{ USER_MOVIE_WINNER_LOSER_ALL : wins_or_loses_transitively
     MOVIE_COMMENT --> USER_EXTRA : "renders avatar for username"
     ROLE --> USER_EXTRA : "protects admin listing"
 ```
@@ -34,12 +34,12 @@ flowchart LR
 erDiagram
     MOVIES ||--o{ MOVIE_COMMENTS : receives
     MOVIES ||--o{ MOVIE_RECOMMENDATIONS : recommended_by
-    MOVIES ||--o{ USER_MOVIE_PAIR_CHALLENGE : appears_in_pair
-    MOVIES ||--o{ MOVIE_USER_VOTES : receives_vote
+    MOVIES ||--o{ USER_MOVIE_WINNER_LOSER : wins_or_loses_directly
+    MOVIES ||--o{ USER_MOVIE_WINNER_LOSER_ALL : wins_or_loses_transitively
     USERS ||--o{ MOVIE_COMMENTS : "referenced by username"
     USERS ||--o{ MOVIE_RECOMMENDATIONS : makes
-    USERS ||--o{ USER_MOVIE_PAIR_CHALLENGE : completes
-    USERS ||--o{ MOVIE_USER_VOTES : casts
+    USERS ||--o{ USER_MOVIE_WINNER_LOSER : decides
+    USERS ||--o{ USER_MOVIE_WINNER_LOSER_ALL : ranks
 ```
 
 ### MOVIE
@@ -85,26 +85,25 @@ Represents one authenticated user's recommendation of one movie.
 | user_id | Recommending username | String | Foreign Key to `users.username`, Primary Key part |
 | movie_id | Recommended movie | String | Foreign Key to `movies.imdb_id`, Primary Key part |
 
-### USER_MOVIE_PAIR_CHALLENGE
+### USER_MOVIE_WINNER_LOSER
 
-Represents one completed Movie Challenge pair for one user.
+Represents one direct Movie Challenge winner-loser decision for one user.
 
 | Attribute | Description | Data Type | Validation Rules |
 |-----------|-------------|-----------|------------------|
 | user_id | Challenged username | String | Foreign Key to `users.username`, Primary Key part |
-| movie1_id | Alphabetically first movie id | String | Foreign Key to `movies.imdb_id`, Primary Key part |
-| movie2_id | Alphabetically second movie id | String | Foreign Key to `movies.imdb_id`, Primary Key part, greater than movie1_id |
-| movie1_wins | Whether movie1 won the pair | Boolean | Not Null |
+| winner_id | Selected winning movie | String | Foreign Key to `movies.imdb_id`, Primary Key part |
+| loser_id | Losing movie from the same challenge | String | Foreign Key to `movies.imdb_id`, Primary Key part, different from winner_id |
 
-### MOVIE_USER_VOTE
+### USER_MOVIE_WINNER_LOSER_ALL
 
-Represents Movie Challenge winner counts by user and movie.
+Represents direct and inferred transitive Movie Challenge winner-loser relationships for one user.
 
 | Attribute | Description | Data Type | Validation Rules |
 |-----------|-------------|-----------|------------------|
-| user_id | Voting username | String | Foreign Key to `users.username`, Primary Key part |
-| movie_id | Selected movie winner | String | Foreign Key to `movies.imdb_id`, Primary Key part |
-| vote_count | Number of times this user selected this movie | Integer | Not Null, non-negative |
+| user_id | Challenged username | String | Foreign Key to `users.username`, Primary Key part |
+| winner_id | Direct or inferred winning movie | String | Foreign Key to `movies.imdb_id`, Primary Key part |
+| loser_id | Direct or inferred losing movie | String | Foreign Key to `movies.imdb_id`, Primary Key part, different from winner_id |
 
 ## Cross-Context Policies
 
@@ -114,4 +113,4 @@ Represents Movie Challenge winner counts by user and movie.
 - `MOVIES_ADMIN` is required for `/api/users` and movie administration endpoints.
 - Authenticated non-admin users can read only their own profile through `GET /api/userextras/me`.
 - Users recommended movies exclude the current user's own recommendations and rank remaining movies with weighted
-  Movie Challenge votes from users who chose the same winners in completed challenge pairs.
+  transitive Movie Challenge wins from users who share the same winner-loser relationships.

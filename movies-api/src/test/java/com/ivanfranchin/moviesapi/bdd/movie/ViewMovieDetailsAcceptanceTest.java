@@ -6,12 +6,12 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 
-public class ViewMovieDetailsUseCaseTest {
+public class ViewMovieDetailsAcceptanceTest {
 
     private final MovieCatalogFixture fixture;
     private final ViewMovieDetailsUseCase viewMovieDetails;
 
-    public ViewMovieDetailsUseCaseTest(MovieCatalogFixture fixture, ViewMovieDetailsUseCase viewMovieDetails) {
+    public ViewMovieDetailsAcceptanceTest(MovieCatalogFixture fixture, ViewMovieDetailsUseCase viewMovieDetails) {
         this.fixture = fixture;
         this.viewMovieDetails = viewMovieDetails;
     }

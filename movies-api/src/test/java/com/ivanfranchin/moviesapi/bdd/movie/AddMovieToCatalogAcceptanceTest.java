@@ -11,14 +11,14 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
-public class AddMovieToCatalogUseCaseTest {
+public class AddMovieToCatalogAcceptanceTest {
 
     private final MovieCatalogFixture fixture;
     private final AddMovieToCatalogUseCase addMovieToCatalog;
     private final MockMvc mockMvc;
     private final ObjectMapper objectMapper;
 
-    public AddMovieToCatalogUseCaseTest(MovieCatalogFixture fixture,
+    public AddMovieToCatalogAcceptanceTest(MovieCatalogFixture fixture,
                                         AddMovieToCatalogUseCase addMovieToCatalog,
                                         MockMvc mockMvc,
                                         ObjectMapper objectMapper) {

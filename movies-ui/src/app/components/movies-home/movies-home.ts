@@ -23,13 +23,8 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   private authSub?: Subscription;
 
   ngOnInit(): void {
-    if (this.auth.token) {
+    this.authSub = this.auth.isAuthenticated$.subscribe(() => {
       this.loadMovies();
-    }
-    this.authSub = this.auth.isAuthenticated$.subscribe(authenticated => {
-      if (authenticated && this.movies.length === 0 && !this.loading) {
-        this.loadMovies();
-      }
     });
   }
 

@@ -1,7 +1,5 @@
 <section class="movie-page">
-  @if (!auth.token) {
-    <div class="empty">Sign in to see movies</div>
-  } @else if (loading) {
+  @if (loading) {
     <div class="state">Loading movies</div>
   } @else if (errorMessage) {
     <div class="state error">{{ errorMessage }}</div>
@@ -9,36 +7,62 @@
     <div class="movie-grid">
       @for (movie of movies; track movie.imdbId) {
         <article class="movie-card">
-          <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
-            <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-          </a>
-          <button
-            type="button"
-            class="recommend-button"
-            [class.recommended]="movie.recommended"
-            [title]="movie.recommended ? 'Unrecommend' : 'Recommend'"
-            [disabled]="recommendationBusy[movie.imdbId]"
-            (click)="toggleRecommendation(movie)">
-            <span class="material-icons" aria-hidden="true">{{ movie.recommended ? 'check_circle' : 'favorite_border' }}</span>
-            {{ movie.recommended ? 'Recommended' : 'Recommend' }}
-          </button>
-          <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
-            <div class="movie-title">{{ movie.title }}</div>
-            <dl>
-              <div>
-                <dt>imdbID:</dt>
-                <dd>{{ movie.imdbId }}</dd>
-              </div>
-              <div>
-                <dt>Author:</dt>
-                <dd>{{ movie.director }}</dd>
-              </div>
-              <div>
-                <dt>Year:</dt>
-                <dd>{{ movie.year }}</dd>
-              </div>
-            </dl>
-          </a>
+          @if (auth.token) {
+            <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
+              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+            </a>
+            <button
+              type="button"
+              class="recommend-button"
+              [class.recommended]="movie.recommended"
+              [title]="movie.recommended ? 'Unrecommend' : 'Recommend'"
+              [disabled]="recommendationBusy[movie.imdbId]"
+              (click)="toggleRecommendation(movie)">
+              <span class="material-icons" aria-hidden="true">{{ movie.recommended ? 'check_circle' : 'favorite_border' }}</span>
+              {{ movie.recommended ? 'Recommended' : 'Recommend' }}
+            </button>
+          } @else {
+            <div class="poster-link">
+              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+            </div>
+          }
+          @if (auth.token) {
+            <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
+              <div class="movie-title">{{ movie.title }}</div>
+              <dl>
+                <div>
+                  <dt>imdbID:</dt>
+                  <dd>{{ movie.imdbId }}</dd>
+                </div>
+                <div>
+                  <dt>Author:</dt>
+                  <dd>{{ movie.director }}</dd>
+                </div>
+                <div>
+                  <dt>Year:</dt>
+                  <dd>{{ movie.year }}</dd>
+                </div>
+              </dl>
+            </a>
+          } @else {
+            <div class="movie-link">
+              <div class="movie-title">{{ movie.title }}</div>
+              <dl>
+                <div>
+                  <dt>imdbID:</dt>
+                  <dd>{{ movie.imdbId }}</dd>
+                </div>
+                <div>
+                  <dt>Author:</dt>
+                  <dd>{{ movie.director }}</dd>
+                </div>
+                <div>
+                  <dt>Year:</dt>
+                  <dd>{{ movie.year }}</dd>
+                </div>
+              </dl>
+            </div>
+          }
         </article>
       }
     </div>

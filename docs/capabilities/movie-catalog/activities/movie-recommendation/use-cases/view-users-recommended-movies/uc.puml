@@ -5,16 +5,15 @@ left to right direction
 actor "Authenticated User" as user
 rectangle "movie-catalog" {
     usecase "view-users-recommended-movies" as UC
-    entity "USER_MOVIE_PAIR_CHALLENGE" as pairChallenge
-    entity "MOVIE_USER_VOTE" as vote
+    entity "USER_MOVIE_WINNER_LOSER_ALL" as closureResult
     entity "MOVIE_RECOMMENDATION" as recommendation
     entity "MOVIE" as movie
 }
 
 user --> UC
-UC --> pairChallenge : counts matching completed pairs by other user
-UC --> vote : weights other users' vote_count by relative rating
+UC --> closureResult : counts matching transitive winner-loser rows by other user
+UC --> closureResult : weights other users' winner counts by relative rating
 UC --> recommendation : excludes current user's recommended movies
-vote --> movie : ranks candidate movies
+closureResult --> movie : ranks candidate movies
 recommendation --> movie : references
 @enduml

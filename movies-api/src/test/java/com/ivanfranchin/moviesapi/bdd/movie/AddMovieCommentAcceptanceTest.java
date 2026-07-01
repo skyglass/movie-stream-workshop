@@ -8,12 +8,12 @@ import io.cucumber.java.en.When;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class AddMovieCommentUseCaseTest {
+public class AddMovieCommentAcceptanceTest {
 
     private final MovieCatalogFixture fixture;
     private final AddMovieCommentUseCase addMovieComment;
 
-    public AddMovieCommentUseCaseTest(MovieCatalogFixture fixture, AddMovieCommentUseCase addMovieComment) {
+    public AddMovieCommentAcceptanceTest(MovieCatalogFixture fixture, AddMovieCommentUseCase addMovieComment) {
         this.fixture = fixture;
         this.addMovieComment = addMovieComment;
     }

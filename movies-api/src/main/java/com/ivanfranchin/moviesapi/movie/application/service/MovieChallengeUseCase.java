@@ -41,26 +41,13 @@ public class MovieChallengeUseCase {
             throw new IllegalArgumentException("Selected movie must be one movie from the challenge pair");
         }
 
-        MoviePair pair = MoviePair.sorted(movie1Id, movie2Id);
-        boolean movie1Wins = selectedMovieId.equals(pair.movie1Id());
-        if (!movieChallengeRepository.insertPairChallenge(username, pair.movie1Id(), pair.movie2Id(), movie1Wins)) {
+        String loserId = selectedMovieId.equals(movie1Id) ? movie2Id : movie1Id;
+        if (!movieChallengeRepository.insertWinnerLoser(username, selectedMovieId, loserId)) {
             throw new MovieChallengeUnavailableException();
         }
 
-        movieChallengeRepository.incrementVoteCount(username, selectedMovieId);
-        movieChallengeRepository.incrementChallengeCount(username, pair.movie1Id());
-        movieChallengeRepository.incrementChallengeCount(username, pair.movie2Id());
-    }
-
-    public record MoviePair(String movie1Id, String movie2Id) {
-
-        private static MoviePair sorted(String firstMovieId, String secondMovieId) {
-            if (firstMovieId.equals(secondMovieId)) {
-                throw new IllegalArgumentException("Movie challenge requires two different movies");
-            }
-            return firstMovieId.compareTo(secondMovieId) < 0
-                    ? new MoviePair(firstMovieId, secondMovieId)
-                    : new MoviePair(secondMovieId, firstMovieId);
-        }
+        movieChallengeRepository.insertWinnerLoserClosure(username, selectedMovieId, loserId);
+        movieChallengeRepository.incrementChallengeCount(username, movie1Id);
+        movieChallengeRepository.incrementChallengeCount(username, movie2Id);
     }
 }

@@ -29,10 +29,10 @@ public class MovieChallengeRepository {
             where r1.user_id = :username
                 and not exists (
                     select 1
-                    from user_movie_pair_challenge pair_challenge
-                    where pair_challenge.user_id = r1.user_id
-                        and pair_challenge.movie1_id = r1.movie_id
-                        and pair_challenge.movie2_id = r2.movie_id
+                    from user_movie_winner_loser_all winner_loser
+                    where winner_loser.user_id = r1.user_id
+                        and (r1.movie_id = winner_loser.winner_id or r1.movie_id = winner_loser.loser_id)
+                        and (r2.movie_id = winner_loser.winner_id or r2.movie_id = winner_loser.loser_id)
                 )
             """;
 
@@ -80,49 +80,64 @@ public class MovieChallengeRepository {
         return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, Map.of("username", username), Boolean.class));
     }
 
-    public boolean insertPairChallenge(String username, String movie1Id, String movie2Id, boolean movie1Wins) {
+    public boolean insertWinnerLoser(String username, String winnerId, String loserId) {
         String sql = """
-                insert into user_movie_pair_challenge (user_id, movie1_id, movie2_id, movie1_wins)
-                select :username, :movie1Id, :movie2Id, :movie1Wins
-                where :movie1Id < :movie2Id
+                insert into user_movie_winner_loser (user_id, winner_id, loser_id)
+                select :username, :winnerId, :loserId
+                where :winnerId <> :loserId
                     and exists (
                         select 1
                         from movie_recommendations
                         where user_id = :username
-                            and movie_id = :movie1Id
+                            and movie_id = :winnerId
                     )
                     and exists (
                         select 1
                         from movie_recommendations
                         where user_id = :username
-                            and movie_id = :movie2Id
+                            and movie_id = :loserId
                     )
                     and not exists (
                         select 1
-                        from user_movie_pair_challenge
+                        from user_movie_winner_loser_all winner_loser
                         where user_id = :username
-                            and movie1_id = :movie1Id
-                            and movie2_id = :movie2Id
+                            and (:winnerId = winner_loser.winner_id or :winnerId = winner_loser.loser_id)
+                            and (:loserId = winner_loser.winner_id or :loserId = winner_loser.loser_id)
                     )
                 """;
-        return jdbcTemplate.update(sql, params(username, movie1Id, movie2Id, movie1Wins)) == 1;
+        return jdbcTemplate.update(sql, params(username, winnerId, loserId)) == 1;
     }
 
-    public void incrementVoteCount(String username, String movieId) {
-        String updateSql = """
-                update movie_user_votes
-                set vote_count = vote_count + 1
-                where user_id = :username
-                    and movie_id = :movieId
+    public void insertWinnerLoserClosure(String username, String winnerId, String loserId) {
+        String sql = """
+                insert into user_movie_winner_loser_all (user_id, winner_id, loser_id)
+                select :username, ancestors.winner_id, descendants.loser_id
+                from (
+                    select cast(:winnerId as varchar(32)) as winner_id
+                    union
+                    select winner_id
+                    from user_movie_winner_loser_all
+                    where user_id = :username
+                        and loser_id = :winnerId
+                ) ancestors
+                cross join (
+                    select cast(:loserId as varchar(32)) as loser_id
+                    union
+                    select loser_id
+                    from user_movie_winner_loser_all
+                    where user_id = :username
+                        and winner_id = :loserId
+                ) descendants
+                where ancestors.winner_id <> descendants.loser_id
+                    and not exists (
+                        select 1
+                        from user_movie_winner_loser_all existing
+                        where existing.user_id = :username
+                            and existing.winner_id = ancestors.winner_id
+                            and existing.loser_id = descendants.loser_id
+                    )
                 """;
-        Map<String, String> params = Map.of("username", username, "movieId", movieId);
-        if (jdbcTemplate.update(updateSql, params) == 0) {
-            String insertSql = """
-                    insert into movie_user_votes (user_id, movie_id, vote_count)
-                    values (:username, :movieId, 1)
-                    """;
-            jdbcTemplate.update(insertSql, params);
-        }
+        jdbcTemplate.update(sql, params(username, winnerId, loserId));
     }
 
     public void incrementChallengeCount(String username, String movieId) {
@@ -144,10 +159,10 @@ public class MovieChallengeRepository {
 
     public int voteCount(String username, String movieId) {
         String sql = """
-                select coalesce(max(vote_count), 0)
-                from movie_user_votes
+                select count(1)
+                from user_movie_winner_loser_all
                 where user_id = :username
-                    and movie_id = :movieId
+                    and winner_id = :movieId
                 """;
         return jdbcTemplate.queryForObject(sql, Map.of("username", username, "movieId", movieId), Integer.class);
     }
@@ -162,35 +177,33 @@ public class MovieChallengeRepository {
         return jdbcTemplate.queryForObject(sql, Map.of("username", username, "movieId", movieId), Integer.class);
     }
 
-    public boolean pairChallengeExists(String username, String movie1Id, String movie2Id) {
+    public boolean directWinnerLoserExists(String username, String winnerId, String loserId) {
         String sql = """
                 select case when exists (
                     select 1
-                    from user_movie_pair_challenge
+                    from user_movie_winner_loser
                     where user_id = :username
-                        and movie1_id = :movie1Id
-                        and movie2_id = :movie2Id
+                        and winner_id = :winnerId
+                        and loser_id = :loserId
                 ) then true else false end
                 """;
-        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, params(username, movie1Id, movie2Id), Boolean.class));
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, params(username, winnerId, loserId), Boolean.class));
     }
 
-    public boolean pairChallengeMovie1Wins(String username, String movie1Id, String movie2Id) {
+    public boolean transitiveWinnerLoserExists(String username, String winnerId, String loserId) {
         String sql = """
-                select movie1_wins
-                from user_movie_pair_challenge
-                where user_id = :username
-                    and movie1_id = :movie1Id
-                    and movie2_id = :movie2Id
+                select case when exists (
+                    select 1
+                    from user_movie_winner_loser_all
+                    where user_id = :username
+                        and winner_id = :winnerId
+                        and loser_id = :loserId
+                ) then true else false end
                 """;
-        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, params(username, movie1Id, movie2Id), Boolean.class));
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, params(username, winnerId, loserId), Boolean.class));
     }
 
-    private Map<String, Object> params(String username, String movie1Id, String movie2Id) {
-        return Map.of("username", username, "movie1Id", movie1Id, "movie2Id", movie2Id);
-    }
-
-    private Map<String, Object> params(String username, String movie1Id, String movie2Id, boolean movie1Wins) {
-        return Map.of("username", username, "movie1Id", movie1Id, "movie2Id", movie2Id, "movie1Wins", movie1Wins);
+    private Map<String, Object> params(String username, String winnerId, String loserId) {
+        return Map.of("username", username, "winnerId", winnerId, "loserId", loserId);
     }
 }

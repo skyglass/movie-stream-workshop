@@ -7,17 +7,17 @@ Read this before writing or modifying tests.
 - Cucumber JVM executes use-case scenarios from `docs/capabilities/**/uc.feature`.
 - `Feature:` names must equal the dash-separated use-case folder name.
 - Cucumber glue lives under `movies-api/src/test/java/com/ivanfranchin/moviesapi/bdd`.
-- Each use case has a corresponding `*UseCaseTest` class.
+- Each use case has a corresponding `*AcceptanceTest` class.
 - The use-case ID must line up one-to-one across docs, application service, and BDD test:
-  `add-movie-comment` -> `AddMovieCommentUseCase` -> `AddMovieCommentUseCaseTest`.
+  `add-movie-comment` -> `AddMovieCommentUseCase` -> `AddMovieCommentAcceptanceTest`.
 - Put movie use-case BDD classes under `bdd/movie` and user use-case BDD classes under `bdd/user`.
 - Keep shared Cucumber infrastructure at the BDD root: Cucumber configuration and hooks.
 - Keep domain fixtures and reusable domain step definitions in a `fixture` subpackage under the domain tests: `bdd/movie/fixture` and `bdd/user/fixture`.
-- The `*UseCaseTest` class must read in the same Given/When/Then order as the corresponding `uc.feature` scenarios.
-- The `*UseCaseTest` class name uses the same CamelCase stem as the corresponding application service.
+- The `*AcceptanceTest` class must read in the same Given/When/Then order as the corresponding `uc.feature` scenarios.
+- The `*AcceptanceTest` class name uses the same CamelCase stem as the corresponding application service.
 - `@When` methods execute the corresponding use-case application service or the API boundary being tested.
-- `@When` methods are use-case behavior and must stay in the owning `*UseCaseTest`; do not move them to shared step definitions.
-- Use-case-specific `@Given` and `@Then` methods stay in the corresponding `*UseCaseTest` class and delegate directly to the domain fixture.
+- `@When` methods are use-case behavior and must stay in the owning `*AcceptanceTest`; do not move them to shared step definitions.
+- Use-case-specific `@Given` and `@Then` methods stay in the corresponding `*AcceptanceTest` class and delegate directly to the domain fixture.
 - Reusable cross-use-case `@Given` and `@Then` methods live in the domain step-definition class and delegate to the domain fixture. Move a step there only after actual reuse exists in that domain.
 - API authorization scenarios use `MockMvc` with JWT test support so the API lock is tested directly.
 
@@ -25,7 +25,7 @@ Read this before writing or modifying tests.
 
 - `MovieCatalogFixture` and `UserAccessFixture` are the shared domain fixtures for Cucumber scenarios.
 - Use-case tests use the corresponding domain fixture directly for setup, recorded result state, and assertions.
-- Keep fixture method names generic. Use-case terminology belongs in `*UseCaseTest` step methods and `uc.feature` files.
+- Keep fixture method names generic. Use-case terminology belongs in `*AcceptanceTest` step methods and `uc.feature` files.
 - Do not create per-use-case fixture classes that only forward to a domain fixture.
 - Fixtures prepare test data; they do not duplicate production business rules.
 - Database cleanup runs before and after every Cucumber scenario.

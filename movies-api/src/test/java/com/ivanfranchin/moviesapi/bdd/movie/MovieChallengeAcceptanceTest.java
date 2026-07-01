@@ -6,12 +6,12 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 
-public class MovieChallengeUseCaseTest {
+public class MovieChallengeAcceptanceTest {
 
     private final MovieCatalogFixture fixture;
     private final MovieChallengeUseCase movieChallenge;
 
-    public MovieChallengeUseCaseTest(MovieCatalogFixture fixture, MovieChallengeUseCase movieChallenge) {
+    public MovieChallengeAcceptanceTest(MovieCatalogFixture fixture, MovieChallengeUseCase movieChallenge) {
         this.fixture = fixture;
         this.movieChallenge = movieChallenge;
     }
@@ -24,6 +24,11 @@ public class MovieChallengeUseCaseTest {
     @Given("movie pair {string} and {string} is already completed for {string}")
     public void moviePairIsAlreadyCompletedFor(String firstMovieId, String secondMovieId, String username) {
         fixture.completeMoviePairChallenge(username, firstMovieId, secondMovieId);
+    }
+
+    @Given("movie {string} has already beaten movie {string} for {string}")
+    public void movieHasAlreadyBeatenMovieFor(String winnerId, String loserId, String username) {
+        fixture.recordWinnerLoser(username, winnerId, loserId);
     }
 
     @When("regular user {string} requests the next movie challenge")
@@ -44,13 +49,18 @@ public class MovieChallengeUseCaseTest {
         fixture.assertSelectedMovieChallengeContains(firstMovieId, secondMovieId);
     }
 
+    @Then("the movie challenge does not contain movies {string} and {string}")
+    public void theMovieChallengeDoesNotContainMoviesAnd(String firstMovieId, String secondMovieId) {
+        fixture.assertSelectedMovieChallengeDoesNotContain(firstMovieId, secondMovieId);
+    }
+
     @Then("no movie challenge is available")
     public void noMovieChallengeIsAvailable() {
         fixture.assertNoMovieChallengeAvailable();
     }
 
-    @Then("movie {string} has {int} vote(s) by {string}")
-    public void movieHasVotesBy(String imdbId, int count, String username) {
+    @Then("movie {string} has {int} transitive win(s) by {string}")
+    public void movieHasTransitiveWinsBy(String imdbId, int count, String username) {
         fixture.assertMovieVoteCount(imdbId, username, count);
     }
 
@@ -64,12 +74,13 @@ public class MovieChallengeUseCaseTest {
         fixture.assertMoviePairChallengeExists(username, firstMovieId, secondMovieId);
     }
 
-    @Then("movie pair {string} and {string} records movie1_wins {word} for {string}")
-    public void moviePairRecordsMovie1WinsFor(String firstMovieId,
-                                              String secondMovieId,
-                                              String movie1Wins,
-                                              String username) {
-        fixture.assertMoviePairChallengeMovie1Wins(username, firstMovieId, secondMovieId,
-                Boolean.parseBoolean(movie1Wins));
+    @Then("movie {string} is recorded as winner over {string} for {string}")
+    public void movieIsRecordedAsWinnerOverFor(String winnerId, String loserId, String username) {
+        fixture.assertDirectWinnerLoserExists(username, winnerId, loserId);
+    }
+
+    @Then("movie {string} is transitively ranked over {string} for {string}")
+    public void movieIsTransitivelyRankedOverFor(String winnerId, String loserId, String username) {
+        fixture.assertTransitiveWinnerLoserExists(username, winnerId, loserId);
     }
 }

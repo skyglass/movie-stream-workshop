@@ -12,14 +12,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
-public class ChangeOwnAvatarUseCaseTest {
+public class ChangeOwnAvatarAcceptanceTest {
 
     private final UserAccessFixture fixture;
     private final ChangeOwnAvatarUseCase changeOwnAvatar;
     private final MockMvc mockMvc;
     private final ObjectMapper objectMapper;
 
-    public ChangeOwnAvatarUseCaseTest(UserAccessFixture fixture,
+    public ChangeOwnAvatarAcceptanceTest(UserAccessFixture fixture,
                                       ChangeOwnAvatarUseCase changeOwnAvatar,
                                       MockMvc mockMvc,
                                       ObjectMapper objectMapper) {

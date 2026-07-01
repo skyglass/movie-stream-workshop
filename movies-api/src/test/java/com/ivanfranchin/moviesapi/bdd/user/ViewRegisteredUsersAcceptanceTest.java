@@ -7,12 +7,12 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
-public class ViewRegisteredUsersUseCaseTest {
+public class ViewRegisteredUsersAcceptanceTest {
 
     private final UserAccessFixture fixture;
     private final MockMvc mockMvc;
 
-    public ViewRegisteredUsersUseCaseTest(UserAccessFixture fixture, MockMvc mockMvc) {
+    public ViewRegisteredUsersAcceptanceTest(UserAccessFixture fixture, MockMvc mockMvc) {
         this.fixture = fixture;
         this.mockMvc = mockMvc;
     }

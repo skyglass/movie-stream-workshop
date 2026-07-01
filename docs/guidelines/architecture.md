@@ -25,7 +25,7 @@ Software Capability
   -> Software Activity
     -> Use Case ID / Gherkin Feature
       -> Gherkin Scenario
-        -> UseCaseTest
+        -> AcceptanceTest
           -> UseCaseApplicationService or API boundary
           -> Domain Fixture
             -> Domain Model / Repository
@@ -40,11 +40,11 @@ Use-case identity must be one-to-one across documentation, application services,
 ```text
 docs/capabilities/.../use-cases/add-movie-comment/
   -> AddMovieCommentUseCase
-  -> AddMovieCommentUseCaseTest
+  -> AddMovieCommentAcceptanceTest
 ```
 
 The docs folder keeps the use-case ID in dash-separated form. Java classes use the same use-case ID in CamelCase, with
-`UseCase` for the application service and `UseCaseTest` for the BDD test. Rename these together when a use-case ID
+`UseCase` for the application service and `AcceptanceTest` for the BDD test. Rename these together when a use-case ID
 changes.
 
 ## Use-case Folder Layout
@@ -61,7 +61,7 @@ movies-api/src/test/java/.../bdd/user/
 ```
 
 Do not repeat the full capability/activity/use-case tree in Java packages. The class name carries the use-case name
-(`ViewMovieCatalogUseCase`, `ViewMovieCatalogUseCaseTest`), while the domain folder (`movie` or `user`) keeps the source
+(`ViewMovieCatalogUseCase`, `ViewMovieCatalogAcceptanceTest`), while the domain folder (`movie` or `user`) keeps the source
 layout easy to scan. Use the same CamelCase stem for the application service and its BDD use-case test.
 
 Shared Cucumber infrastructure stays at `movies-api/src/test/java/com/ivanfranchin/moviesapi/bdd`. Domain-specific
@@ -73,15 +73,15 @@ use-case tests move into `bdd/movie` or `bdd/user`; fixtures and reusable step d
 Gherkin glue is organized around use cases, with a small shared step-definition class for steps that are genuinely reused
 across use cases.
 
-- Each use case has a corresponding `*UseCaseTest` class in `movies-api/src/test/java/com/ivanfranchin/moviesapi/bdd`.
-- The `*UseCaseTest` class name must match the use-case application service stem exactly: `AddMovieCommentUseCase` pairs with `AddMovieCommentUseCaseTest`.
+- Each use case has a corresponding `*AcceptanceTest` class in `movies-api/src/test/java/com/ivanfranchin/moviesapi/bdd`.
+- The `*AcceptanceTest` class name must match the use-case application service stem exactly: `AddMovieCommentUseCase` pairs with `AddMovieCommentAcceptanceTest`.
 - The matching `docs/capabilities` use-case folder uses the same stem in dash-separated form: `add-movie-comment`.
-- The `*UseCaseTest` class must read in the same Given/When/Then order as the corresponding `uc.feature` scenarios.
-- `@When` methods live in the corresponding `*UseCaseTest` class and invoke the use-case application service or the API boundary being tested.
-- `@When` methods are not reused across use cases. If a new use case has a similar action, give it its own `@When` in that use case's `*UseCaseTest`.
-- `@Given` and `@Then` methods that are specific to one use case stay in the corresponding `*UseCaseTest` class and delegate directly to the domain fixture.
+- The `*AcceptanceTest` class must read in the same Given/When/Then order as the corresponding `uc.feature` scenarios.
+- `@When` methods live in the corresponding `*AcceptanceTest` class and invoke the use-case application service or the API boundary being tested.
+- `@When` methods are not reused across use cases. If a new use case has a similar action, give it its own `@When` in that use case's `*AcceptanceTest`.
+- `@Given` and `@Then` methods that are specific to one use case stay in the corresponding `*AcceptanceTest` class and delegate directly to the domain fixture.
 - `@Given` and `@Then` methods move to `MovieCatalogStepDefinitions` or `UserAccessStepDefinitions` only after they are reused by more than one use case in that domain.
-- `MovieCatalogFixture` and `UserAccessFixture` expose domain setup, recorded-result, and assertion helpers. Use-case terminology belongs in `*UseCaseTest` step methods, not in fixture method names.
+- `MovieCatalogFixture` and `UserAccessFixture` expose domain setup, recorded-result, and assertion helpers. Use-case terminology belongs in `*AcceptanceTest` step methods, not in fixture method names.
 - Do not create one-line wrapper fixture classes per use case. Add another fixture only when there is real domain complexity that the current domain fixture should not own.
 - Keep domain step-definition classes small. They are for reusable setup/assertion vocabulary only, not for use-case-specific behavior.
 
@@ -94,7 +94,7 @@ across use cases.
 | Use-case folder and Gherkin `Feature:` | `view-movie-catalog` |
 | Java application service | `ViewMovieCatalogUseCase` |
 | Java service folder | `movie/application/service/` |
-| BDD use-case test class | `ViewMovieCatalogUseCaseTest` |
+| BDD use-case test class | `ViewMovieCatalogAcceptanceTest` |
 | BDD use-case test folder | `bdd/movie/` |
 | BDD fixture folder | `bdd/movie/fixture/` |
 | REST endpoint | `GET /api/movies` |

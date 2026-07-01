@@ -41,7 +41,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorizeHttpRequests -> authorizeHttpRequests
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/movies", "/api/movies/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/movies").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/movies/*").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/movies/*/comments").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/movies/*/recommendation").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/movie-challenges", "/api/movie-challenges/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)

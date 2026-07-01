@@ -189,3 +189,4 @@ deployment/env/**
 **/terraform.tfstate
 **/terraform.tfstate.backup
 **/terraform.auto.tfvars
+**/.terraform.tfstate.lock.info

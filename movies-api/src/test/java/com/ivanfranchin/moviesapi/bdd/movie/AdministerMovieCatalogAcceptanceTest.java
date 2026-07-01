@@ -12,14 +12,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
-public class AdministerMovieCatalogUseCaseTest {
+public class AdministerMovieCatalogAcceptanceTest {
 
     private final MovieCatalogFixture fixture;
     private final AdministerMovieCatalogUseCase administerMovieCatalog;
     private final MockMvc mockMvc;
     private final ObjectMapper objectMapper;
 
-    public AdministerMovieCatalogUseCaseTest(MovieCatalogFixture fixture,
+    public AdministerMovieCatalogAcceptanceTest(MovieCatalogFixture fixture,
                                              AdministerMovieCatalogUseCase administerMovieCatalog,
                                              MockMvc mockMvc,
                                              ObjectMapper objectMapper) {

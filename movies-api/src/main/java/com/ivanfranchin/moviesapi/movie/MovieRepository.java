@@ -13,62 +13,57 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
     @Query(value = """
             select m.*
             from movies m
-            join movie_user_votes votes on votes.movie_id = m.imdb_id
-            where votes.user_id = :username
-                and votes.vote_count > 0
-            order by votes.vote_count desc, m.title asc, m.imdb_id asc
+            join (
+                select winner_id, count(1) as win_count
+                from user_movie_winner_loser_all
+                where user_id = :username
+                group by winner_id
+            ) wins on wins.winner_id = m.imdb_id
+            order by wins.win_count desc, m.title asc, m.imdb_id asc
             """, nativeQuery = true)
     List<Movie> findFavoriteMoviesByUsername(@Param("username") String username);
 
     @Query(value = """
             select m.*
             from movies m
-            join movie_user_votes votes on votes.movie_id = m.imdb_id
+            join user_movie_winner_loser_all wins on wins.winner_id = m.imdb_id
             group by m.imdb_id, m.title, m.director, m.release_year, m.poster
-            having sum(votes.vote_count) > 0
-            order by sum(votes.vote_count) desc,
-                count(distinct votes.user_id) desc,
+            order by count(1) desc,
+                count(distinct wins.user_id) desc,
                 m.title asc,
                 m.imdb_id asc
             """, nativeQuery = true)
     List<Movie> findUsersFavoriteMovies();
 
     @Query(value = """
-            with relative_user_rating as (
-                select other_challenge.user_id,
-                    count(*) as relative_rating
-                from user_movie_pair_challenge current_challenge
-                join user_movie_pair_challenge other_challenge
-                    on other_challenge.movie1_id = current_challenge.movie1_id
-                    and other_challenge.movie2_id = current_challenge.movie2_id
-                    and other_challenge.movie1_wins = current_challenge.movie1_wins
-                    and other_challenge.user_id <> current_challenge.user_id
-                where current_challenge.user_id = :username
-                group by other_challenge.user_id
-            ),
-            total_relative_rating as (
-                select sum(relative_rating) as rating_sum
-                from relative_user_rating
-            )
             select m.*
             from movies m
-            join movie_user_votes votes on votes.movie_id = m.imdb_id
-            join relative_user_rating user_rating on user_rating.user_id = votes.user_id
-            cross join total_relative_rating total_rating
-            where votes.vote_count > 0
-                and total_rating.rating_sum > 0
-                and not exists (
+            join (
+                select user_id, winner_id as movie_id, count(1) as win_count
+                from user_movie_winner_loser_all
+                group by user_id, winner_id
+            ) wins on wins.movie_id = m.imdb_id
+            join (
+                select other_winner_loser.user_id,
+                    count(*) as relative_rating
+                from user_movie_winner_loser_all current_winner_loser
+                join user_movie_winner_loser_all other_winner_loser
+                    on other_winner_loser.winner_id = current_winner_loser.winner_id
+                    and other_winner_loser.loser_id = current_winner_loser.loser_id
+                    and other_winner_loser.user_id <> current_winner_loser.user_id
+                where current_winner_loser.user_id = :username
+                group by other_winner_loser.user_id
+            ) user_rating on user_rating.user_id = wins.user_id
+            where not exists (
                     select 1
                     from movie_recommendations recommendation
                     where recommendation.user_id = :username
                         and recommendation.movie_id = m.imdb_id
                 )
-            group by m.imdb_id, m.title, m.director, m.release_year, m.poster, total_rating.rating_sum
-            having sum(votes.vote_count * user_rating.relative_rating) > 0
-            order by cast(sum(votes.vote_count * user_rating.relative_rating) as decimal(19, 6))
-                    / total_rating.rating_sum desc,
-                sum(votes.vote_count * user_rating.relative_rating) desc,
-                count(distinct votes.user_id) desc,
+            group by m.imdb_id, m.title, m.director, m.release_year, m.poster
+            having sum(wins.win_count * user_rating.relative_rating) > 0
+            order by sum(wins.win_count * user_rating.relative_rating) desc,
+                count(distinct wins.user_id) desc,
                 m.title asc,
                 m.imdb_id asc
             """, nativeQuery = true)

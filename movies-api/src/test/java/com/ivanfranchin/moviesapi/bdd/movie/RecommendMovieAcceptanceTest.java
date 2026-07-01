@@ -8,13 +8,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
-public class RecommendMovieUseCaseTest {
+public class RecommendMovieAcceptanceTest {
 
     private final MovieCatalogFixture fixture;
     private final RecommendMovieUseCase recommendMovie;
     private final MockMvc mockMvc;
 
-    public RecommendMovieUseCaseTest(MovieCatalogFixture fixture,
+    public RecommendMovieAcceptanceTest(MovieCatalogFixture fixture,
                                      RecommendMovieUseCase recommendMovie,
                                      MockMvc mockMvc) {
         this.fixture = fixture;

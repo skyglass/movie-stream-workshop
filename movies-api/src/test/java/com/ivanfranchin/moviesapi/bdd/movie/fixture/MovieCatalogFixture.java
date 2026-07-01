@@ -62,8 +62,8 @@ public class MovieCatalogFixture {
     }
 
     public void clearMovies() {
-        jdbcTemplate.update("delete from movie_user_votes");
-        jdbcTemplate.update("delete from user_movie_pair_challenge");
+        jdbcTemplate.update("delete from user_movie_winner_loser_all");
+        jdbcTemplate.update("delete from user_movie_winner_loser");
         jdbcTemplate.update("delete from user_movie_challenge");
         movieRecommendationRepository.deleteAll();
         movieRecommendationRepository.flush();
@@ -114,7 +114,9 @@ public class MovieCatalogFixture {
 
     public void recommendMovie(String imdbId, String username) {
         ensureUser(username);
-        movieRecommendationRepository.saveAndFlush(new MovieRecommendation(username, imdbId));
+        if (!movieRecommendationRepository.existsByUsernameAndMovieImdbId(username, imdbId)) {
+            movieRecommendationRepository.saveAndFlush(new MovieRecommendation(username, imdbId));
+        }
     }
 
     public boolean movieIsRecommendedBy(String imdbId, String username) {
@@ -128,35 +130,37 @@ public class MovieCatalogFixture {
         }
     }
 
-    public void incrementVoteCount(String imdbId, String username, int times) {
-        ensureUser(username);
-        for (int i = 0; i < times; i++) {
-            movieChallengeRepository.incrementVoteCount(username, imdbId);
-        }
-    }
-
     public void completeMoviePairChallenge(String username, String firstMovieId, String secondMovieId) {
         ensureUser(username);
-        MoviePair pair = sortedPair(firstMovieId, secondMovieId);
-        assertTrue(movieChallengeRepository.insertPairChallenge(username, pair.movie1Id(), pair.movie2Id(), true));
+        recordWinnerLoser(username, firstMovieId, secondMovieId);
     }
 
-    public void recordMoviePairChallenge(String username,
-                                         String firstMovieId,
-                                         String secondMovieId,
-                                         boolean movie1Wins) {
+    public void recordWinnerLoser(String username, String winnerId, String loserId) {
         ensureUser(username);
-        MoviePair pair = sortedPair(firstMovieId, secondMovieId);
+        recommendMovie(winnerId, username);
+        recommendMovie(loserId, username);
         jdbcTemplate.update("""
-                delete from user_movie_pair_challenge
+                delete from user_movie_winner_loser
                 where user_id = ?
-                    and movie1_id = ?
-                    and movie2_id = ?
-                """, username, pair.movie1Id(), pair.movie2Id());
+                    and winner_id = ?
+                    and loser_id = ?
+                """, username, winnerId, loserId);
         jdbcTemplate.update("""
-                insert into user_movie_pair_challenge (user_id, movie1_id, movie2_id, movie1_wins)
-                values (?, ?, ?, ?)
-                """, username, pair.movie1Id(), pair.movie2Id(), movie1Wins);
+                insert into user_movie_winner_loser (user_id, winner_id, loser_id)
+                values (?, ?, ?)
+                """, username, winnerId, loserId);
+        movieChallengeRepository.insertWinnerLoserClosure(username, winnerId, loserId);
+    }
+
+    public void recordTransitiveWins(String imdbId, String username, int count) {
+        ensureUser(username);
+        for (int i = 1; i <= count; i++) {
+            String loserId = imdbId + "-loser-" + i + "-" + username;
+            if (!movieRepository.existsById(loserId)) {
+                saveMovie(loserId, "Synthetic Loser " + i + " for " + imdbId);
+            }
+            recordWinnerLoser(username, imdbId, loserId);
+        }
     }
 
     public void assertMovieListOrdersTitleBefore(String firstTitle, String secondTitle) {
@@ -205,6 +209,15 @@ public class MovieCatalogFixture {
         assertEquals(expected, actual);
     }
 
+    public void assertSelectedMovieChallengeDoesNotContain(String firstMovieId, String secondMovieId) {
+        assertNotNull(selectedMovieChallenge, "Expected a movie challenge to be available");
+        MoviePair unexpected = sortedPair(firstMovieId, secondMovieId);
+        MoviePair actual = sortedPair(
+                selectedMovieChallenge.movie1().imdbId(),
+                selectedMovieChallenge.movie2().imdbId());
+        assertFalse(unexpected.equals(actual), "Expected challenge not to contain " + unexpected);
+    }
+
     public void assertNoMovieChallengeAvailable() {
         assertNull(selectedMovieChallenge);
     }
@@ -218,17 +231,16 @@ public class MovieCatalogFixture {
     }
 
     public void assertMoviePairChallengeExists(String username, String firstMovieId, String secondMovieId) {
-        MoviePair pair = sortedPair(firstMovieId, secondMovieId);
-        assertTrue(movieChallengeRepository.pairChallengeExists(username, pair.movie1Id(), pair.movie2Id()));
+        assertTrue(movieChallengeRepository.transitiveWinnerLoserExists(username, firstMovieId, secondMovieId)
+                || movieChallengeRepository.transitiveWinnerLoserExists(username, secondMovieId, firstMovieId));
     }
 
-    public void assertMoviePairChallengeMovie1Wins(String username,
-                                                   String firstMovieId,
-                                                   String secondMovieId,
-                                                   boolean expectedMovie1Wins) {
-        MoviePair pair = sortedPair(firstMovieId, secondMovieId);
-        assertEquals(expectedMovie1Wins,
-                movieChallengeRepository.pairChallengeMovie1Wins(username, pair.movie1Id(), pair.movie2Id()));
+    public void assertDirectWinnerLoserExists(String username, String winnerId, String loserId) {
+        assertTrue(movieChallengeRepository.directWinnerLoserExists(username, winnerId, loserId));
+    }
+
+    public void assertTransitiveWinnerLoserExists(String username, String winnerId, String loserId) {
+        assertTrue(movieChallengeRepository.transitiveWinnerLoserExists(username, winnerId, loserId));
     }
 
     public void assertMovieListItemRecommendationIs(String imdbId, boolean recommended) {

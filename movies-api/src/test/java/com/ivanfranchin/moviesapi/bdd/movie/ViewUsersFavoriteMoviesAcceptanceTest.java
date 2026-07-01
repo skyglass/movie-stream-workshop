@@ -5,12 +5,12 @@ import com.ivanfranchin.moviesapi.movie.application.service.ViewUsersFavoriteMov
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 
-public class ViewUsersFavoriteMoviesUseCaseTest {
+public class ViewUsersFavoriteMoviesAcceptanceTest {
 
     private final MovieCatalogFixture fixture;
     private final ViewUsersFavoriteMoviesUseCase viewUsersFavoriteMovies;
 
-    public ViewUsersFavoriteMoviesUseCaseTest(MovieCatalogFixture fixture,
+    public ViewUsersFavoriteMoviesAcceptanceTest(MovieCatalogFixture fixture,
                                               ViewUsersFavoriteMoviesUseCase viewUsersFavoriteMovies) {
         this.fixture = fixture;
         this.viewUsersFavoriteMovies = viewUsersFavoriteMovies;

@@ -6,23 +6,20 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 
-public class ViewUsersRecommendedMoviesUseCaseTest {
+public class ViewUsersRecommendedMoviesAcceptanceTest {
 
     private final MovieCatalogFixture fixture;
     private final ViewUsersRecommendedMoviesUseCase viewUsersRecommendedMovies;
 
-    public ViewUsersRecommendedMoviesUseCaseTest(MovieCatalogFixture fixture,
+    public ViewUsersRecommendedMoviesAcceptanceTest(MovieCatalogFixture fixture,
                                                  ViewUsersRecommendedMoviesUseCase viewUsersRecommendedMovies) {
         this.fixture = fixture;
         this.viewUsersRecommendedMovies = viewUsersRecommendedMovies;
     }
 
-    @Given("user {string} has completed movie pair {string} and {string} with movie1_wins {word}")
-    public void userHasCompletedMoviePairWithMovie1Wins(String username,
-                                                        String firstMovieId,
-                                                        String secondMovieId,
-                                                        String movie1Wins) {
-        fixture.recordMoviePairChallenge(username, firstMovieId, secondMovieId, Boolean.parseBoolean(movie1Wins));
+    @Given("user {string} has already chosen {string} over {string} in movie challenges")
+    public void userHasAlreadyChosenOverInMovieChallenges(String username, String winnerId, String loserId) {
+        fixture.recordWinnerLoser(username, winnerId, loserId);
     }
 
     @When("regular user {string} requests users recommended movies")
