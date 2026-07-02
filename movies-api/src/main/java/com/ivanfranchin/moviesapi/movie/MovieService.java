@@ -3,11 +3,12 @@ package com.ivanfranchin.moviesapi.movie;
 import com.ivanfranchin.moviesapi.movie.exception.MovieNotFoundException;
 import com.ivanfranchin.moviesapi.movie.model.Movie;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @RequiredArgsConstructor
 @Service
@@ -21,23 +22,25 @@ public class MovieService {
     }
 
     @Transactional(readOnly = true)
-    public List<Movie> getMovies() {
-        return movieRepository.findAll(Sort.by(Sort.Direction.ASC, "title"));
+    public Page<Movie> getMovies(Pageable pageable) {
+        Sort titleSort = Sort.by(Sort.Direction.ASC, "title").and(Sort.by(Sort.Direction.ASC, "imdbId"));
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), titleSort);
+        return movieRepository.findAll(sortedPageable);
     }
 
     @Transactional(readOnly = true)
-    public List<Movie> getFavoriteMovies(String username) {
-        return movieRepository.findFavoriteMoviesByUsername(username);
+    public Page<Movie> getFavoriteMovies(String username, Pageable pageable) {
+        return movieRepository.findFavoriteMoviesByUsername(username, pageable);
     }
 
     @Transactional(readOnly = true)
-    public List<Movie> getUsersFavoriteMovies() {
-        return movieRepository.findUsersFavoriteMovies();
+    public Page<Movie> getUsersFavoriteMovies(Pageable pageable) {
+        return movieRepository.findUsersFavoriteMovies(pageable);
     }
 
     @Transactional(readOnly = true)
-    public List<Movie> getUsersRecommendedMovies(String username) {
-        return movieRepository.findUsersRecommendedMoviesByUsername(username);
+    public Page<Movie> getUsersRecommendedMovies(String username, Pageable pageable) {
+        return movieRepository.findUsersRecommendedMoviesByUsername(username, pageable);
     }
 
     @Transactional

@@ -2,13 +2,13 @@ package com.ivanfranchin.moviesapi.movie.application.service;
 
 import com.ivanfranchin.moviesapi.movie.MovieRecommendationService;
 import com.ivanfranchin.moviesapi.movie.MovieService;
-import com.ivanfranchin.moviesapi.movie.dto.MovieDto;
+import com.ivanfranchin.moviesapi.movie.dto.MoviePageDto;
 import com.ivanfranchin.moviesapi.movie.mapper.MovieDtoMapper;
 import com.ivanfranchin.moviesapi.userextra.UserExtraService;
 import com.ivanfranchin.moviesapi.userextra.model.UserExtra;
-import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,16 +23,19 @@ public class ViewUsersFavoriteMoviesUseCase {
     private final UserExtraService userExtraService;
 
     @Transactional
-    public List<MovieDto> viewUsersFavoriteMovies(Jwt jwt) {
+    public MoviePageDto viewUsersFavoriteMovies(Jwt jwt, Pageable pageable) {
         UserExtra userExtra = userExtraService.syncFromJwt(jwt);
-        return viewUsersFavoriteMovies(userExtra.getUsername());
+        return viewUsersFavoriteMovies(userExtra.getUsername(), pageable);
     }
 
     @Transactional(readOnly = true)
-    public List<MovieDto> viewUsersFavoriteMovies(String username) {
+    public MoviePageDto viewUsersFavoriteMovies(String username, Pageable pageable) {
         Set<String> recommendedMovieIds = movieRecommendationService.recommendedMovieIds(username);
-        return movieService.getUsersFavoriteMovies().stream()
-                .map(movie -> movieMapper.toMovieDto(movie, recommendedMovieIds.contains(movie.getImdbId())))
-                .toList();
+        var movies = movieService.getUsersFavoriteMovies(pageable);
+        return new MoviePageDto(
+                movies.getContent().stream()
+                        .map(movie -> movieMapper.toMovieDto(movie, recommendedMovieIds.contains(movie.getImdbId())))
+                        .toList(),
+                movies.getTotalElements());
     }
 }

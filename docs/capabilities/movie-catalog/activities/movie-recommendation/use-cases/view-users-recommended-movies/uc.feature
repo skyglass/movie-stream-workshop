@@ -35,3 +35,21 @@ Feature: view-users-recommended-movies
     And movie "tt101" has already won 5 challenge comparisons for "admin"
     When regular user "user" requests users recommended movies
     Then users recommended movies contain 0 movies
+
+  Scenario: Users recommended movies second page keeps total recommendation count
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt201" exists with title "Pair One"
+    And movie "tt202" exists with title "Pair Two"
+    And user "user" has already chosen "tt201" over "tt202" in movie challenges
+    And user "alice" has already chosen "tt201" over "tt202" in movie challenges
+    And movie "tt101" has already won 4 challenge comparisons for "alice"
+    And movie "tt102" has already won 3 challenge comparisons for "alice"
+    And movie "tt103" has already won 2 challenge comparisons for "alice"
+    And movie "tt104" has already won 1 challenge comparison for "alice"
+    When regular user "user" requests page 2 of users recommended movies with 3 movies per page
+    Then users recommended movies contain 1 movies
+    And users recommended movies total count is 4
+    And users recommended movies contain movie "tt104"

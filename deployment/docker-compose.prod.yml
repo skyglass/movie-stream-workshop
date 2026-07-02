@@ -115,6 +115,7 @@ services:
       EXPECTED_AUDIENCE: movies-api
       JWT_AUTH_RESOURCE_ID: movies-ui
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
+      MOVIES_PER_PAGE: ${MOVIES_PER_PAGE}
       JAVA_OPTS: ${JAVA_OPTS}
     depends_on:
       postgres-movies:

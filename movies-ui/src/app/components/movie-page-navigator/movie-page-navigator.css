@@ -1,0 +1,43 @@
+.page-navigator {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.page-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.page-link {
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #244c73;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.page-link:hover {
+  border-color: #7aaad4;
+  background: #f3f9ff;
+}
+
+.page-link.active {
+  border-color: #244c73;
+  background: #244c73;
+  color: #ffffff;
+  cursor: default;
+}
+
+.page-step {
+  min-width: 5.5rem;
+}

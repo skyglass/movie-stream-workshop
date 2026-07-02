@@ -36,6 +36,11 @@
         </article>
       }
     </div>
+    <app-movie-page-navigator
+      [currentPage]="currentPage"
+      [totalCount]="totalCount"
+      [pageSize]="pageSize"
+      (pageChange)="loadUsersRecommendedMovies($event)" />
   } @else {
     <div class="empty">No users recommended movies yet</div>
   }

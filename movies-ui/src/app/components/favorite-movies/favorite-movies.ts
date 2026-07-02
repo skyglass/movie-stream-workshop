@@ -4,11 +4,12 @@ import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { Movie, MoviesApiService } from '../../services/movies-api';
+import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 
 @Component({
   standalone: true,
   selector: 'app-favorite-movies',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent],
   templateUrl: './favorite-movies.html',
   styleUrl: './favorite-movies.css'
 })
@@ -20,16 +21,21 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   movies: Movie[] = [];
   loading = false;
   errorMessage = '';
+  currentPage = 1;
+  totalCount = 0;
+  readonly pageSize = this.moviesApi.moviePageSize;
 
   ngOnInit(): void {
     if (this.auth.token) {
-      this.loadFavoriteMovies();
+      this.loadFavoriteMovies(1);
     }
     this.authSub = this.auth.isAuthenticated$.subscribe(authenticated => {
       if (authenticated) {
-        this.loadFavoriteMovies();
+        this.loadFavoriteMovies(1);
       } else {
         this.movies = [];
+        this.totalCount = 0;
+        this.currentPage = 1;
       }
     });
   }
@@ -38,12 +44,14 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     this.authSub?.unsubscribe();
   }
 
-  loadFavoriteMovies(): void {
+  loadFavoriteMovies(page = this.currentPage): void {
     this.loading = true;
     this.errorMessage = '';
-    this.moviesApi.listFavoriteMovies().subscribe({
-      next: movies => {
-        this.movies = movies;
+    this.moviesApi.listFavoriteMovies(page, this.pageSize).subscribe({
+      next: moviePage => {
+        this.movies = moviePage.movies;
+        this.totalCount = moviePage.totalCount;
+        this.currentPage = page;
         this.loading = false;
       },
       error: err => {

@@ -4,11 +4,12 @@ import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { Movie, MoviesApiService } from '../../services/movies-api';
+import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 
 @Component({
   standalone: true,
   selector: 'app-users-recommended-movies',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent],
   templateUrl: './users-recommended-movies.html',
   styleUrl: './users-recommended-movies.css'
 })
@@ -20,16 +21,21 @@ export class UsersRecommendedMoviesComponent implements OnInit, OnDestroy {
   movies: Movie[] = [];
   loading = false;
   errorMessage = '';
+  currentPage = 1;
+  totalCount = 0;
+  readonly pageSize = this.moviesApi.moviePageSize;
 
   ngOnInit(): void {
     if (this.auth.token) {
-      this.loadUsersRecommendedMovies();
+      this.loadUsersRecommendedMovies(1);
     }
     this.authSub = this.auth.isAuthenticated$.subscribe(authenticated => {
       if (authenticated) {
-        this.loadUsersRecommendedMovies();
+        this.loadUsersRecommendedMovies(1);
       } else {
         this.movies = [];
+        this.totalCount = 0;
+        this.currentPage = 1;
       }
     });
   }
@@ -38,12 +44,14 @@ export class UsersRecommendedMoviesComponent implements OnInit, OnDestroy {
     this.authSub?.unsubscribe();
   }
 
-  loadUsersRecommendedMovies(): void {
+  loadUsersRecommendedMovies(page = this.currentPage): void {
     this.loading = true;
     this.errorMessage = '';
-    this.moviesApi.listUsersRecommendedMovies().subscribe({
-      next: movies => {
-        this.movies = movies;
+    this.moviesApi.listUsersRecommendedMovies(page, this.pageSize).subscribe({
+      next: moviePage => {
+        this.movies = moviePage.movies;
+        this.totalCount = moviePage.totalCount;
+        this.currentPage = page;
         this.loading = false;
       },
       error: err => {

@@ -66,6 +66,11 @@
         </article>
       }
     </div>
+    <app-movie-page-navigator
+      [currentPage]="currentPage"
+      [totalCount]="totalCount"
+      [pageSize]="pageSize"
+      (pageChange)="loadMovies($event)" />
   } @else {
     <div class="empty">No movies</div>
   }

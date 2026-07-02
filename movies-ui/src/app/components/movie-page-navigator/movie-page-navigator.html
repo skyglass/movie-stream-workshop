@@ -1,0 +1,22 @@
+@if (totalPages > 1) {
+  <nav class="page-navigator" aria-label="Movie pages">
+    @if (hasPrevious) {
+      <button type="button" class="page-link page-step" (click)="goToPage(currentPage - 1)">Previous</button>
+    }
+    <div class="page-numbers">
+      @for (page of pages(); track page) {
+        <button
+          type="button"
+          class="page-link"
+          [class.active]="page === currentPage"
+          [attr.aria-current]="page === currentPage ? 'page' : null"
+          (click)="goToPage(page)">
+          {{ page }}
+        </button>
+      }
+    </div>
+    @if (hasNext) {
+      <button type="button" class="page-link page-step" (click)="goToPage(currentPage + 1)">Next</button>
+    }
+  </nav>
+}

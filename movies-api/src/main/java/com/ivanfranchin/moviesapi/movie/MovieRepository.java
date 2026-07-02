@@ -1,7 +1,8 @@
 package com.ivanfranchin.moviesapi.movie;
 
 import com.ivanfranchin.moviesapi.movie.model.Movie;
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,8 +21,16 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 group by winner_id
             ) wins on wins.winner_id = m.imdb_id
             order by wins.win_count desc, m.title asc, m.imdb_id asc
+            """, countQuery = """
+            select count(1)
+            from (
+                select winner_id
+                from user_movie_winner_loser_all
+                where user_id = :username
+                group by winner_id
+            ) favorite_movies
             """, nativeQuery = true)
-    List<Movie> findFavoriteMoviesByUsername(@Param("username") String username);
+    Page<Movie> findFavoriteMoviesByUsername(@Param("username") String username, Pageable pageable);
 
     @Query(value = """
             select m.*
@@ -32,8 +41,15 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 count(distinct wins.user_id) desc,
                 m.title asc,
                 m.imdb_id asc
+            """, countQuery = """
+            select count(1)
+            from (
+                select winner_id
+                from user_movie_winner_loser_all
+                group by winner_id
+            ) users_favorite_movies
             """, nativeQuery = true)
-    List<Movie> findUsersFavoriteMovies();
+    Page<Movie> findUsersFavoriteMovies(Pageable pageable);
 
     @Query(value = """
             select m.*
@@ -66,6 +82,35 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 count(distinct wins.user_id) desc,
                 m.title asc,
                 m.imdb_id asc
+            """, countQuery = """
+            select count(1)
+            from (
+                select wins.movie_id
+                from (
+                    select user_id, winner_id as movie_id, count(1) as win_count
+                    from user_movie_winner_loser_all
+                    group by user_id, winner_id
+                ) wins
+                join (
+                    select other_winner_loser.user_id,
+                        count(*) as relative_rating
+                    from user_movie_winner_loser_all current_winner_loser
+                    join user_movie_winner_loser_all other_winner_loser
+                        on other_winner_loser.winner_id = current_winner_loser.winner_id
+                        and other_winner_loser.loser_id = current_winner_loser.loser_id
+                        and other_winner_loser.user_id <> current_winner_loser.user_id
+                    where current_winner_loser.user_id = :username
+                    group by other_winner_loser.user_id
+                ) user_rating on user_rating.user_id = wins.user_id
+                where not exists (
+                        select 1
+                        from movie_recommendations recommendation
+                        where recommendation.user_id = :username
+                            and recommendation.movie_id = wins.movie_id
+                    )
+                group by wins.movie_id
+                having sum(wins.win_count * user_rating.relative_rating) > 0
+            ) users_recommended_movies
             """, nativeQuery = true)
-    List<Movie> findUsersRecommendedMoviesByUsername(@Param("username") String username);
+    Page<Movie> findUsersRecommendedMoviesByUsername(@Param("username") String username, Pageable pageable);
 }

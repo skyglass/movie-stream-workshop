@@ -11,6 +11,7 @@ import com.ivanfranchin.moviesapi.movie.application.service.ViewMovieCatalogUseC
 import com.ivanfranchin.moviesapi.movie.application.service.ViewMovieDetailsUseCase;
 import com.ivanfranchin.moviesapi.movie.dto.CreateMovieRequest;
 import com.ivanfranchin.moviesapi.movie.dto.MovieDto;
+import com.ivanfranchin.moviesapi.movie.dto.MoviePageDto;
 import com.ivanfranchin.moviesapi.userextra.dto.UpdateMovieRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -26,11 +27,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
-import java.util.List;
 
 import static com.ivanfranchin.moviesapi.config.SwaggerConfig.BEARER_KEY_SECURITY_SCHEME;
 
@@ -45,11 +46,15 @@ public class MoviesController {
     private final AddMovieCommentUseCase addMovieComment;
     private final AdministerMovieCatalogUseCase administerMovieCatalog;
     private final RecommendMovieUseCase recommendMovie;
+    private final MoviePaging moviePaging;
 
     @GetMapping
-    public List<MovieDto> getMovies(@AuthenticationPrincipal Jwt jwt) {
+    public MoviePageDto getMovies(@AuthenticationPrincipal Jwt jwt,
+                                  @RequestParam(required = false) Integer page,
+                                  @RequestParam(required = false) Integer pageSize) {
         String username = username(jwt);
-        return username == null ? viewMovieCatalog.viewCatalog() : viewMovieCatalog.viewCatalog(username);
+        var pageable = moviePaging.pageable(page, pageSize);
+        return username == null ? viewMovieCatalog.viewCatalog(pageable) : viewMovieCatalog.viewCatalog(username, pageable);
     }
 
     @GetMapping("/{imdbId}")

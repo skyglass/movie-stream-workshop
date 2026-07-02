@@ -5,11 +5,14 @@ import com.ivanfranchin.moviesapi.movie.MovieRepository;
 import com.ivanfranchin.moviesapi.movie.MovieRecommendationRepository;
 import com.ivanfranchin.moviesapi.movie.dto.MovieChallengeDto;
 import com.ivanfranchin.moviesapi.movie.dto.MovieDto;
+import com.ivanfranchin.moviesapi.movie.dto.MoviePageDto;
 import com.ivanfranchin.moviesapi.movie.model.Movie;
 import com.ivanfranchin.moviesapi.movie.model.MovieComment;
 import com.ivanfranchin.moviesapi.movie.model.MovieRecommendation;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MvcResult;
@@ -29,6 +32,7 @@ public class MovieCatalogFixture {
     private final MovieChallengeRepository movieChallengeRepository;
     private final JdbcTemplate jdbcTemplate;
     private List<MovieDto> movieList;
+    private long movieListTotalCount;
     private MovieDto selectedMovie;
     private MovieChallengeDto selectedMovieChallenge;
     private RuntimeException lastError;
@@ -53,6 +57,7 @@ public class MovieCatalogFixture {
 
     public void resetScenarioState() {
         movieList = null;
+        movieListTotalCount = 0;
         selectedMovie = null;
         selectedMovieChallenge = null;
         lastError = null;
@@ -75,6 +80,13 @@ public class MovieCatalogFixture {
         clearMovies();
         saveMovie("tt-fixture-1", firstTitle);
         saveMovie("tt-fixture-2", secondTitle);
+    }
+
+    public void saveNumberedMovies(int count) {
+        clearMovies();
+        for (int i = 1; i <= count; i++) {
+            saveMovie("tt-page-" + i, "Movie " + "%02d".formatted(i));
+        }
     }
 
     public Movie saveMovie(String imdbId, String title) {
@@ -180,8 +192,17 @@ public class MovieCatalogFixture {
         assertFalse(imdbIds.contains(imdbId), "Expected movie list not to contain " + imdbId + " but got " + imdbIds);
     }
 
+    public void assertMovieListContainsImdbId(String imdbId) {
+        List<String> imdbIds = movieList.stream().map(MovieDto::imdbId).toList();
+        assertTrue(imdbIds.contains(imdbId), "Expected movie list to contain " + imdbId + " but got " + imdbIds);
+    }
+
     public void assertMovieListSizeIs(int count) {
         assertEquals(count, movieList.size());
+    }
+
+    public void assertMovieListTotalCountIs(long count) {
+        assertEquals(count, movieListTotalCount);
     }
 
     public void assertSelectedMovieTitleIs(String title) {
@@ -299,8 +320,22 @@ public class MovieCatalogFixture {
                 .authorities(new SimpleGrantedAuthority("ROLE_" + currentRole));
     }
 
+    public Pageable firstMoviePage() {
+        return moviePage(1, 50);
+    }
+
+    public Pageable moviePage(int page, int pageSize) {
+        return PageRequest.of(page - 1, pageSize);
+    }
+
+    public void moviePage(MoviePageDto moviePage) {
+        this.movieList = moviePage.movies();
+        this.movieListTotalCount = moviePage.totalCount();
+    }
+
     public void movieList(List<MovieDto> movieList) {
         this.movieList = movieList;
+        this.movieListTotalCount = movieList.size();
     }
 
     public void selectedMovie(MovieDto selectedMovie) {

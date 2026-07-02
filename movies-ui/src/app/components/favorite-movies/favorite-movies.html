@@ -36,6 +36,11 @@
         </article>
       }
     </div>
+    <app-movie-page-navigator
+      [currentPage]="currentPage"
+      [totalCount]="totalCount"
+      [pageSize]="pageSize"
+      (pageChange)="loadFavoriteMovies($event)" />
   } @else {
     <div class="empty">Complete Movie Challenges to discover your favorite movies</div>
   }

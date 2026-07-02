@@ -15,3 +15,10 @@ Feature: view-movie-catalog
     And movie "tt0083658" is already recommended by "user"
     When regular user "user" requests the personalized movie catalog
     Then catalog movie "tt0083658" is marked recommended
+
+  Scenario: Catalog page returns the requested slice and total count
+    Given the movie catalog contains 5 titled movies
+    When the viewer requests page 2 of the movie catalog with 2 movies per page
+    Then the catalog discovery list contains 2 movies
+    And the catalog discovery list total count is 5
+    And the catalog discovery list shows "Movie 03" before "Movie 04"

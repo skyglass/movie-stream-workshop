@@ -4,11 +4,12 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth';
 import { MoviesApiService, Movie } from '../../services/movies-api';
 import { Subscription } from 'rxjs';
+import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 
 @Component({
   standalone: true,
   selector: 'app-movies-home',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent],
   templateUrl: './movies-home.html',
   styleUrl: './movies-home.css'
 })
@@ -19,12 +20,15 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   movies: Movie[] = [];
   loading = false;
   errorMessage = '';
+  currentPage = 1;
+  totalCount = 0;
+  readonly pageSize = this.moviesApi.moviePageSize;
   recommendationBusy: Record<string, boolean> = {};
   private authSub?: Subscription;
 
   ngOnInit(): void {
     this.authSub = this.auth.isAuthenticated$.subscribe(() => {
-      this.loadMovies();
+      this.loadMovies(1);
     });
   }
 
@@ -32,12 +36,14 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
     this.authSub?.unsubscribe();
   }
 
-  loadMovies(): void {
+  loadMovies(page = this.currentPage): void {
     this.loading = true;
     this.errorMessage = '';
-    this.moviesApi.listMovies().subscribe({
-      next: movies => {
-        this.movies = movies;
+    this.moviesApi.listMovies(page, this.pageSize).subscribe({
+      next: moviePage => {
+        this.movies = moviePage.movies;
+        this.totalCount = moviePage.totalCount;
+        this.currentPage = page;
         this.loading = false;
       },
       error: err => {

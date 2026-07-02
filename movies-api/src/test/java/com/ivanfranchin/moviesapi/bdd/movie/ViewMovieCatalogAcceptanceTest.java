@@ -23,12 +23,17 @@ public class ViewMovieCatalogAcceptanceTest {
 
     @When("the viewer requests the movie catalog")
     public void theViewerRequestsTheMovieCatalog() {
-        fixture.movieList(viewMovieCatalog.viewCatalog());
+        fixture.moviePage(viewMovieCatalog.viewCatalog(fixture.firstMoviePage()));
     }
 
     @When("regular user {string} requests the personalized movie catalog")
     public void regularUserRequestsThePersonalizedMovieCatalog(String username) {
-        fixture.movieList(viewMovieCatalog.viewCatalog(username));
+        fixture.moviePage(viewMovieCatalog.viewCatalog(username, fixture.firstMoviePage()));
+    }
+
+    @When("the viewer requests page {int} of the movie catalog with {int} movies per page")
+    public void theViewerRequestsPageOfTheMovieCatalogWithMoviesPerPage(int page, int pageSize) {
+        fixture.moviePage(viewMovieCatalog.viewCatalog(fixture.moviePage(page, pageSize)));
     }
 
     @Then("the catalog discovery list shows {string} before {string}")
@@ -39,6 +44,11 @@ public class ViewMovieCatalogAcceptanceTest {
     @Then("the catalog discovery list contains {int} movies")
     public void theCatalogDiscoveryListContainsMovies(int count) {
         fixture.assertMovieListSizeIs(count);
+    }
+
+    @Then("the catalog discovery list total count is {int}")
+    public void theCatalogDiscoveryListTotalCountIs(int count) {
+        fixture.assertMovieListTotalCountIs(count);
     }
 
     @Then("catalog movie {string} is marked recommended")

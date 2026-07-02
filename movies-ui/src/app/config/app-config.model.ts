@@ -10,6 +10,7 @@ export interface AppConfig {
   favoriteMoviesPath: string;
   usersFavoriteMoviesPath: string;
   usersRecommendedMoviesPath: string;
+  moviesPerPage?: number | string;
   userExtrasPath: string;
   usersApiPath: string;
   omdbBaseUrl: string;

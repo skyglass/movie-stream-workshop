@@ -20,6 +20,11 @@ export interface Movie {
   comments: MovieComment[];
 }
 
+export interface MoviePage {
+  movies: Movie[];
+  totalCount: number;
+}
+
 export interface MovieUser {
   username: string;
   email: string;
@@ -68,20 +73,25 @@ export class MoviesApiService {
     this.usersBase = `${c.apiBaseUrl}${c.usersApiPath}`;
   }
 
-  listMovies(): Observable<Movie[]> {
-    return this.http.get<Movie[]>(this.moviesBase);
+  get moviePageSize(): number {
+    const configuredPageSize = Number(this.cfg.config.moviesPerPage ?? 50);
+    return Number.isFinite(configuredPageSize) && configuredPageSize > 0 ? Math.floor(configuredPageSize) : 50;
   }
 
-  listFavoriteMovies(): Observable<Movie[]> {
-    return this.http.get<Movie[]>(this.favoriteMoviesBase);
+  listMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.moviesBase, { params: this.pageParams(page, pageSize) });
   }
 
-  listUsersFavoriteMovies(): Observable<Movie[]> {
-    return this.http.get<Movie[]>(this.usersFavoriteMoviesBase);
+  listFavoriteMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.favoriteMoviesBase, { params: this.pageParams(page, pageSize) });
   }
 
-  listUsersRecommendedMovies(): Observable<Movie[]> {
-    return this.http.get<Movie[]>(this.usersRecommendedMoviesBase);
+  listUsersFavoriteMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.usersFavoriteMoviesBase, { params: this.pageParams(page, pageSize) });
+  }
+
+  listUsersRecommendedMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.usersRecommendedMoviesBase, { params: this.pageParams(page, pageSize) });
   }
 
   getMovie(imdbId: string): Observable<Movie> {
@@ -141,5 +151,12 @@ export class MoviesApiService {
       t: title
     });
     return this.http.get<OmdbMovie>(`${c.omdbBaseUrl}?${params.toString()}`);
+  }
+
+  private pageParams(page: number, pageSize: number): Record<string, string> {
+    return {
+      page: String(page),
+      pageSize: String(pageSize)
+    };
   }
 }

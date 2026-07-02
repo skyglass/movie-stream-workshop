@@ -10,6 +10,7 @@
   "favoriteMoviesPath": "/api/movies/favorite-movies",
   "usersFavoriteMoviesPath": "/api/movies/users-favorite-movies",
   "usersRecommendedMoviesPath": "/api/movies/users-recommended-movies",
+  "moviesPerPage": 50,
   "userExtrasPath": "/api/movies/userextras",
   "usersApiPath": "/api/movies/users",
   "omdbBaseUrl": "https://www.omdbapi.com/",

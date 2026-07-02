@@ -24,7 +24,12 @@ public class ViewUsersRecommendedMoviesAcceptanceTest {
 
     @When("regular user {string} requests users recommended movies")
     public void regularUserRequestsUsersRecommendedMovies(String username) {
-        fixture.movieList(viewUsersRecommendedMovies.viewUsersRecommendedMovies(username));
+        fixture.moviePage(viewUsersRecommendedMovies.viewUsersRecommendedMovies(username, fixture.firstMoviePage()));
+    }
+
+    @When("regular user {string} requests page {int} of users recommended movies with {int} movies per page")
+    public void regularUserRequestsPageOfUsersRecommendedMoviesWithMoviesPerPage(String username, int page, int pageSize) {
+        fixture.moviePage(viewUsersRecommendedMovies.viewUsersRecommendedMovies(username, fixture.moviePage(page, pageSize)));
     }
 
     @Then("users recommended movies show {string} before {string}")
@@ -40,5 +45,15 @@ public class ViewUsersRecommendedMoviesAcceptanceTest {
     @Then("users recommended movies contain {int} movies")
     public void usersRecommendedMoviesContainMovies(int count) {
         fixture.assertMovieListSizeIs(count);
+    }
+
+    @Then("users recommended movies total count is {int}")
+    public void usersRecommendedMoviesTotalCountIs(int count) {
+        fixture.assertMovieListTotalCountIs(count);
+    }
+
+    @Then("users recommended movies contain movie {string}")
+    public void usersRecommendedMoviesContainMovie(String imdbId) {
+        fixture.assertMovieListContainsImdbId(imdbId);
     }
 }
