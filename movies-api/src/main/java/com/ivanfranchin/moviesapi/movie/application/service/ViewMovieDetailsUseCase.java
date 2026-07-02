@@ -25,6 +25,9 @@ public class ViewMovieDetailsUseCase {
     @Transactional(readOnly = true)
     public MovieDto viewMovie(String imdbId, String username) {
         Movie movie = movieService.validateAndGetMovie(imdbId);
-        return movieMapper.toMovieDto(movie, movieRecommendationService.isRecommended(username, imdbId));
+        return movieMapper.toMovieDto(
+                movie,
+                movieRecommendationService.isRecommended(username, imdbId),
+                movieRecommendationService.isDisliked(username, imdbId));
     }
 }

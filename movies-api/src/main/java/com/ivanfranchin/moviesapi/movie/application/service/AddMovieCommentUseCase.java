@@ -27,7 +27,10 @@ public class AddMovieCommentUseCase {
         Movie movie = movieService.validateAndGetMovie(command.imdbId());
         movie.addComment(new MovieComment(command.username(), command.text(), Instant.now()));
         Movie savedMovie = movieService.saveMovie(movie);
-        return movieMapper.toMovieDto(savedMovie, movieRecommendationService.isRecommended(command.username(), command.imdbId()));
+        return movieMapper.toMovieDto(
+                savedMovie,
+                movieRecommendationService.isRecommended(command.username(), command.imdbId()),
+                movieRecommendationService.isDisliked(command.username(), command.imdbId()));
     }
 
     public record AddCommentCommand(String imdbId, String username, String text) {

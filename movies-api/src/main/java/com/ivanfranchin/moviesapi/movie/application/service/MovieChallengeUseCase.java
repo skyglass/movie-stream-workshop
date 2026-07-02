@@ -42,7 +42,7 @@ public class MovieChallengeUseCase {
         }
 
         String loserId = selectedMovieId.equals(movie1Id) ? movie2Id : movie1Id;
-        if (!movieChallengeRepository.insertWinnerLoser(username, selectedMovieId, loserId)) {
+        if (!movieChallengeRepository.canRecordWinnerLoser(username, selectedMovieId, loserId)) {
             throw new MovieChallengeUnavailableException();
         }
 

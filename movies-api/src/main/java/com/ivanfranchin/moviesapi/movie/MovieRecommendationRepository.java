@@ -9,9 +9,13 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface MovieRecommendationRepository extends JpaRepository<MovieRecommendation, MovieRecommendationId> {
 
-    boolean existsByUsernameAndMovieImdbId(String username, String movieImdbId);
+    boolean existsByUsernameAndMovieImdbIdAndPositiveTrue(String username, String movieImdbId);
+
+    boolean existsByUsernameAndMovieImdbIdAndPositiveFalse(String username, String movieImdbId);
 
     void deleteByUsernameAndMovieImdbId(String username, String movieImdbId);
 
-    List<MovieRecommendation> findByUsername(String username);
+    List<MovieRecommendation> findByUsernameAndPositiveTrue(String username);
+
+    List<MovieRecommendation> findByUsernameAndPositiveFalse(String username);
 }

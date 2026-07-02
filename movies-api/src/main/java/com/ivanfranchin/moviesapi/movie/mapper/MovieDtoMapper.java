@@ -22,6 +22,10 @@ public class MovieDtoMapper {
     }
 
     public MovieDto toMovieDto(Movie movie, boolean recommended) {
+        return toMovieDto(movie, recommended, false);
+    }
+
+    public MovieDto toMovieDto(Movie movie, boolean recommended, boolean disliked) {
         List<MovieDto.CommentDto> comments = movie.getComments().stream()
                 .map(this::toMovieDtoCommentDto)
                 .toList();
@@ -33,6 +37,7 @@ public class MovieDtoMapper {
                 movie.getYear(),
                 movie.getPoster(),
                 recommended,
+                disliked,
                 comments
         );
     }

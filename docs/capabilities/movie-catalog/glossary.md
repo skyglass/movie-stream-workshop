@@ -9,7 +9,8 @@
 | Movie details | The selected movie plus its comments.                                           |
 | Comment | Authenticated user feedback attached to a movie.                                |
 | Comment author | Username from the authenticated principal at the time the comment is created.   |
-| Recommendation | Authenticated user's persisted endorsement of one movie.                        |
+| Recommendation | Authenticated user's persisted positive endorsement of one movie.               |
+| Disliked movie | Authenticated user's persisted negative feedback for one movie.                 |
 | Movie challenge | A two-movie comparison chosen from a user's recommended movies.                 |
 | Completed challenge pair | Alphabetically sorted recommended movie pair already shown to a user.           |
 | Challenge count | Number of times a movie has appeared in that user's movie challenges.           |
@@ -18,6 +19,6 @@
 | Users favorite movie | Community favorite movie ordered by total Movie Challenge votes across users.   |
 | Relative user rating | Count of completed challenge pairs where another user chose the same winner as the current user. |
 | Weighted movie rating | Other users' movie votes multiplied by their relative user rating and divided by the current user's total relative rating. |
-| Users recommended movie | Movie not yet recommended by the current user, ordered by weighted movie rating from similar users. |
+| Users recommended movie | Movie not yet recommended or disliked by the current user, ordered by weighted movie rating from similar users. |
 | Poster fallback | Local placeholder image used when the poster URL is empty or `N/A`.             |
 | Catalog administration | Admin-only ability to view Admin Menu and Registered Users.                     |

@@ -49,8 +49,8 @@ but controllers delegate use-case behavior to services named after the use case.
 | `view-movie-details` | `GET /api/movies/{imdbId}` | `ViewMovieDetailsUseCase` | `MOVIE` aggregate |
 | `add-movie-to-catalog` | `POST /api/movies` | `AddMovieToCatalogUseCase` | `MOVIE` aggregate |
 | `add-movie-comment` | `POST /api/movies/{imdbId}/comments` | `AddMovieCommentUseCase` | `MOVIE_COMMENT` child entity |
-| `recommend-movie` | `POST/DELETE /api/movies/{imdbId}/recommendation` | `RecommendMovieUseCase` | `MOVIE_RECOMMENDATION` |
-| `movie-challenge` | `GET /api/movie-challenges/next`, `POST /api/movie-challenges/votes` | `MovieChallengeUseCase` | `USER_MOVIE_WINNER_LOSER`, `USER_MOVIE_WINNER_LOSER_ALL`, `USER_MOVIE_CHALLENGE` |
+| `recommend-movie` | `POST/DELETE /api/movies/{imdbId}/recommendation`, `POST /api/movies/{imdbId}/recommendation/dislike` | `RecommendMovieUseCase` | `MOVIE_RECOMMENDATION` |
+| `movie-challenge` | `GET /api/movie-challenges/next`, `POST /api/movie-challenges/votes` | `MovieChallengeUseCase` | `USER_MOVIE_WINNER_LOSER_ALL`, `USER_MOVIE_CHALLENGE` |
 | `view-favorite-movies` | `GET /api/favorite-movies` | `ViewFavoriteMoviesUseCase` | `USER_MOVIE_WINNER_LOSER_ALL` read model |
 | `view-users-favorite-movies` | `GET /api/users-favorite-movies` | `ViewUsersFavoriteMoviesUseCase` | `USER_MOVIE_WINNER_LOSER_ALL` aggregate read model |
 | `view-users-recommended-movies` | `GET /api/users-recommended-movies` | `ViewUsersRecommendedMoviesUseCase` | `USER_MOVIE_WINNER_LOSER_ALL` weighted read model |

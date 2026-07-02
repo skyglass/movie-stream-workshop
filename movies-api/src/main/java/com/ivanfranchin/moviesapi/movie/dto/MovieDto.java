@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 public record MovieDto(String imdbId, String title, String director, String year, String poster, boolean recommended,
-                       List<CommentDto> comments) {
+                       boolean disliked, List<CommentDto> comments) {
 
     public record CommentDto(String username, String avatar, String text, Instant timestamp) {
     }

@@ -13,7 +13,7 @@ rectangle "movie-catalog" {
 user --> UC
 UC --> closureResult : counts matching transitive winner-loser rows by other user
 UC --> closureResult : weights other users' winner counts by relative rating
-UC --> recommendation : excludes current user's recommended movies
+UC --> recommendation : excludes current user's liked or disliked movies
 closureResult --> movie : ranks candidate movies
 recommendation --> movie : references
 @enduml

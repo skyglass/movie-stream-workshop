@@ -61,13 +61,14 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
     if (!this.auth.token || this.recommendationBusy[movie.imdbId]) return;
 
     this.recommendationBusy[movie.imdbId] = true;
-    const request = movie.recommended
+    const request = movie.recommended || movie.disliked
       ? this.moviesApi.unrecommendMovie(movie.imdbId)
       : this.moviesApi.recommendMovie(movie.imdbId);
 
     request.subscribe({
       next: updatedMovie => {
         movie.recommended = updatedMovie.recommended;
+        movie.disliked = updatedMovie.disliked;
         this.recommendationBusy[movie.imdbId] = false;
       },
       error: err => {
@@ -75,5 +76,20 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
         this.recommendationBusy[movie.imdbId] = false;
       }
     });
+  }
+
+  recommendationTitle(movie: Movie): string {
+    if (movie.disliked) return 'Clear dislike';
+    return movie.recommended ? 'Unrecommend' : 'Recommend';
+  }
+
+  recommendationIcon(movie: Movie): string {
+    if (movie.disliked) return 'thumb_down';
+    return movie.recommended ? 'check_circle' : 'favorite_border';
+  }
+
+  recommendationLabel(movie: Movie): string {
+    if (movie.disliked) return 'Disliked';
+    return movie.recommended ? 'Recommended' : 'Recommend';
   }
 }

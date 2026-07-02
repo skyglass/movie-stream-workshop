@@ -15,11 +15,12 @@
               type="button"
               class="recommend-button"
               [class.recommended]="movie.recommended"
-              [title]="movie.recommended ? 'Unrecommend' : 'Recommend'"
+              [class.disliked]="movie.disliked"
+              [title]="recommendationTitle(movie)"
               [disabled]="recommendationBusy[movie.imdbId]"
               (click)="toggleRecommendation(movie)">
-              <span class="material-icons" aria-hidden="true">{{ movie.recommended ? 'check_circle' : 'favorite_border' }}</span>
-              {{ movie.recommended ? 'Recommended' : 'Recommend' }}
+              <span class="material-icons" aria-hidden="true">{{ recommendationIcon(movie) }}</span>
+              {{ recommendationLabel(movie) }}
             </button>
           } @else {
             <div class="poster-link">

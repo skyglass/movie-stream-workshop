@@ -3,8 +3,8 @@
 The `movie-catalog` Software Capability owns movie discovery, movie contribution, movie discussion, movie
 recommendations, movie challenges, and admin movie maintenance. The `MOVIE` aggregate is the consistency boundary.
 `MOVIE_COMMENT` is a child entity because comments cannot exist without a movie and are deleted with it.
-`MOVIE_RECOMMENDATION` records the current user's endorsement of a movie. Movie challenge records are per-user
-projections over recommended movies: direct winner-loser decisions and their transitive closure prevent duplicate or
+`MOVIE_RECOMMENDATION` records the current user's positive or negative feedback for a movie. Movie challenge records are
+per-user projections over positively recommended movies: transitive winner-loser closure prevents duplicate or
 already-inferred challenges, while challenge counts prioritize under-participating movies. Users recommended movies are
 a weighted read model over matching transitive winner-loser relationships and other users' transitive win counts.
 
@@ -17,8 +17,7 @@ flowchart TB
         IMDB_ID["IMDB_ID\nExternal Identifier"]
         MOVIE_METADATA["MOVIE_METADATA\nTitle, Director, Year, Poster"]
         MOVIE_COMMENT["MOVIE_COMMENT\nChild Entity"]
-        MOVIE_RECOMMENDATION["MOVIE_RECOMMENDATION\nUser recommendation"]
-        USER_MOVIE_WINNER_LOSER["USER_MOVIE_WINNER_LOSER\nDirect winner-loser decision"]
+        MOVIE_RECOMMENDATION["MOVIE_RECOMMENDATION\nPositive or negative feedback"]
         USER_MOVIE_WINNER_LOSER_ALL["USER_MOVIE_WINNER_LOSER_ALL\nTransitive winner-loser closure"]
         USER_MOVIE_CHALLENGE["USER_MOVIE_CHALLENGE\nChallenge count"]
         COMMENT_TEXT["COMMENT_TEXT\nValue Object"]
@@ -32,7 +31,6 @@ flowchart TB
     MOVIE --> MOVIE_METADATA
     MOVIE --> MOVIE_COMMENT
     MOVIE --> MOVIE_RECOMMENDATION
-    MOVIE --> USER_MOVIE_WINNER_LOSER
     MOVIE --> USER_MOVIE_WINNER_LOSER_ALL
     MOVIE --> USER_MOVIE_CHALLENGE
     MOVIE_COMMENT --> COMMENT_TEXT
@@ -47,12 +45,10 @@ flowchart TB
 ```mermaid
 erDiagram
     MOVIES ||--o{ MOVIE_COMMENTS : receives
-    MOVIES ||--o{ MOVIE_RECOMMENDATIONS : recommended_by
-    MOVIES ||--o{ USER_MOVIE_WINNER_LOSER : wins_or_loses_directly
+    MOVIES ||--o{ MOVIE_RECOMMENDATIONS : receives_feedback
     MOVIES ||--o{ USER_MOVIE_WINNER_LOSER_ALL : wins_or_loses_transitively
     MOVIES ||--o{ USER_MOVIE_CHALLENGE : appears_in_challenge
     USERS ||--o{ MOVIE_RECOMMENDATIONS : makes
-    USERS ||--o{ USER_MOVIE_WINNER_LOSER : decides
     USERS ||--o{ USER_MOVIE_WINNER_LOSER_ALL : ranks
     USERS ||--o{ USER_MOVIE_CHALLENGE : counts
 ```
@@ -81,16 +77,9 @@ erDiagram
 
 | Attribute | Description | Data Type | Validation Rules |
 |-----------|-------------|-----------|------------------|
-| user_id | Recommending username | String | Foreign Key to users.username, Primary Key part |
-| movie_id | Recommended IMDb id | String | Foreign Key to movies.imdb_id, Primary Key part |
-
-### USER_MOVIE_WINNER_LOSER
-
-| Attribute | Description | Data Type | Validation Rules |
-|-----------|-------------|-----------|------------------|
-| user_id | Challenged username | String | Foreign Key to users.username, Primary Key part |
-| winner_id | Selected winning movie | String | Foreign Key to movies.imdb_id, Primary Key part |
-| loser_id | Losing movie from the same challenge | String | Foreign Key to movies.imdb_id, Primary Key part, different from winner_id |
+| user_id | Feedback author username | String | Foreign Key to users.username, Primary Key part |
+| movie_id | Feedback IMDb id | String | Foreign Key to movies.imdb_id, Primary Key part |
+| positive | Whether the feedback is a positive recommendation | Boolean | Not Null, default `true`; `false` means disliked |
 
 ### USER_MOVIE_WINNER_LOSER_ALL
 
@@ -115,7 +104,8 @@ Read model used by `view-movie-catalog`.
 | Attribute | Description | Data Type | Validation Rules |
 |-----------|-------------|-----------|------------------|
 | movies | Movies sorted by title | List<MOVIE> | May be empty |
-| recommended | Whether each movie is recommended by the current user | Boolean | False for anonymous viewers |
+| recommended | Whether each movie is positively recommended by the current user | Boolean | False for anonymous viewers |
+| disliked | Whether each movie is disliked by the current user | Boolean | False for anonymous viewers |
 
 ### MOVIE_DETAILS
 
@@ -125,7 +115,8 @@ Read model used by `view-movie-details`.
 |-----------|-------------|-----------|------------------|
 | movie | Selected movie | MOVIE | Must exist |
 | comments | Comments with avatar data | List<MOVIE_COMMENT> | Newest first |
-| recommended | Whether the selected movie is recommended by the current user | Boolean | False for anonymous viewers |
+| recommended | Whether the selected movie is positively recommended by the current user | Boolean | False for anonymous viewers |
+| disliked | Whether the selected movie is disliked by the current user | Boolean | False for anonymous viewers |
 
 ### MOVIE_CHALLENGE
 
@@ -144,7 +135,7 @@ Read model used by `view-favorite-movies`.
 | Attribute | Description | Data Type | Validation Rules |
 |-----------|-------------|-----------|------------------|
 | movies | Movies with at least one transitive win by the current user | List<MOVIE> | Sorted by `count(user_movie_winner_loser_all.winner_id)` descending |
-| recommended | Whether each favorite movie is still recommended by the current user | Boolean | Enriched from MOVIE_RECOMMENDATION |
+| recommended | Whether each favorite movie is still positively recommended by the current user | Boolean | Enriched from MOVIE_RECOMMENDATION |
 
 ### USERS_FAVORITE_MOVIES
 
@@ -153,7 +144,7 @@ Read model used by `view-users-favorite-movies`.
 | Attribute | Description | Data Type | Validation Rules |
 |-----------|-------------|-----------|------------------|
 | movies | Movies with at least one transitive win from any user | List<MOVIE> | Sorted by total `user_movie_winner_loser_all` winner rows descending |
-| recommended | Whether each community favorite movie is recommended by the current user | Boolean | Enriched from MOVIE_RECOMMENDATION |
+| recommended | Whether each community favorite movie is positively recommended by the current user | Boolean | Enriched from MOVIE_RECOMMENDATION |
 
 ### USERS_RECOMMENDED_MOVIES
 
@@ -161,10 +152,11 @@ Read model used by `view-users-recommended-movies`.
 
 | Attribute | Description | Data Type | Validation Rules |
 |-----------|-------------|-----------|------------------|
-| movies | Movies with a positive weighted transitive-win score from other users | List<MOVIE> | Excludes movies recommended by the current user |
+| movies | Movies with a positive weighted transitive-win score from other users | List<MOVIE> | Excludes movies recommended or disliked by the current user |
 | relative_user_rating | Matching transitive winner-loser count for each other user | Integer | Current user is excluded; zero-weight users are ignored |
 | weighted_movie_rating | Weighted score used for descending sort | Decimal | `sum(win_count * relative_user_rating) / sum(relative_user_rating)` |
-| recommended | Whether each listed movie is recommended by the current user | Boolean | Always false for returned rows because already recommended movies are excluded |
+| recommended | Whether each listed movie is positively recommended by the current user | Boolean | False until the user clicks Like |
+| disliked | Whether each listed movie is disliked by the current user | Boolean | False until the user clicks Dislike; disliked movies are excluded on refresh |
 
 ## Aggregate Insight
 

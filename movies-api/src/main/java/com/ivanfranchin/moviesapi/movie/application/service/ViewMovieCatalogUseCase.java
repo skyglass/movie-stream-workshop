@@ -32,10 +32,14 @@ public class ViewMovieCatalogUseCase {
     @Transactional(readOnly = true)
     public MoviePageDto viewCatalog(String username, Pageable pageable) {
         Set<String> recommendedMovieIds = movieRecommendationService.recommendedMovieIds(username);
+        Set<String> dislikedMovieIds = movieRecommendationService.dislikedMovieIds(username);
         var movies = movieService.getMovies(pageable);
         return new MoviePageDto(
                 movies.getContent().stream()
-                        .map(movie -> movieMapper.toMovieDto(movie, recommendedMovieIds.contains(movie.getImdbId())))
+                        .map(movie -> movieMapper.toMovieDto(
+                                movie,
+                                recommendedMovieIds.contains(movie.getImdbId()),
+                                dislikedMovieIds.contains(movie.getImdbId())))
                         .toList(),
                 movies.getTotalElements());
     }

@@ -17,6 +17,7 @@ export interface Movie {
   year: string;
   poster: string;
   recommended: boolean;
+  disliked: boolean;
   comments: MovieComment[];
 }
 
@@ -120,6 +121,10 @@ export class MoviesApiService {
 
   unrecommendMovie(imdbId: string): Observable<Movie> {
     return this.http.delete<Movie>(`${this.moviesBase}/${imdbId}/recommendation`);
+  }
+
+  dislikeMovie(imdbId: string): Observable<Movie> {
+    return this.http.post<Movie>(`${this.moviesBase}/${imdbId}/recommendation/dislike`, {});
   }
 
   nextMovieChallenge(): Observable<MovieChallenge | null> {

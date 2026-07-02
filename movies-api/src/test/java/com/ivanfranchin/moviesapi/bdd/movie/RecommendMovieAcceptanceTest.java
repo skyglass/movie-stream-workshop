@@ -43,15 +43,43 @@ public class RecommendMovieAcceptanceTest {
         fixture.selectedMovie(recommendMovie.unrecommendMovie(username, imdbId));
     }
 
+    @When("regular user {string} dislikes movie {string}")
+    public void regularUserDislikesMovie(String username, String imdbId) {
+        fixture.selectedMovie(recommendMovie.dislikeMovie(username, imdbId));
+    }
+
     @Then("movie {string} is not recommended by {string}")
     public void movieIsNotRecommendedBy(String imdbId, String username) {
         fixture.assertMovieNotRecommendedBy(imdbId, username);
+    }
+
+    @Then("movie {string} is disliked by {string}")
+    public void movieIsDislikedBy(String imdbId, String username) {
+        fixture.assertMovieDislikedBy(imdbId, username);
+    }
+
+    @Then("movie {string} is not disliked by {string}")
+    public void movieIsNotDislikedBy(String imdbId, String username) {
+        fixture.assertMovieNotDislikedBy(imdbId, username);
     }
 
     @Then("the recommendation response marks movie {string} as not recommended")
     public void theRecommendationResponseMarksMovieAsNotRecommended(String imdbId) {
         fixture.assertSelectedMovieImdbIdIs(imdbId);
         fixture.assertSelectedMovieRecommendationIs(false);
+    }
+
+    @Then("the recommendation response marks movie {string} as disliked")
+    public void theRecommendationResponseMarksMovieAsDisliked(String imdbId) {
+        fixture.assertSelectedMovieImdbIdIs(imdbId);
+        fixture.assertSelectedMovieRecommendationIs(false);
+        fixture.assertSelectedMovieDislikedIs(true);
+    }
+
+    @Then("the recommendation response marks movie {string} as not disliked")
+    public void theRecommendationResponseMarksMovieAsNotDisliked(String imdbId) {
+        fixture.assertSelectedMovieImdbIdIs(imdbId);
+        fixture.assertSelectedMovieDislikedIs(false);
     }
 
     @When("an anonymous caller tries to recommend movie {string}")

@@ -3,14 +3,15 @@
 **Use Case ID:** view-users-recommended-movies  
 **Use Case Name:** View Users Recommended Movies  
 **Primary Actor:** Authenticated User  
-**Goal:** Show movies recommended by similar users, excluding movies the current user has already recommended.  
+**Goal:** Show movies recommended by similar users, excluding movies the current user has already recommended or disliked.  
 **Status:** Implemented
 
 ## Short Description
 
 This epic adds the `view-users-recommended-movies` use case to the `movie-catalog` capability under the
-`movie-recommendation` activity. The list excludes every movie that already has a `movie_recommendations` row for the
-current user and ranks the remaining movies by weighted Movie Challenge votes from other users.
+`movie-recommendation` activity. The list excludes every movie that already has a positive or negative
+`movie_recommendations` row for the current user and ranks the remaining movies by weighted Movie Challenge votes from
+other users.
 
 The relative weight between the current user and another user is the count of matching transitive winner-loser rows in
 `user_movie_winner_loser_all`. The current user is never compared with themself. Candidate movie scores multiply each
@@ -48,6 +49,20 @@ Feature: view-users-recommended-movies
     And movie "tt101" has already won 10 challenge comparisons for "alice"
     And movie "tt102" has already won 1 challenge comparison for "alice"
     And movie "tt101" is already recommended by "user"
+    When regular user "user" requests users recommended movies
+    Then users recommended movies do not contain "tt101"
+    And users recommended movies contain 1 movies
+
+  Scenario: Users recommended movies exclude movies disliked by the current user
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt201" exists with title "Pair One"
+    And movie "tt202" exists with title "Pair Two"
+    And user "user" has already chosen "tt201" over "tt202" in movie challenges
+    And user "alice" has already chosen "tt201" over "tt202" in movie challenges
+    And movie "tt101" has already won 10 challenge comparisons for "alice"
+    And movie "tt102" has already won 1 challenge comparison for "alice"
+    And movie "tt101" is already disliked by "user"
     When regular user "user" requests users recommended movies
     Then users recommended movies do not contain "tt101"
     And users recommended movies contain 1 movies

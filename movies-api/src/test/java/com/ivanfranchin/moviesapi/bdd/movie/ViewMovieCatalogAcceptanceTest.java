@@ -55,4 +55,9 @@ public class ViewMovieCatalogAcceptanceTest {
     public void catalogMovieIsMarkedRecommended(String imdbId) {
         fixture.assertMovieListItemRecommendationIs(imdbId, true);
     }
+
+    @Then("catalog movie {string} is marked disliked")
+    public void catalogMovieIsMarkedDisliked(String imdbId) {
+        fixture.assertMovieListItemDislikedIs(imdbId, true);
+    }
 }

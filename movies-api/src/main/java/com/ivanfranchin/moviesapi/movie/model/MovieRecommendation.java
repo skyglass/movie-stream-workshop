@@ -23,8 +23,16 @@ public class MovieRecommendation {
     @Column(name = "movie_id", nullable = false, updatable = false)
     private String movieImdbId;
 
+    @Column(nullable = false)
+    private boolean positive = true;
+
     public MovieRecommendation(String username, String movieImdbId) {
+        this(username, movieImdbId, true);
+    }
+
+    public MovieRecommendation(String username, String movieImdbId, boolean positive) {
         this.username = username;
         this.movieImdbId = movieImdbId;
+        this.positive = positive;
     }
 }

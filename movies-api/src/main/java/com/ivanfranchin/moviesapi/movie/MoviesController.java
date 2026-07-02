@@ -100,6 +100,12 @@ public class MoviesController {
     }
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
+    @PostMapping("/{imdbId}/recommendation/dislike")
+    public MovieDto dislikeMovie(@PathVariable String imdbId, @AuthenticationPrincipal Jwt jwt) {
+        return recommendMovie.dislikeMovie(jwt, imdbId);
+    }
+
+    @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/{imdbId}/comments")
     public MovieDto addMovieComment(@PathVariable String imdbId,

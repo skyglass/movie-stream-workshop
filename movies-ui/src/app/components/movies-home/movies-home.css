@@ -75,6 +75,16 @@
   color: #268242;
 }
 
+.recommend-button.disliked {
+  border-color: #d18b8b;
+  color: #8f2d2d;
+  background: #fff6f6;
+}
+
+.recommend-button.disliked .material-icons {
+  color: #a73939;
+}
+
 .recommend-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;

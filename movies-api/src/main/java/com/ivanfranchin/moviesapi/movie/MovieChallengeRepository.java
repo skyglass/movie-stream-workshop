@@ -18,6 +18,7 @@ public class MovieChallengeRepository {
             join movie_recommendations r2
                 on r2.user_id = r1.user_id
                 and r1.movie_id < r2.movie_id
+                and r2.positive = true
             join movies m1 on m1.imdb_id = r1.movie_id
             join movies m2 on m2.imdb_id = r2.movie_id
             left join user_movie_challenge c1
@@ -27,6 +28,7 @@ public class MovieChallengeRepository {
                 on c2.user_id = r2.user_id
                 and c2.movie_id = r2.movie_id
             where r1.user_id = :username
+                and r1.positive = true
                 and not exists (
                     select 1
                     from user_movie_winner_loser_all winner_loser
@@ -80,22 +82,22 @@ public class MovieChallengeRepository {
         return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, Map.of("username", username), Boolean.class));
     }
 
-    public boolean insertWinnerLoser(String username, String winnerId, String loserId) {
+    public boolean canRecordWinnerLoser(String username, String winnerId, String loserId) {
         String sql = """
-                insert into user_movie_winner_loser (user_id, winner_id, loser_id)
-                select :username, :winnerId, :loserId
-                where :winnerId <> :loserId
+                select case when :winnerId <> :loserId
                     and exists (
                         select 1
                         from movie_recommendations
                         where user_id = :username
                             and movie_id = :winnerId
+                            and positive = true
                     )
                     and exists (
                         select 1
                         from movie_recommendations
                         where user_id = :username
                             and movie_id = :loserId
+                            and positive = true
                     )
                     and not exists (
                         select 1
@@ -104,8 +106,9 @@ public class MovieChallengeRepository {
                             and (:winnerId = winner_loser.winner_id or :winnerId = winner_loser.loser_id)
                             and (:loserId = winner_loser.winner_id or :loserId = winner_loser.loser_id)
                     )
+                then true else false end
                 """;
-        return jdbcTemplate.update(sql, params(username, winnerId, loserId)) == 1;
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, params(username, winnerId, loserId), Boolean.class));
     }
 
     public void insertWinnerLoserClosure(String username, String winnerId, String loserId) {
@@ -175,19 +178,6 @@ public class MovieChallengeRepository {
                     and movie_id = :movieId
                 """;
         return jdbcTemplate.queryForObject(sql, Map.of("username", username, "movieId", movieId), Integer.class);
-    }
-
-    public boolean directWinnerLoserExists(String username, String winnerId, String loserId) {
-        String sql = """
-                select case when exists (
-                    select 1
-                    from user_movie_winner_loser
-                    where user_id = :username
-                        and winner_id = :winnerId
-                        and loser_id = :loserId
-                ) then true else false end
-                """;
-        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, params(username, winnerId, loserId), Boolean.class));
     }
 
     public boolean transitiveWinnerLoserExists(String username, String winnerId, String loserId) {

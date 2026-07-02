@@ -70,6 +70,7 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
             year: result.Year,
             poster: result.Poster,
             recommended: false,
+            disliked: false,
             comments: []
           }];
         }

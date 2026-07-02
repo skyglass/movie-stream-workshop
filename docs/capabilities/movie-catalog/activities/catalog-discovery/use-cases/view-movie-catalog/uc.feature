@@ -16,6 +16,12 @@ Feature: view-movie-catalog
     When regular user "user" requests the personalized movie catalog
     Then catalog movie "tt0083658" is marked recommended
 
+  Scenario: Catalog marks movies disliked by the current user
+    Given movie "tt0083658" exists with title "Blade Runner"
+    And movie "tt0083658" is already disliked by "user"
+    When regular user "user" requests the personalized movie catalog
+    Then catalog movie "tt0083658" is marked disliked
+
   Scenario: Catalog page returns the requested slice and total count
     Given the movie catalog contains 5 titled movies
     When the viewer requests page 2 of the movie catalog with 2 movies per page

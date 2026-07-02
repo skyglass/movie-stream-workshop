@@ -48,17 +48,35 @@ public class RecommendMovieUseCase {
         return unrecommendExistingMovie(username, imdbId);
     }
 
+    @Transactional
+    public MovieDto dislikeMovie(Jwt jwt, String imdbId) {
+        UserExtra userExtra = userExtraService.syncFromJwt(jwt);
+        return dislikeExistingMovie(userExtra.getUsername(), imdbId);
+    }
+
+    @Transactional
+    public MovieDto dislikeMovie(String username, String imdbId) {
+        syncUser(username);
+        return dislikeExistingMovie(username, imdbId);
+    }
+
     private MovieDto recommendExistingMovie(String username, String imdbId) {
         Movie movie = movieService.validateAndGetMovie(imdbId);
         movieRecommendationService.recommend(username, imdbId);
         eventPublisher.publishEvent(new MovieRecommendedEvent(username));
-        return movieMapper.toMovieDto(movie, true);
+        return movieMapper.toMovieDto(movie, true, false);
     }
 
     private MovieDto unrecommendExistingMovie(String username, String imdbId) {
         Movie movie = movieService.validateAndGetMovie(imdbId);
         movieRecommendationService.unrecommend(username, imdbId);
-        return movieMapper.toMovieDto(movie, false);
+        return movieMapper.toMovieDto(movie, false, false);
+    }
+
+    private MovieDto dislikeExistingMovie(String username, String imdbId) {
+        Movie movie = movieService.validateAndGetMovie(imdbId);
+        movieRecommendationService.dislike(username, imdbId);
+        return movieMapper.toMovieDto(movie, false, true);
     }
 
     private void syncUser(String username) {

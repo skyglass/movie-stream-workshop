@@ -68,7 +68,6 @@ public class MovieCatalogFixture {
 
     public void clearMovies() {
         jdbcTemplate.update("delete from user_movie_winner_loser_all");
-        jdbcTemplate.update("delete from user_movie_winner_loser");
         jdbcTemplate.update("delete from user_movie_challenge");
         movieRecommendationRepository.deleteAll();
         movieRecommendationRepository.flush();
@@ -126,13 +125,20 @@ public class MovieCatalogFixture {
 
     public void recommendMovie(String imdbId, String username) {
         ensureUser(username);
-        if (!movieRecommendationRepository.existsByUsernameAndMovieImdbId(username, imdbId)) {
-            movieRecommendationRepository.saveAndFlush(new MovieRecommendation(username, imdbId));
-        }
+        movieRecommendationRepository.saveAndFlush(new MovieRecommendation(username, imdbId));
+    }
+
+    public void dislikeMovie(String imdbId, String username) {
+        ensureUser(username);
+        movieRecommendationRepository.saveAndFlush(new MovieRecommendation(username, imdbId, false));
     }
 
     public boolean movieIsRecommendedBy(String imdbId, String username) {
-        return movieRecommendationRepository.existsByUsernameAndMovieImdbId(username, imdbId);
+        return movieRecommendationRepository.existsByUsernameAndMovieImdbIdAndPositiveTrue(username, imdbId);
+    }
+
+    public boolean movieIsDislikedBy(String imdbId, String username) {
+        return movieRecommendationRepository.existsByUsernameAndMovieImdbIdAndPositiveFalse(username, imdbId);
     }
 
     public void incrementChallengeCount(String imdbId, String username, int times) {
@@ -151,16 +157,6 @@ public class MovieCatalogFixture {
         ensureUser(username);
         recommendMovie(winnerId, username);
         recommendMovie(loserId, username);
-        jdbcTemplate.update("""
-                delete from user_movie_winner_loser
-                where user_id = ?
-                    and winner_id = ?
-                    and loser_id = ?
-                """, username, winnerId, loserId);
-        jdbcTemplate.update("""
-                insert into user_movie_winner_loser (user_id, winner_id, loser_id)
-                values (?, ?, ?)
-                """, username, winnerId, loserId);
         movieChallengeRepository.insertWinnerLoserClosure(username, winnerId, loserId);
     }
 
@@ -221,6 +217,10 @@ public class MovieCatalogFixture {
         assertEquals(recommended, selectedMovie.recommended());
     }
 
+    public void assertSelectedMovieDislikedIs(boolean disliked) {
+        assertEquals(disliked, selectedMovie.disliked());
+    }
+
     public void assertSelectedMovieChallengeContains(String firstMovieId, String secondMovieId) {
         assertNotNull(selectedMovieChallenge, "Expected a movie challenge to be available");
         MoviePair expected = sortedPair(firstMovieId, secondMovieId);
@@ -257,7 +257,7 @@ public class MovieCatalogFixture {
     }
 
     public void assertDirectWinnerLoserExists(String username, String winnerId, String loserId) {
-        assertTrue(movieChallengeRepository.directWinnerLoserExists(username, winnerId, loserId));
+        assertTrue(movieChallengeRepository.transitiveWinnerLoserExists(username, winnerId, loserId));
     }
 
     public void assertTransitiveWinnerLoserExists(String username, String winnerId, String loserId) {
@@ -270,6 +270,14 @@ public class MovieCatalogFixture {
                 .findFirst()
                 .orElseThrow();
         assertEquals(recommended, movie.recommended());
+    }
+
+    public void assertMovieListItemDislikedIs(String imdbId, boolean disliked) {
+        MovieDto movie = movieList.stream()
+                .filter(item -> item.imdbId().equals(imdbId))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(disliked, movie.disliked());
     }
 
     public void assertMovieTitleIs(String imdbId, String title) {
@@ -287,6 +295,14 @@ public class MovieCatalogFixture {
 
     public void assertMovieNotRecommendedBy(String imdbId, String username) {
         assertFalse(movieIsRecommendedBy(imdbId, username));
+    }
+
+    public void assertMovieDislikedBy(String imdbId, String username) {
+        assertTrue(movieIsDislikedBy(imdbId, username));
+    }
+
+    public void assertMovieNotDislikedBy(String imdbId, String username) {
+        assertFalse(movieIsDislikedBy(imdbId, username));
     }
 
     public void assertLastErrorIsIllegalArgumentException() {
