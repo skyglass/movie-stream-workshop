@@ -74,8 +74,6 @@ docker compose logs -f movie-gateway movies-api movies-ui keycloak
 Useful URLs:
 
 - UI: http://localhost:7000
-- Capabilities UI: http://localhost:8090
-- Capabilities tree API: http://localhost:8090/api/capabilities/tree
 - Gateway health: http://localhost:8079/actuator/health
 - Swagger UI: http://localhost:8079/swagger-ui.html
 - PgAdmin: http://localhost:5050
@@ -109,27 +107,15 @@ Admin user:
 
 Regular users can see the movie list, open movie details, add comments, and use the movie wizard to create movies. Admin users can also open the admin users page.
 
-## Capabilities UI
-
-The Capabilities UI is a standalone Vaadin service exposed directly by Docker Compose at:
-
-```text
-http://localhost:8090
-```
-
-It shows a Use Case Catalog as a navigable tree. The service reads all configured `GITHUB_REPO_*` environment variables,
-downloads each repository's `docs/capabilities` folder, merges those folder structures, and renders the combined tree
-down to each use case. It is intentionally public on localhost and is not routed through the Spring Cloud Gateway or the
-movie application admin authentication.
+## Specifications
 
 A use case is treated as the minimal marketable feature. Each use case corresponds to a Gherkin `Feature` with Given /
-When / Then scenarios in `uc.feature`, plus its path in the capability hierarchy. The catalog makes it easier to decide
-where a new use case belongs and to track use cases across all configured repositories.
+When / Then scenarios in `uc.feature`, plus its path in the specification hierarchy.
 
 Each epic should include a `use-case-id` and acceptance criteria as Given / When / Then scenarios. For a new use case,
-add those scenarios under the matching `docs/capabilities/.../use-cases/<use-case-id>/uc.feature` file. For an existing
-use case, merge the epic acceptance criteria with the current `uc.feature` by adding the new scenarios. Scenarios should
-only be removed when the epic acceptance criteria explicitly says which scenarios to delete.
+add those scenarios under the matching `docs/specs/<capability>/<activity>/<use-case-id>/uc.feature` file. For an
+existing use case, merge the epic acceptance criteria with the current `uc.feature` by adding the new scenarios.
+Scenarios should only be removed when the epic acceptance criteria explicitly says which scenarios to delete.
 
 ## Swagger UI
 

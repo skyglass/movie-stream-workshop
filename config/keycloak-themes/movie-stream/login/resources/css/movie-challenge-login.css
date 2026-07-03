@@ -1,0 +1,105 @@
+body {
+  background: #eef2f6;
+  color: #203349;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+#kc-header-wrapper {
+  color: #203349;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.login-pf-page {
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  background: #eef2f6;
+}
+
+.login-pf-page .card-pf {
+  max-width: 440px;
+  margin: 0 auto;
+  border: 1px solid #d8dde5;
+  border-radius: 8px;
+  box-shadow: 0 14px 35px rgba(32, 51, 73, 0.16);
+}
+
+#kc-page-title {
+  color: #203349;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.mc-register-intro {
+  margin: -0.35rem 0 1.25rem;
+  color: #526170;
+  line-height: 1.5;
+}
+
+#kc-register-form label,
+.pf-v5-c-form__label,
+.pf-c-form__label {
+  color: #3f5368;
+  font-weight: 800;
+}
+
+#kc-register-form input[type="text"],
+#kc-register-form input[type="password"] {
+  min-height: 2.5rem;
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  color: #203349;
+  font: inherit;
+}
+
+#kc-register-form input[type="text"]:focus,
+#kc-register-form input[type="password"]:focus {
+  border-color: #1b6fa8;
+  box-shadow: 0 0 0 3px rgba(27, 111, 168, 0.16);
+}
+
+#kc-form-buttons input[type="submit"],
+.pf-v5-c-button.pf-m-primary,
+.pf-c-button.pf-m-primary {
+  min-height: 2.5rem;
+  border-radius: 6px;
+  background: #1b6fa8;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+#kc-form-buttons input[type="submit"]:hover,
+.pf-v5-c-button.pf-m-primary:hover,
+.pf-c-button.pf-m-primary:hover {
+  background: #155f91;
+}
+
+#kc-form-options a,
+#kc-info a {
+  color: #1b6fa8;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+#kc-form-options a:hover,
+#kc-info a:hover {
+  text-decoration: underline;
+}
+
+.pf-v5-c-alert,
+.pf-c-alert {
+  border-radius: 6px;
+}
+
+@media (max-width: 640px) {
+  .login-pf-page {
+    padding: 1rem;
+  }
+
+  .login-pf-page .card-pf {
+    max-width: 100%;
+  }
+}

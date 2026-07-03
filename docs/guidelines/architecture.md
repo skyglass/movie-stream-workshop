@@ -13,9 +13,9 @@ Movie Stream is split into three deployable parts:
 The documentation hierarchy is capability-first:
 
 ```text
-docs/capabilities/<capability>/entity_model.md
-docs/capabilities/<capability>/glossary.md
-docs/capabilities/<capability>/activities/<activity>/use-cases/<use-case-id>/
+docs/specs/<capability>/entity_model.md
+docs/specs/<capability>/glossary.md
+docs/specs/<capability>/<activity>/<use-case-id>/
 ```
 
 ## Traceability Chain
@@ -38,7 +38,7 @@ the API boundary when the point of the scenario is the REST lock itself.
 Use-case identity must be one-to-one across documentation, application services, and BDD tests:
 
 ```text
-docs/capabilities/.../use-cases/add-movie-comment/
+docs/specs/movie-catalog/movie-discussion/add-movie-comment/
   -> AddMovieCommentUseCase
   -> AddMovieCommentAcceptanceTest
 ```
@@ -53,7 +53,7 @@ Use-case source files are grouped by domain package, while the documentation kee
 hierarchy:
 
 ```text
-docs/capabilities/<capability>/activities/<activity>/use-cases/<use-case>/
+docs/specs/<capability>/<activity>/<use-case>/
 movies-api/src/main/java/.../movie/application/service/
 movies-api/src/main/java/.../userextra/application/service/
 movies-api/src/test/java/.../bdd/movie/
@@ -64,7 +64,7 @@ Do not repeat the full capability/activity/use-case tree in Java packages. The c
 (`ViewMovieCatalogUseCase`, `ViewMovieCatalogAcceptanceTest`), while the domain folder (`movie` or `user`) keeps the source
 layout easy to scan. Use the same CamelCase stem for the application service and its BDD use-case test.
 
-Shared Cucumber infrastructure stays at `movies-api/src/test/java/com/ivanfranchin/moviesapi/bdd`. Domain-specific
+Shared Cucumber infrastructure stays at `movies-api/src/test/java/skycomposer/moviechallenge/api/bdd`. Domain-specific
 use-case tests move into `bdd/movie` or `bdd/user`; fixtures and reusable step definitions move into the corresponding
 `fixture` subpackage.
 
@@ -73,9 +73,9 @@ use-case tests move into `bdd/movie` or `bdd/user`; fixtures and reusable step d
 Gherkin glue is organized around use cases, with a small shared step-definition class for steps that are genuinely reused
 across use cases.
 
-- Each use case has a corresponding `*AcceptanceTest` class in `movies-api/src/test/java/com/ivanfranchin/moviesapi/bdd`.
+- Each use case has a corresponding `*AcceptanceTest` class in `movies-api/src/test/java/skycomposer/moviechallenge/api/bdd`.
 - The `*AcceptanceTest` class name must match the use-case application service stem exactly: `AddMovieCommentUseCase` pairs with `AddMovieCommentAcceptanceTest`.
-- The matching `docs/capabilities` use-case folder uses the same stem in dash-separated form: `add-movie-comment`.
+- The matching `docs/specs` use-case folder uses the same stem in dash-separated form: `add-movie-comment`.
 - The `*AcceptanceTest` class must read in the same Given/When/Then order as the corresponding `uc.feature` scenarios.
 - `@When` methods live in the corresponding `*AcceptanceTest` class and invoke the use-case application service or the API boundary being tested.
 - `@When` methods are not reused across use cases. If a new use case has a similar action, give it its own `@When` in that use case's `*AcceptanceTest`.

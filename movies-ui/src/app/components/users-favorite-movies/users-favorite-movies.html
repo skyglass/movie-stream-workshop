@@ -31,6 +31,10 @@
                 <dt>Year:</dt>
                 <dd>{{ movie.year }}</dd>
               </div>
+              <div>
+                <dt>Type:</dt>
+                <dd>{{ movie.typeDescription || movie.type || 'Movie' }}</dd>
+              </div>
             </dl>
           </a>
         </article>

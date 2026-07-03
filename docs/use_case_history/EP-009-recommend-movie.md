@@ -11,9 +11,8 @@
 This epic adds per-user movie recommendations. A recommendation is persisted by authenticated username and IMDb movie id
 so catalog and detail views can show whether the current user has already recommended each movie.
 
-The implemented use case now also publishes a `MovieRecommendedEvent` after a recommendation is created. The
-`movie-challenge` use case consumes that event asynchronously after transaction commit to notify the UI when a new
-challenge pair becomes available.
+The implemented use case stores recommendation feedback synchronously. Movie Challenge availability is read through the
+movie-challenge API when the user opens the challenge flow.
 
 ## Acceptance Criteria
 

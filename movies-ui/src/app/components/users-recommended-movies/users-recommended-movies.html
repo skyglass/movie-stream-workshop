@@ -13,7 +13,12 @@
             <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
           </a>
           @if (movie.recommended) {
-            <button type="button" class="recommend-button recommended" disabled>
+            <button
+              type="button"
+              class="recommend-button recommended"
+              title="Clear like"
+              [disabled]="recommendationBusy[movie.imdbId]"
+              (click)="clearRecommendation(movie)">
               <span class="material-icons" aria-hidden="true">thumb_up</span>
               Liked
             </button>
@@ -63,6 +68,10 @@
               <div>
                 <dt>Year:</dt>
                 <dd>{{ movie.year }}</dd>
+              </div>
+              <div>
+                <dt>Type:</dt>
+                <dd>{{ movie.typeDescription || movie.type || 'Movie' }}</dd>
               </div>
             </dl>
           </a>

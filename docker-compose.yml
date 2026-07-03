@@ -142,20 +142,6 @@ services:
     networks:
       - movie-net
 
-  capabilities-ui:
-    build:
-      context: .
-      dockerfile: capabilities-ui/Dockerfile
-    image: capabilities-ui:latest
-    container_name: capabilities-ui
-    restart: unless-stopped
-    ports:
-      - "8090:8090"
-    env_file:
-      - .env.local
-    networks:
-      - movie-net
-
   movies-ui:
     build:
       context: ./movies-ui

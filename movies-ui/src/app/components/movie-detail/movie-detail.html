@@ -32,42 +32,85 @@
             <dd>{{ movie.director }}</dd>
           </div>
           <div>
+            <dt>Writer:</dt>
+            <dd>{{ movie.writer || 'N/A' }}</dd>
+          </div>
+          <div>
             <dt>Year:</dt>
             <dd>{{ movie.year }}</dd>
+          </div>
+          <div>
+            <dt>Type:</dt>
+            <dd>{{ movie.typeDescription || movie.type || 'Movie' }}</dd>
+          </div>
+          <div>
+            <dt>Genre:</dt>
+            <dd>{{ movie.genre || 'N/A' }}</dd>
+          </div>
+          <div>
+            <dt>Country:</dt>
+            <dd>{{ movie.country || 'N/A' }}</dd>
           </div>
         </dl>
       </article>
 
-      <section class="comments-panel">
-        <h2>Add a comment</h2>
-        <form [formGroup]="commentForm" (ngSubmit)="addComment()" class="comment-form">
-          <input formControlName="text" placeholder="Tell us more about ..." />
-          <button type="submit" [disabled]="commentForm.invalid || saving">
-            {{ saving ? 'Saving' : 'Submit' }}
+      <div class="detail-main">
+        <section class="plot-panel">
+          <h2>Plot</h2>
+          <button type="button" class="plot-button" (click)="showShortPlot()" [disabled]="plotLoading">
+            {{ plotLoading ? 'Loading Plot' : 'Plot' }}
           </button>
-        </form>
-        @if (errorMessage) {
-          <div class="inline-error">{{ errorMessage }}</div>
-        }
-
-        <h2>Comments</h2>
-        <div class="comment-list">
-          @for (comment of movie.comments; track comment.username + comment.timestamp + $index) {
-            <article class="comment">
-              <img [src]="avatar(comment.avatar)" alt="" />
-              <div>
-                <div class="comment-meta">
-                  <strong>{{ comment.username }}</strong>
-                  <time>{{ comment.timestamp | date:'yyyy-MM-ddTHH:mm:ssZZZZZ' }}</time>
-                </div>
-                <p>{{ comment.text }}</p>
-              </div>
-            </article>
-          } @empty {
-            <div class="empty">No comments yet</div>
+          @if (plotErrorMessage) {
+            <div class="inline-error">{{ plotErrorMessage }}</div>
           }
-        </div>
-      </section>
+          @if (shortPlot) {
+            <div class="plot-text">
+              <h3>Short Plot</h3>
+              <p>{{ shortPlot }}</p>
+              <button type="button" class="full-plot-button" (click)="showFullPlot()" [disabled]="fullPlotLoading">
+                {{ fullPlotLoading ? 'Loading Full Plot' : 'Full Plot' }}
+              </button>
+            </div>
+          }
+          @if (fullPlot) {
+            <div class="plot-text full-plot">
+              <h3>Full Plot</h3>
+              <p>{{ fullPlot }}</p>
+            </div>
+          }
+        </section>
+
+        <section class="comments-panel">
+          <h2>Add a comment</h2>
+          <form [formGroup]="commentForm" (ngSubmit)="addComment()" class="comment-form">
+            <input formControlName="text" placeholder="Tell us more about ..." />
+            <button type="submit" [disabled]="commentForm.invalid || saving">
+              {{ saving ? 'Saving' : 'Submit' }}
+            </button>
+          </form>
+          @if (errorMessage) {
+            <div class="inline-error">{{ errorMessage }}</div>
+          }
+
+          <h2>Comments</h2>
+          <div class="comment-list">
+            @for (comment of movie.comments; track comment.username + comment.timestamp + $index) {
+              <article class="comment">
+                <img [src]="avatar(comment.avatar)" alt="" />
+                <div>
+                  <div class="comment-meta">
+                    <strong>{{ comment.username }}</strong>
+                    <time>{{ comment.timestamp | date:'yyyy-MM-ddTHH:mm:ssZZZZZ' }}</time>
+                  </div>
+                  <p>{{ comment.text }}</p>
+                </div>
+              </article>
+            } @empty {
+              <div class="empty">No comments yet</div>
+            }
+          </div>
+        </section>
+      </div>
     </div>
   }
 </section>

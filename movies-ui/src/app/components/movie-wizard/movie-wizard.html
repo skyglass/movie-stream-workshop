@@ -43,11 +43,38 @@
       @if (step === 1) {
         <section class="panel">
           <form [formGroup]="searchForm" (ngSubmit)="search()" class="search-form">
-            <input formControlName="searchText" placeholder="Search for a movie title ..." />
+            <label class="field title-field">
+              <span>Title</span>
+              <input formControlName="title" type="search" autocomplete="off" placeholder="Psycho" />
+            </label>
+
+            <label class="field year-field">
+              <span>Year</span>
+              <input formControlName="year" inputmode="numeric" autocomplete="off" placeholder="1998" />
+            </label>
+
+            <label class="field type-field">
+              <span>Type</span>
+              <select formControlName="type">
+                @for (type of searchTypes; track type) {
+                  <option [value]="type.value">{{ type.label }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="checkbox-field">
+              <input type="checkbox" formControlName="exactTitleMatch" />
+              <span>Exact Title Match</span>
+            </label>
+
             <button type="submit" [disabled]="searchForm.invalid || loading">
               {{ loading ? 'Searching' : 'Search' }}
             </button>
           </form>
+
+          @if (searchForm.controls.title.invalid && searchForm.controls.title.touched) {
+            <div class="error">Title is required</div>
+          }
 
           @if (errorMessage) {
             <div class="error">{{ errorMessage }}</div>
@@ -56,27 +83,38 @@
           <table>
             <thead>
               <tr>
-                <th>ImdbID</th>
-                <th>Title</th>
-                <th>Director</th>
+                <th>Original name</th>
+                <th>English name</th>
+                <th>Directors</th>
+                <th>Writers</th>
+                <th>Type</th>
                 <th>Year</th>
+                <th>Country</th>
               </tr>
             </thead>
             <tbody>
               @for (movie of searchResults; track movie.imdbId) {
                 <tr [class.selected]="selectedMovie?.imdbId === movie.imdbId" (click)="selectMovie(movie)">
-                  <td>{{ movie.imdbId }}</td>
-                  <td>{{ movie.title }}</td>
-                  <td>{{ movie.director }}</td>
+                  <td>{{ movie.originalTitle || 'N/A' }}</td>
+                  <td>{{ movie.englishTitle || 'N/A' }}</td>
+                  <td>{{ movie.directors || 'N/A' }}</td>
+                  <td>{{ movie.writers || 'N/A' }}</td>
+                  <td>{{ movie.typeDescription }}</td>
                   <td>{{ movie.year }}</td>
+                  <td>{{ movie.country || 'N/A' }}</td>
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="4" class="empty-row"></td>
+                  <td colspan="7" class="empty-row"></td>
                 </tr>
               }
             </tbody>
           </table>
+
+          <footer class="search-results-footer">
+            <span>Page {{ currentSearchPage }}</span>
+            <button type="button" (click)="nextSearchPage()" [disabled]="!hasNextSearchPage || loading">Next</button>
+          </footer>
         </section>
       }
 
@@ -96,12 +134,32 @@
               <input formControlName="director" [class.invalid]="movieForm.controls.director.invalid && movieForm.controls.director.touched" />
             </label>
             <label>
+              Writer
+              <input formControlName="writer" [class.invalid]="movieForm.controls.writer.invalid && movieForm.controls.writer.touched" />
+            </label>
+            <label>
               Year
               <input formControlName="year" [class.invalid]="movieForm.controls.year.invalid && movieForm.controls.year.touched" />
             </label>
             <label>
+              Type
+              <select formControlName="type" [class.invalid]="movieForm.controls.type.invalid && movieForm.controls.type.touched">
+                @for (type of movieTypes; track type.value) {
+                  <option [value]="type.value">{{ type.label }}</option>
+                }
+              </select>
+            </label>
+            <label>
               Poster
               <input formControlName="poster" />
+            </label>
+            <label>
+              Genre
+              <input formControlName="genre" />
+            </label>
+            <label>
+              Country
+              <input formControlName="country" />
             </label>
           </form>
         </section>
@@ -118,12 +176,28 @@
                 <dd>{{ movieForm.value.imdbId }}</dd>
               </div>
               <div>
-                <dt>Author:</dt>
+                <dt>Director:</dt>
                 <dd>{{ movieForm.value.director }}</dd>
+              </div>
+              <div>
+                <dt>Writer:</dt>
+                <dd>{{ movieForm.value.writer }}</dd>
               </div>
               <div>
                 <dt>Year:</dt>
                 <dd>{{ movieForm.value.year }}</dd>
+              </div>
+              <div>
+                <dt>Type:</dt>
+                <dd>{{ movieForm.value.type === 'SERIES' ? 'Series' : movieForm.value.type === 'EPISODE' ? 'Episode' : 'Movie' }}</dd>
+              </div>
+              <div>
+                <dt>Genre:</dt>
+                <dd>{{ movieForm.value.genre || 'N/A' }}</dd>
+              </div>
+              <div>
+                <dt>Country:</dt>
+                <dd>{{ movieForm.value.country || 'N/A' }}</dd>
               </div>
             </dl>
           </article>

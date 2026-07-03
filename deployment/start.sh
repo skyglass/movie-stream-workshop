@@ -369,11 +369,14 @@ copy_keycloak_theme_to_remote() {
   local key_path
   key_path="$(expand_path "$SSH_PRIVATE_KEY_PATH")"
 
-  remote_run "$target" "mkdir -p '$REMOTE_APP_DIR/keycloak-theme/login'"
+  remote_run "$target" "mkdir -p '$REMOTE_APP_DIR/keycloak-theme/login/resources/css'"
   scp -i "$key_path" -o StrictHostKeyChecking=accept-new \
     "$ROOT_DIR/config/keycloak-themes/movie-stream/login/theme.properties" \
     "$ROOT_DIR/config/keycloak-themes/movie-stream/login/register.ftl" \
     "$target:$REMOTE_APP_DIR/keycloak-theme/login/"
+  scp -i "$key_path" -o StrictHostKeyChecking=accept-new \
+    "$ROOT_DIR/config/keycloak-themes/movie-stream/login/resources/css/movie-challenge-login.css" \
+    "$target:$REMOTE_APP_DIR/keycloak-theme/login/resources/css/"
 }
 
 prepare_remote_host() {

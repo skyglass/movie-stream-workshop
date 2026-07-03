@@ -1,20 +1,12 @@
 <header class="app-header">
   <div class="brand">
-    <h1>Movies UI</h1>
+    <a class="brand-name" routerLink="/home" aria-label="Movie Challenge home">Movie Challenge</a>
     <nav>
       <a routerLink="/home" routerLinkActive="active">Home</a>
+      <a routerLink="/search" routerLinkActive="active">Search</a>
       @if (auth.token) {
         <a routerLink="/wizard" routerLinkActive="active">Movie Wizard</a>
-        <button
-          type="button"
-          class="nav-button"
-          [class.available]="movieChallengeAvailable"
-          (click)="openMovieChallenge()">
-          Movie Challenge
-          @if (movieChallengeAvailable) {
-            <span class="availability-dot" aria-hidden="true"></span>
-          }
-        </button>
+        <a routerLink="/movie-challenge" routerLinkActive="active">Movie Challenge</a>
         <a routerLink="/favorites" routerLinkActive="active">My Favorite Movies</a>
         <a routerLink="/users-favorites" routerLinkActive="active">Users Favorite Movies</a>
         <a routerLink="/users-recommended" routerLinkActive="active">Users Recommended Movies</a>
@@ -29,12 +21,3 @@
 <main>
   <router-outlet></router-outlet>
 </main>
-<app-movie-challenge-dialog
-  [open]="movieChallengeOpen"
-  [availabilityVersion]="movieChallengeAvailabilityVersion"
-  (closed)="closeMovieChallenge()"
-  (challengeConsumed)="markMovieChallengeConsumed()">
-</app-movie-challenge-dialog>
-@if (movieChallengeToastVisible) {
-  <div class="challenge-toast">Movie Challenge is available</div>
-}

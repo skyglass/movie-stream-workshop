@@ -1,7 +1,7 @@
 # Entity Model
 
 This file is the full-system reference. The DDD source of truth is split by Software Capability under
-[`docs/capabilities`](capabilities/), where each capability owns `entity_model.md` and `glossary.md`.
+[`docs/specs`](specs/), where each capability owns `entity_model.md` and `glossary.md`.
 
 ## Bounded Context Overview
 

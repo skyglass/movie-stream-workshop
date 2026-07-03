@@ -7,7 +7,7 @@ existing use case changes later.
 
 When a change updates an existing use case, create a new `EP-*` ticket for the same `Use Case ID`. Put only the new or
 updated acceptance criteria in the new ticket. The developer task is to merge those criteria into the current
-`docs/capabilities/**/uc.feature` file for that use case.
+`docs/specs/**/uc.feature` file for that use case.
 
 If a ticket intentionally deletes or replaces an existing scenario, state that explicitly in the new ticket's acceptance
 criteria. Otherwise, existing scenarios remain part of the use case.

@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { Meta, Title } from '@angular/platform-browser';
 import { AuthService } from '../../services/auth';
 import { MoviesApiService, Movie } from '../../services/movies-api';
 import { Subscription } from 'rxjs';
@@ -15,6 +16,8 @@ import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-
 })
 export class MoviesHomeComponent implements OnInit, OnDestroy {
   private readonly moviesApi = inject(MoviesApiService);
+  private readonly meta = inject(Meta);
+  private readonly title = inject(Title);
   readonly auth = inject(AuthService);
 
   movies: Movie[] = [];
@@ -27,6 +30,7 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   private authSub?: Subscription;
 
   ngOnInit(): void {
+    this.applySeoMetadata();
     this.authSub = this.auth.isAuthenticated$.subscribe(() => {
       this.loadMovies(1);
     });
@@ -91,5 +95,17 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   recommendationLabel(movie: Movie): string {
     if (movie.disliked) return 'Disliked';
     return movie.recommended ? 'Recommended' : 'Recommend';
+  }
+
+  private applySeoMetadata(): void {
+    const pageTitle = 'Movie Challenge | Community Recommendations and Favorites';
+    const description = 'Movie Challenge helps movie fans discover films, browse recommendations, save favorite movies, and discuss titles with other movie fans.';
+    this.title.setTitle(pageTitle);
+    this.meta.updateTag({ name: 'description', content: description });
+    this.meta.updateTag({ name: 'robots', content: 'index, follow' });
+    this.meta.updateTag({ property: 'og:title', content: pageTitle });
+    this.meta.updateTag({ property: 'og:description', content: description });
+    this.meta.updateTag({ name: 'twitter:title', content: pageTitle });
+    this.meta.updateTag({ name: 'twitter:description', content: description });
   }
 }

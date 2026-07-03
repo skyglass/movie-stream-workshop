@@ -4,9 +4,9 @@ Read this before writing or modifying tests.
 
 ## Framework
 
-- Cucumber JVM executes use-case scenarios from `docs/capabilities/**/uc.feature`.
+- Cucumber JVM executes use-case scenarios from `docs/specs/**/uc.feature`.
 - `Feature:` names must equal the dash-separated use-case folder name.
-- Cucumber glue lives under `movies-api/src/test/java/com/ivanfranchin/moviesapi/bdd`.
+- Cucumber glue lives under `movies-api/src/test/java/skycomposer/moviechallenge/api/bdd`.
 - Each use case has a corresponding `*AcceptanceTest` class.
 - The use-case ID must line up one-to-one across docs, application service, and BDD test:
   `add-movie-comment` -> `AddMovieCommentUseCase` -> `AddMovieCommentAcceptanceTest`.

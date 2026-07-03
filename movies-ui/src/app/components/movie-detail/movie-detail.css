@@ -20,6 +20,7 @@
 }
 
 .movie-card,
+.plot-panel,
 .comments-panel {
   border: 1px solid #dededf;
   border-radius: 6px;
@@ -29,6 +30,11 @@
 
 .movie-card {
   overflow: hidden;
+}
+
+.detail-main {
+  display: grid;
+  gap: 1rem;
 }
 
 .movie-card img {
@@ -69,16 +75,23 @@ dd {
   overflow-wrap: anywhere;
 }
 
+.plot-panel,
 .comments-panel {
   padding: 1rem;
 }
 
-h2 {
+h2,
+h3 {
   margin: 0 0 0.75rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid #e4e7ec;
   color: #24384f;
   font-size: 1.25rem;
+}
+
+h3 {
+  margin-top: 1rem;
+  font-size: 1rem;
 }
 
 .comment-form {
@@ -137,6 +150,32 @@ button:disabled {
 
 .recommend-button.recommended .material-icons {
   color: #268242;
+}
+
+.plot-button,
+.full-plot-button {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+}
+
+.full-plot-button {
+  border: 1px solid #1678c2;
+  background: #ffffff;
+  color: #1667a8;
+}
+
+.plot-text {
+  color: #24384f;
+  line-height: 1.55;
+}
+
+.plot-text p {
+  margin: 0 0 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.full-plot {
+  margin-top: 1rem;
 }
 
 .comment-list {

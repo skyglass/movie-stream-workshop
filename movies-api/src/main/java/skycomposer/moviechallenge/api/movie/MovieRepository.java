@@ -1,0 +1,132 @@
+package skycomposer.moviechallenge.api.movie;
+
+import skycomposer.moviechallenge.api.movie.model.Movie;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface MovieRepository extends JpaRepository<Movie, String> {
+
+    @Query(value = """
+            select m.*
+            from movies m
+            left join user_movie_winner_loser_all wins on wins.winner_id = m.imdb_id
+            group by m.imdb_id, m.title, m.director, m.writer, m.release_year, m.poster, m.genre, m.country, m.type
+            order by count(wins.winner_id) desc,
+                count(distinct wins.user_id) desc,
+                regexp_replace(lower(m.title), '^(the|a)[[:space:]]+', '') asc,
+                lower(m.title) asc,
+                m.imdb_id asc
+            """, countQuery = """
+            select count(1)
+            from movies
+            """, nativeQuery = true)
+    Page<Movie> findAllByUsersFavoritePopularity(Pageable pageable);
+
+    @Query(value = """
+            select m.*
+            from movies m
+            join (
+                select winner_id, count(1) as win_count
+                from user_movie_winner_loser_all
+                where user_id = :username
+                group by winner_id
+            ) wins on wins.winner_id = m.imdb_id
+            order by wins.win_count desc, m.title asc, m.imdb_id asc
+            """, countQuery = """
+            select count(1)
+            from (
+                select winner_id
+                from user_movie_winner_loser_all
+                where user_id = :username
+                group by winner_id
+            ) favorite_movies
+            """, nativeQuery = true)
+    Page<Movie> findFavoriteMoviesByUsername(@Param("username") String username, Pageable pageable);
+
+    @Query(value = """
+            select m.*
+            from movies m
+            join user_movie_winner_loser_all wins on wins.winner_id = m.imdb_id
+            group by m.imdb_id, m.title, m.director, m.writer, m.release_year, m.poster, m.genre, m.country, m.type
+            order by count(1) desc,
+                count(distinct wins.user_id) desc,
+                m.title asc,
+                m.imdb_id asc
+            """, countQuery = """
+            select count(1)
+            from (
+                select winner_id
+                from user_movie_winner_loser_all
+                group by winner_id
+            ) users_favorite_movies
+            """, nativeQuery = true)
+    Page<Movie> findUsersFavoriteMovies(Pageable pageable);
+
+    @Query(value = """
+            select m.*
+            from movies m
+            join (
+                select user_id, winner_id as movie_id, count(1) as win_count
+                from user_movie_winner_loser_all
+                group by user_id, winner_id
+            ) wins on wins.movie_id = m.imdb_id
+            join (
+                select other_winner_loser.user_id,
+                    count(*) as relative_rating
+                from user_movie_winner_loser_all current_winner_loser
+                join user_movie_winner_loser_all other_winner_loser
+                    on other_winner_loser.winner_id = current_winner_loser.winner_id
+                    and other_winner_loser.loser_id = current_winner_loser.loser_id
+                    and other_winner_loser.user_id <> current_winner_loser.user_id
+                where current_winner_loser.user_id = :username
+                group by other_winner_loser.user_id
+            ) user_rating on user_rating.user_id = wins.user_id
+            where not exists (
+                    select 1
+                    from movie_recommendations recommendation
+                    where recommendation.user_id = :username
+                        and recommendation.movie_id = m.imdb_id
+                )
+            group by m.imdb_id, m.title, m.director, m.writer, m.release_year, m.poster, m.genre, m.country, m.type
+            having sum(wins.win_count * user_rating.relative_rating) > 0
+            order by sum(wins.win_count * user_rating.relative_rating) desc,
+                count(distinct wins.user_id) desc,
+                m.title asc,
+                m.imdb_id asc
+            """, countQuery = """
+            select count(1)
+            from (
+                select wins.movie_id
+                from (
+                    select user_id, winner_id as movie_id, count(1) as win_count
+                    from user_movie_winner_loser_all
+                    group by user_id, winner_id
+                ) wins
+                join (
+                    select other_winner_loser.user_id,
+                        count(*) as relative_rating
+                    from user_movie_winner_loser_all current_winner_loser
+                    join user_movie_winner_loser_all other_winner_loser
+                        on other_winner_loser.winner_id = current_winner_loser.winner_id
+                        and other_winner_loser.loser_id = current_winner_loser.loser_id
+                        and other_winner_loser.user_id <> current_winner_loser.user_id
+                    where current_winner_loser.user_id = :username
+                    group by other_winner_loser.user_id
+                ) user_rating on user_rating.user_id = wins.user_id
+                where not exists (
+                        select 1
+                        from movie_recommendations recommendation
+                        where recommendation.user_id = :username
+                            and recommendation.movie_id = wins.movie_id
+                    )
+                group by wins.movie_id
+                having sum(wins.win_count * user_rating.relative_rating) > 0
+            ) users_recommended_movies
+            """, nativeQuery = true)
+    Page<Movie> findUsersRecommendedMoviesByUsername(@Param("username") String username, Pageable pageable);
+}
