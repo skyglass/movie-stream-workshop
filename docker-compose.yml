@@ -112,6 +112,7 @@ services:
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/movies
       EXPECTED_AUDIENCE: movies-api
       JWT_AUTH_RESOURCE_ID: movies-ui
+      MOVIES_PER_PAGE: ${MOVIES_PER_PAGE:?MOVIES_PER_PAGE is required}
     depends_on:
       postgres-movies:
         condition: service_healthy
@@ -148,6 +149,8 @@ services:
       dockerfile: Dockerfile
       args:
         OMDB_API_KEY: ${OMDB_API_KEY:-}
+        MOVIES_PER_PAGE: ${MOVIES_PER_PAGE:?MOVIES_PER_PAGE is required}
+        SEARCH_RESULTS_PER_PAGE: ${SEARCH_RESULTS_PER_PAGE:?SEARCH_RESULTS_PER_PAGE is required}
     image: movies-ui:latest
     container_name: movies-ui
     restart: unless-stopped

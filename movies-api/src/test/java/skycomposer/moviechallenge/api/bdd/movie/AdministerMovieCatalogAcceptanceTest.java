@@ -34,6 +34,25 @@ public class AdministerMovieCatalogAcceptanceTest {
         administerMovieCatalog.updateMovie(new UpdateMovieCommand(imdbId, title, null, null, null, null, null, null, null));
     }
 
+    @When("admin user {string} updates movie {string} through the movie API with title {string}, director {string}, writer {string}, year {string}, genre {string}, country {string}, and type {string}")
+    public void adminUserUpdatesMovieThroughMovieApiWithMetadata(String username, String imdbId, String title,
+                                                                 String director, String writer, String year,
+                                                                 String genre, String country, String type) throws Exception {
+        fixture.authenticateAdminUser(username);
+        fixture.lastResponse(mockMvc.perform(put("/api/movies/{imdbId}", imdbId)
+                        .with(fixture.jwtForCurrentUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "title", title,
+                                "director", director,
+                                "writer", writer,
+                                "year", year,
+                                "genre", genre,
+                                "country", country,
+                                "type", type))))
+                .andReturn());
+    }
+
     @When("regular user {string} tries to delete movie {string}")
     public void regularUserTriesToDeleteMovie(String username, String imdbId) throws Exception {
         fixture.authenticateRegularUser(username);

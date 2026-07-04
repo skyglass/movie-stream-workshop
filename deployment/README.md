@@ -124,6 +124,8 @@ PGADMIN_DEFAULT_EMAIL=admin@example.com
 PGADMIN_DEFAULT_PASSWORD=<secure-password>
 
 OMDB_API_KEY=<your-omdb-api-key>
+MOVIES_PER_PAGE=50
+SEARCH_RESULTS_PER_PAGE=5
 ```
 
 ## 2. Prepare EBS gp3 Volumes
@@ -351,7 +353,15 @@ For example:
 SSH_ALLOWED_CIDR=198.51.100.25/32
 ```
 
-3. Apply only the infrastructure update:
+3. Remove the stale local SSH host key for the current Terraform Elastic IP before applying infrastructure changes:
+
+```bash
+ssh-keygen -R $(terraform -chdir=deployment/infra output -raw elastic_ip)
+```
+
+This refreshes your local `known_hosts` entry. It does not create a new deployment key pair in `.ssh/`.
+
+4. Apply only the infrastructure update:
 
 ```bash
 ./deployment/start.sh infra
@@ -359,7 +369,7 @@ SSH_ALLOWED_CIDR=198.51.100.25/32
 
 This updates the Terraform-managed EC2 security group rule. It does not publish Docker images or redeploy containers.
 
-4. Verify that Terraform still points to the expected EC2 instance and Elastic IP:
+5. Verify that Terraform still points to the expected EC2 instance and Elastic IP:
 
 ```bash
 terraform -chdir=deployment/infra output -raw elastic_ip
@@ -374,15 +384,6 @@ aws ec2 describe-instances \
   --query 'Reservations[0].Instances[0].{State:State.Name,PublicIp:PublicIpAddress,KeyName:KeyName,LaunchTime:LaunchTime}' \
   --output table
 ```
-
-5. Remove the stale local SSH host key for the Elastic IP:
-
-```bash
-ssh-keygen -R $(terraform -chdir=deployment/infra output -raw elastic_ip)
-```
-
-Do this before retrying SSH when you see `WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!`. Changing
-`SSH_ALLOWED_CIDR` only opens the firewall; it does not update your local `known_hosts` file.
 
 6. Retry SSH and accept the new host key:
 

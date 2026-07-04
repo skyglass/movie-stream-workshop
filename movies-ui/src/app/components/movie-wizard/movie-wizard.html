@@ -15,7 +15,7 @@
           <span class="material-icons icon">movie</span>
           <div>
             <strong>Movie</strong>
-            <small>Movie form</small>
+            <small>Movie Form</small>
           </div>
         </li>
         <li [class.active]="step === 3">
@@ -45,12 +45,12 @@
           <form [formGroup]="searchForm" (ngSubmit)="search()" class="search-form">
             <label class="field title-field">
               <span>Title</span>
-              <input formControlName="title" type="search" autocomplete="off" placeholder="Psycho" />
+              <input formControlName="title" type="search" autocomplete="off" />
             </label>
 
             <label class="field year-field">
               <span>Year</span>
-              <input formControlName="year" inputmode="numeric" autocomplete="off" placeholder="1998" />
+              <input formControlName="year" inputmode="numeric" autocomplete="off" />
             </label>
 
             <label class="field type-field">
@@ -67,7 +67,7 @@
               <span>Exact Title Match</span>
             </label>
 
-            <button type="submit" [disabled]="searchForm.invalid || loading">
+            <button type="submit" [disabled]="searchDisabled()">
               {{ loading ? 'Searching' : 'Search' }}
             </button>
           </form>
@@ -80,41 +80,39 @@
             <div class="error">{{ errorMessage }}</div>
           }
 
-          <table>
-            <thead>
-              <tr>
-                <th>Original name</th>
-                <th>English name</th>
-                <th>Directors</th>
-                <th>Writers</th>
-                <th>Type</th>
-                <th>Year</th>
-                <th>Country</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (movie of searchResults; track movie.imdbId) {
-                <tr [class.selected]="selectedMovie?.imdbId === movie.imdbId" (click)="selectMovie(movie)">
-                  <td>{{ movie.originalTitle || 'N/A' }}</td>
-                  <td>{{ movie.englishTitle || 'N/A' }}</td>
-                  <td>{{ movie.directors || 'N/A' }}</td>
-                  <td>{{ movie.writers || 'N/A' }}</td>
-                  <td>{{ movie.typeDescription }}</td>
-                  <td>{{ movie.year }}</td>
-                  <td>{{ movie.country || 'N/A' }}</td>
-                </tr>
-              } @empty {
+          @if (searchResults.length > 0) {
+            <table>
+              <thead>
                 <tr>
-                  <td colspan="7" class="empty-row"></td>
+                  <th>Title</th>
+                  <th>Year</th>
                 </tr>
-              }
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                @for (movie of searchResults; track movie.imdbId) {
+                  <tr [class.selected]="selectedMovie?.imdbId === movie.imdbId" (click)="selectMovie(movie)">
+                    <td>{{ movie.englishTitle || movie.originalTitle || 'N/A' }}</td>
+                    <td>{{ movie.year || 'N/A' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
 
-          <footer class="search-results-footer">
-            <span>Page {{ currentSearchPage }}</span>
-            <button type="button" (click)="nextSearchPage()" [disabled]="!hasNextSearchPage || loading">Next</button>
-          </footer>
+          @if (selectingMovie) {
+            <div class="info">Loading movie details</div>
+          }
+
+          @if ((currentSearchPage > 1 || hasNextSearchPage) && searchResults.length > 0) {
+            <footer class="search-results-footer">
+              @if (currentSearchPage > 1) {
+                <button type="button" (click)="previousSearchPage()" [disabled]="loading">Previous</button>
+              }
+              @if (hasNextSearchPage) {
+                <button type="button" (click)="nextSearchPage()" [disabled]="loading">Next</button>
+              }
+            </footer>
+          }
         </section>
       }
 
@@ -172,32 +170,16 @@
             <div class="movie-title">{{ movieForm.value.title }}</div>
             <dl>
               <div>
-                <dt>imdbID:</dt>
-                <dd>{{ movieForm.value.imdbId }}</dd>
-              </div>
-              <div>
                 <dt>Director:</dt>
                 <dd>{{ movieForm.value.director }}</dd>
-              </div>
-              <div>
-                <dt>Writer:</dt>
-                <dd>{{ movieForm.value.writer }}</dd>
               </div>
               <div>
                 <dt>Year:</dt>
                 <dd>{{ movieForm.value.year }}</dd>
               </div>
               <div>
-                <dt>Type:</dt>
-                <dd>{{ movieForm.value.type === 'SERIES' ? 'Series' : movieForm.value.type === 'EPISODE' ? 'Episode' : 'Movie' }}</dd>
-              </div>
-              <div>
                 <dt>Genre:</dt>
                 <dd>{{ movieForm.value.genre || 'N/A' }}</dd>
-              </div>
-              <div>
-                <dt>Country:</dt>
-                <dd>{{ movieForm.value.country || 'N/A' }}</dd>
               </div>
             </dl>
           </article>

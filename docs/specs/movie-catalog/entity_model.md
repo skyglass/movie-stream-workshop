@@ -65,7 +65,7 @@ erDiagram
 | poster | Poster URL from OMDb or fallback image | String | Optional, max 2048 characters |
 | genre | Genre list from OMDb | String | Optional |
 | country | Country list from OMDb | String | Optional |
-| type | OMDb title type, stored as explicit enum code `0` Movie, `1` Series, `2` Episode | Integer / MovieType | Not Null, defaults to Movie, constrained to allowed enum codes |
+| type | OMDb title type, stored as explicit enum code `0` Movie or `1` Series | Integer / MovieType | Not Null, defaults to Movie, constrained to allowed enum codes |
 
 ### MOVIE_COMMENT
 

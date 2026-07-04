@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { debounceTime, distinctUntilChanged, map, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import {
   MovieType,
@@ -27,19 +27,19 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
   private authSub?: Subscription;
   private searchValueSub?: Subscription;
   private searchSub?: Subscription;
+  private selectionSub?: Subscription;
 
   readonly searchTypes: { value: OmdbSearchType; label: string }[] = [
     { value: 'movie', label: 'Movie' },
-    { value: 'series', label: 'Series' },
-    { value: 'episode', label: 'Episode' }
+    { value: 'series', label: 'Series' }
   ];
   readonly movieTypes: { value: MovieType; label: string }[] = [
     { value: 'MOVIE', label: 'Movie' },
-    { value: 'SERIES', label: 'Series' },
-    { value: 'EPISODE', label: 'Episode' }
+    { value: 'SERIES', label: 'Series' }
   ];
   step = 1;
   loading = false;
+  selectingMovie = false;
   saving = false;
   errorMessage = '';
   searchResults: OmdbMovieSearchResult[] = [];
@@ -74,17 +74,9 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
       }
     });
 
-    this.searchValueSub = this.searchForm.valueChanges.pipe(
-      debounceTime(350),
-      map(() => this.currentCriteria()),
-      distinctUntilChanged((previous, current) => this.criteriaKey(previous) === this.criteriaKey(current))
-    ).subscribe(criteria => {
+    this.searchValueSub = this.searchForm.valueChanges.subscribe(() => {
       if (!this.auth.token) return;
-      if (criteria.title.length >= 4) {
-        this.runSearch(criteria, 1, false);
-      } else {
-        this.clearSearchResults();
-      }
+      this.clearSearchResults();
     });
   }
 
@@ -92,6 +84,7 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
     this.authSub?.unsubscribe();
     this.searchValueSub?.unsubscribe();
     this.searchSub?.unsubscribe();
+    this.selectionSub?.unsubscribe();
   }
 
   search(): void {
@@ -100,18 +93,26 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
       this.searchForm.markAllAsTouched();
       return;
     }
-    this.runSearch(this.currentCriteria(), 1, true);
+    const criteria = this.currentCriteria();
+    if (!this.readyForSearch(criteria)) return;
+    this.runSearch(criteria, 1);
   }
 
   nextSearchPage(): void {
     if (!this.auth.token || !this.hasNextSearchPage || this.loading) return;
-    this.runSearch(this.currentCriteria(), this.currentSearchPage + 1, true);
+    this.runSearch(this.currentCriteria(), this.currentSearchPage + 1);
   }
 
-  private runSearch(criteria: OmdbMovieSearchCriteria, page: number, explicit: boolean): void {
-    if (!criteria.title || (!explicit && criteria.title.length < 4)) return;
+  previousSearchPage(): void {
+    if (!this.auth.token || this.currentSearchPage <= 1 || this.loading) return;
+    this.runSearch(this.currentCriteria(), this.currentSearchPage - 1);
+  }
+
+  private runSearch(criteria: OmdbMovieSearchCriteria, page: number): void {
+    if (!this.readyForSearch(criteria)) return;
 
     this.loading = true;
+    this.selectingMovie = false;
     this.errorMessage = '';
     this.searchResults = [];
     this.selectedMovie = null;
@@ -141,22 +142,39 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
   }
 
   selectMovie(movie: OmdbMovieSearchResult): void {
-    this.selectedMovie = this.selectedMovie?.imdbId === movie.imdbId ? null : movie;
-    if (this.selectedMovie) {
-      this.movieForm.patchValue({
-        imdbId: movie.imdbId,
-        title: movie.englishTitle || movie.originalTitle,
-        director: movie.directors || 'N/A',
-        writer: movie.writers || 'N/A',
-        year: movie.year,
-        poster: movie.poster,
-        genre: movie.genre,
-        country: movie.country,
-        type: movie.type
-      });
-    } else {
+    if (this.selectedMovie?.imdbId === movie.imdbId) {
+      this.selectionSub?.unsubscribe();
+      this.selectingMovie = false;
+      this.selectedMovie = null;
       this.movieForm.reset({ type: 'MOVIE' });
+      return;
     }
+
+    this.selectedMovie = movie;
+    this.errorMessage = '';
+    this.movieForm.reset({ type: movie.type });
+    if (movie.detailsLoaded) {
+      this.patchMovieForm(movie);
+      return;
+    }
+
+    this.selectingMovie = true;
+    this.selectionSub?.unsubscribe();
+    this.selectionSub = this.moviesApi.getOmdbMovieById(movie.imdbId).subscribe({
+      next: selectedMovie => {
+        if (this.selectedMovie?.imdbId !== movie.imdbId) return;
+        this.selectedMovie = selectedMovie;
+        this.patchMovieForm(selectedMovie);
+        this.selectingMovie = false;
+      },
+      error: err => {
+        if (this.selectedMovie?.imdbId !== movie.imdbId) return;
+        this.selectedMovie = null;
+        this.movieForm.reset({ type: 'MOVIE' });
+        this.selectingMovie = false;
+        this.errorMessage = err?.message ?? 'Could not load movie details';
+      }
+    });
   }
 
   next(): void {
@@ -212,6 +230,7 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
   private clearWizard(): void {
     this.step = 1;
     this.loading = false;
+    this.selectingMovie = false;
     this.saving = false;
     this.errorMessage = '';
     this.searchResults = [];
@@ -220,6 +239,7 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
     this.hasNextSearchPage = false;
     this.lastSearchKey = '';
     this.searchSub?.unsubscribe();
+    this.selectionSub?.unsubscribe();
     this.searchForm.reset({
       title: '',
       year: '',
@@ -231,8 +251,10 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
 
   private clearSearchResults(): void {
     this.searchSub?.unsubscribe();
+    this.selectionSub?.unsubscribe();
     this.searchResults = [];
     this.selectedMovie = null;
+    this.selectingMovie = false;
     this.movieForm.reset({ type: 'MOVIE' });
     this.errorMessage = '';
     this.currentSearchPage = 1;
@@ -252,5 +274,27 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
 
   private criteriaKey(criteria: OmdbMovieSearchCriteria): string {
     return JSON.stringify(criteria);
+  }
+
+  searchDisabled(): boolean {
+    return this.searchForm.invalid || this.loading;
+  }
+
+  private readyForSearch(criteria: OmdbMovieSearchCriteria): boolean {
+    return !!criteria.title;
+  }
+
+  private patchMovieForm(movie: OmdbMovieSearchResult): void {
+    this.movieForm.patchValue({
+      imdbId: movie.imdbId,
+      title: movie.englishTitle || movie.originalTitle,
+      director: movie.directors || 'N/A',
+      writer: movie.writers || 'N/A',
+      year: movie.year,
+      poster: movie.poster,
+      genre: movie.genre,
+      country: movie.country,
+      type: movie.type
+    });
   }
 }

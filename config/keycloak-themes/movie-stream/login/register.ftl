@@ -1,9 +1,8 @@
 <#import "template.ftl" as layout>
 <@layout.registrationLayout displayMessage=!messagesPerField.existsError('username','email','password','password-confirm'); section>
     <#if section = "header">
-        Create your Movie Challenge account
+        Create Movie Challenge account
     <#elseif section = "form">
-        <p class="mc-register-intro">Join Movie Challenge to recommend films and compare favorites with other users.</p>
         <form id="kc-register-form" class="${properties.kcFormClass!}" action="${url.registrationAction}" method="post">
             <div class="${properties.kcFormGroupClass!}">
                 <div class="${properties.kcLabelWrapperClass!}">

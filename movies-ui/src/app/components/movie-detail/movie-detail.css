@@ -4,14 +4,6 @@
   padding: 1.5rem;
 }
 
-.back-link {
-  display: inline-block;
-  margin-bottom: 1rem;
-  color: #1667a8;
-  font-weight: 700;
-  text-decoration: none;
-}
-
 .detail-layout {
   display: grid;
   grid-template-columns: minmax(220px, 320px) 1fr;
@@ -20,7 +12,6 @@
 }
 
 .movie-card,
-.plot-panel,
 .comments-panel {
   border: 1px solid #dededf;
   border-radius: 6px;
@@ -75,7 +66,6 @@ dd {
   overflow-wrap: anywhere;
 }
 
-.plot-panel,
 .comments-panel {
   padding: 1rem;
 }
@@ -152,30 +142,24 @@ button:disabled {
   color: #268242;
 }
 
-.plot-button,
-.full-plot-button {
-  min-height: 2.5rem;
-  padding: 0 1rem;
-}
-
-.full-plot-button {
+.edit-button {
+  width: calc(100% - 1rem);
+  min-height: 2.4rem;
+  margin: 0 0.5rem 0.5rem;
   border: 1px solid #1678c2;
-  background: #ffffff;
+  border-radius: 6px;
   color: #1667a8;
+  background: #ffffff;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
 }
 
-.plot-text {
-  color: #24384f;
-  line-height: 1.55;
-}
-
-.plot-text p {
-  margin: 0 0 0.75rem;
-  overflow-wrap: anywhere;
-}
-
-.full-plot {
-  margin-top: 1rem;
+.edit-button .material-icons {
+  font-size: 1.15rem;
 }
 
 .comment-list {

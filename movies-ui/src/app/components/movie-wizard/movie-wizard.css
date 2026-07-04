@@ -170,14 +170,10 @@ tbody tr.selected {
   background: #eaf4ff;
 }
 
-.empty-row {
-  height: 2.5rem;
-}
-
 .search-results-footer {
   margin-top: 1rem;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 1rem;
   align-items: center;
   color: #526170;
@@ -258,6 +254,13 @@ dd {
   padding: 0.85rem;
   background: #fff6f6;
   color: #a43636;
+}
+
+.info {
+  border-radius: 6px;
+  padding: 0.85rem;
+  background: #f7fbff;
+  color: #244c73;
 }
 
 .empty {

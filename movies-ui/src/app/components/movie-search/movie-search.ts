@@ -1,8 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import { debounceTime, distinctUntilChanged, map, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import {
   MoviesApiService,
@@ -15,7 +14,7 @@ import {
 @Component({
   standalone: true,
   selector: 'app-movie-search',
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './movie-search.html',
   styleUrl: './movie-search.css'
 })
@@ -25,12 +24,12 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService);
   private valueSub?: Subscription;
   private searchSub?: Subscription;
+  private selectionSub?: Subscription;
   private recommendSub?: Subscription;
 
   readonly searchTypes: { value: OmdbSearchType; label: string }[] = [
     { value: 'movie', label: 'Movie' },
-    { value: 'series', label: 'Series' },
-    { value: 'episode', label: 'Episode' }
+    { value: 'series', label: 'Series' }
   ];
   readonly searchForm = this.fb.group({
     title: ['', Validators.required],
@@ -41,7 +40,10 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
 
   movies: OmdbMovieSearchResult[] = [];
   selectedMovie: OmdbMovieSearchResult | null = null;
+  recommendationSaved = false;
+  step = 1;
   loading = false;
+  selectingMovie = false;
   recommending = false;
   errorMessage = '';
   successMessage = '';
@@ -50,22 +52,13 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
   private lastSearchKey = '';
 
   ngOnInit(): void {
-    this.valueSub = this.searchForm.valueChanges.pipe(
-      debounceTime(350),
-      map(() => this.currentCriteria()),
-      distinctUntilChanged((previous, current) => this.criteriaKey(previous) === this.criteriaKey(current))
-    ).subscribe(criteria => {
-      if (criteria.title.length >= 4) {
-        this.runSearch(criteria, 1, false);
-      } else {
-        this.clearResults();
-      }
-    });
+    this.valueSub = this.searchForm.valueChanges.subscribe(() => this.clearResults());
   }
 
   ngOnDestroy(): void {
     this.valueSub?.unsubscribe();
     this.searchSub?.unsubscribe();
+    this.selectionSub?.unsubscribe();
     this.recommendSub?.unsubscribe();
   }
 
@@ -74,24 +67,63 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
       this.searchForm.markAllAsTouched();
       return;
     }
-    this.runSearch(this.currentCriteria(), 1, true);
+    const criteria = this.currentCriteria();
+    if (!this.readyForSearch(criteria)) return;
+    this.runSearch(criteria, 1);
   }
 
-  next(): void {
+  nextSearchPage(): void {
     if (!this.hasNext || this.loading) return;
-    this.runSearch(this.currentCriteria(), this.currentPage + 1, true);
+    this.runSearch(this.currentCriteria(), this.currentPage + 1);
+  }
+
+  previousSearchPage(): void {
+    if (this.currentPage <= 1 || this.loading) return;
+    this.runSearch(this.currentCriteria(), this.currentPage - 1);
   }
 
   selectMovie(movie: OmdbMovieSearchResult): void {
-    this.selectedMovie = this.selectedMovie?.imdbId === movie.imdbId ? null : movie;
+    if (this.selectingMovie) return;
+
+    this.recommendationSaved = false;
     this.successMessage = '';
     this.errorMessage = '';
+    if (movie.detailsLoaded) {
+      this.selectedMovie = movie;
+      this.step = 2;
+      return;
+    }
+
+    this.selectedMovie = null;
+    this.selectingMovie = true;
+    this.selectionSub?.unsubscribe();
+    this.selectionSub = this.moviesApi.getOmdbMovieById(movie.imdbId).subscribe({
+      next: selectedMovie => {
+        this.selectedMovie = selectedMovie;
+        this.selectingMovie = false;
+        this.step = 2;
+      },
+      error: err => {
+        this.selectingMovie = false;
+        this.errorMessage = err?.message ?? 'Could not load movie details';
+      }
+    });
+  }
+
+  back(): void {
+    this.recommendSub?.unsubscribe();
+    this.recommending = false;
+    this.recommendationSaved = false;
+    this.errorMessage = '';
+    this.successMessage = '';
+    this.selectingMovie = false;
+    this.step = Math.max(1, this.step - 1);
   }
 
   recommendSelectedMovie(): void {
     if (!this.selectedMovie || this.recommending) return;
     if (!this.auth.token) {
-      this.errorMessage = 'Sign in to recommend this movie.';
+      this.errorMessage = 'Please log in or register to recommend movies.';
       return;
     }
 
@@ -101,8 +133,10 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
     this.recommendSub?.unsubscribe();
     this.recommendSub = this.moviesApi.recommendMovieFromSearch(this.toRecommendationRequest(this.selectedMovie)).subscribe({
       next: () => {
+        const title = this.selectedMovie?.englishTitle || this.selectedMovie?.originalTitle || 'movie';
         this.recommending = false;
-        this.successMessage = 'Your recommendation is saved.';
+        this.recommendationSaved = true;
+        this.resetSearchWizard(`Movie "${title}" is recommended!`);
       },
       error: err => {
         this.recommending = false;
@@ -115,17 +149,20 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
     return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';
   }
 
-  movieChallengeRegistrationUrl(): string {
-    return this.auth.getRegistrationUrl(new URL('/movie-challenge', window.location.href).toString());
+  searchDisabled(): boolean {
+    return this.searchForm.invalid || this.loading;
   }
 
-  private runSearch(criteria: OmdbMovieSearchCriteria, page: number, explicit: boolean): void {
-    if (!criteria.title || (!explicit && criteria.title.length < 4)) return;
+  private runSearch(criteria: OmdbMovieSearchCriteria, page: number): void {
+    if (!this.readyForSearch(criteria)) return;
 
     this.loading = true;
+    this.selectingMovie = false;
     this.errorMessage = '';
     this.successMessage = '';
     this.selectedMovie = null;
+    this.recommendationSaved = false;
+    this.step = 1;
     this.currentPage = page;
     this.lastSearchKey = this.criteriaKey(criteria);
     this.searchSub?.unsubscribe();
@@ -151,9 +188,13 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
 
   private clearResults(): void {
     this.searchSub?.unsubscribe();
+    this.selectionSub?.unsubscribe();
     this.movies = [];
     this.selectedMovie = null;
+    this.recommendationSaved = false;
+    this.step = 1;
     this.loading = false;
+    this.selectingMovie = false;
     this.errorMessage = '';
     this.successMessage = '';
     this.currentPage = 1;
@@ -188,5 +229,31 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
 
   private criteriaKey(criteria: OmdbMovieSearchCriteria): string {
     return JSON.stringify(criteria);
+  }
+
+  private readyForSearch(criteria: OmdbMovieSearchCriteria): boolean {
+    return !!criteria.title;
+  }
+
+  private resetSearchWizard(successMessage = ''): void {
+    this.searchSub?.unsubscribe();
+    this.movies = [];
+    this.selectedMovie = null;
+    this.recommendationSaved = false;
+    this.step = 1;
+    this.loading = false;
+    this.selectingMovie = false;
+    this.recommending = false;
+    this.errorMessage = '';
+    this.successMessage = successMessage;
+    this.currentPage = 1;
+    this.hasNext = false;
+    this.lastSearchKey = '';
+    this.searchForm.reset({
+      title: '',
+      year: '',
+      type: 'movie',
+      exactTitleMatch: false
+    }, { emitEvent: false });
   }
 }

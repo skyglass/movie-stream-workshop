@@ -1,6 +1,4 @@
 <section class="detail-page">
-  <a routerLink="/home" class="back-link">Back to movies</a>
-
   @if (!auth.token) {
     <div class="empty">Sign in to see movie details</div>
   } @else if (loading) {
@@ -21,6 +19,12 @@
           <span class="material-icons" aria-hidden="true">{{ movie.recommended ? 'check_circle' : 'favorite_border' }}</span>
           {{ movie.recommended ? 'Recommended' : 'Recommend' }}
         </button>
+        @if (auth.isAdmin) {
+          <a class="edit-button" [routerLink]="['/movies', movie.imdbId, 'edit']">
+            <span class="material-icons" aria-hidden="true">edit</span>
+            Edit Movie
+          </a>
+        }
         <div class="movie-title">{{ movie.title }}</div>
         <dl>
           <div>
@@ -28,7 +32,7 @@
             <dd>{{ movie.imdbId }}</dd>
           </div>
           <div>
-            <dt>Author:</dt>
+            <dt>Director:</dt>
             <dd>{{ movie.director }}</dd>
           </div>
           <div>
@@ -55,31 +59,6 @@
       </article>
 
       <div class="detail-main">
-        <section class="plot-panel">
-          <h2>Plot</h2>
-          <button type="button" class="plot-button" (click)="showShortPlot()" [disabled]="plotLoading">
-            {{ plotLoading ? 'Loading Plot' : 'Plot' }}
-          </button>
-          @if (plotErrorMessage) {
-            <div class="inline-error">{{ plotErrorMessage }}</div>
-          }
-          @if (shortPlot) {
-            <div class="plot-text">
-              <h3>Short Plot</h3>
-              <p>{{ shortPlot }}</p>
-              <button type="button" class="full-plot-button" (click)="showFullPlot()" [disabled]="fullPlotLoading">
-                {{ fullPlotLoading ? 'Loading Full Plot' : 'Full Plot' }}
-              </button>
-            </div>
-          }
-          @if (fullPlot) {
-            <div class="plot-text full-plot">
-              <h3>Full Plot</h3>
-              <p>{{ fullPlot }}</p>
-            </div>
-          }
-        </section>
-
         <section class="comments-panel">
           <h2>Add a comment</h2>
           <form [formGroup]="commentForm" (ngSubmit)="addComment()" class="comment-form">

@@ -121,7 +121,6 @@ fi
 : "${IMAGE_VERSION:=1.2.0-movie-challenge}"
 : "${KEYCLOAK_REALM:=movies}"
 : "${JAVA_OPTS:=-XX:MaxRAMPercentage=75}"
-: "${MOVIES_PER_PAGE:=50}"
 : "${MOVIES_POSTGRES_HOST_DIR:=/mnt/movie-stream/movies-postgres}"
 : "${KEYCLOAK_POSTGRES_HOST_DIR:=/mnt/movie-stream/keycloak-postgres}"
 : "${PGADMIN_HOST_DIR:=/mnt/movie-stream/pgadmin}"
@@ -240,6 +239,7 @@ render_app_config() {
   "usersFavoriteMoviesPath": "/api/movies/users-favorite-movies",
   "usersRecommendedMoviesPath": "/api/movies/users-recommended-movies",
   "moviesPerPage": "$MOVIES_PER_PAGE",
+  "searchResultsPerPage": "$SEARCH_RESULTS_PER_PAGE",
   "userExtrasPath": "/api/movies/userextras",
   "usersApiPath": "/api/movies/users",
   "omdbBaseUrl": "https://www.omdbapi.com/",
@@ -295,6 +295,7 @@ render_remote_env() {
     MOVIES_JDBC_PASSWORD
     MOVIES_POSTGRES_DB
     MOVIES_PER_PAGE
+    SEARCH_RESULTS_PER_PAGE
     MOVIES_POSTGRES_HOST_DIR
     MOVIES_POSTGRES_VOLUME_ID
     MOVIES_POSTGRES_DEVICE_NAME
@@ -697,6 +698,8 @@ deploy_app() {
     GITHUB_USERNAME
     GITHUB_TOKEN
     OMDB_API_KEY
+    MOVIES_PER_PAGE
+    SEARCH_RESULTS_PER_PAGE
     MOVIES_JDBC_USERNAME
     MOVIES_JDBC_PASSWORD
     KEYCLOAK_POSTGRES_DB
@@ -733,7 +736,7 @@ deploy_app() {
 
   export APP_DOMAIN APP_BASE_URL APP_CORS_ALLOWED_ORIGINS CONTAINER_REGISTRY
   export KEYCLOAK_EXTERNAL_URL KEYCLOAK_ISSUER_URI KEYCLOAK_TOKEN_URI KEYCLOAK_REALM
-  export MOVIES_JDBC_URL MOVIES_PER_PAGE
+  export MOVIES_JDBC_URL MOVIES_PER_PAGE SEARCH_RESULTS_PER_PAGE
 
   derive_movies_postgres_db
 

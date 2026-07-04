@@ -19,8 +19,6 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
   private readonly moviesApi = inject(MoviesApiService);
   readonly auth = inject(AuthService);
   private authSub?: Subscription;
-  private plotSub?: Subscription;
-  private fullPlotSub?: Subscription;
   private imdbId = '';
 
   movie: Movie | null = null;
@@ -28,11 +26,6 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
   saving = false;
   recommendationSaving = false;
   errorMessage = '';
-  shortPlot = '';
-  fullPlot = '';
-  plotLoading = false;
-  fullPlotLoading = false;
-  plotErrorMessage = '';
 
   readonly commentForm = this.fb.group({
     text: ['', [Validators.required, Validators.maxLength(4000)]]
@@ -51,8 +44,6 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.authSub?.unsubscribe();
-    this.plotSub?.unsubscribe();
-    this.fullPlotSub?.unsubscribe();
   }
 
   loadMovie(imdbId: string): void {
@@ -62,7 +53,6 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
       next: movie => {
         if (!this.auth.token) return;
         this.movie = movie;
-        this.clearPlot();
         this.loading = false;
       },
       error: err => {
@@ -118,42 +108,6 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
     return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';
   }
 
-  showShortPlot(): void {
-    if (!this.movie || this.plotLoading) return;
-
-    this.plotLoading = true;
-    this.plotErrorMessage = '';
-    this.plotSub?.unsubscribe();
-    this.plotSub = this.moviesApi.getOmdbPlot(this.movie.imdbId, 'short').subscribe({
-      next: plot => {
-        this.shortPlot = plot || 'Plot is not available.';
-        this.plotLoading = false;
-      },
-      error: err => {
-        this.plotErrorMessage = err?.message ?? 'Could not load plot';
-        this.plotLoading = false;
-      }
-    });
-  }
-
-  showFullPlot(): void {
-    if (!this.movie || this.fullPlotLoading) return;
-
-    this.fullPlotLoading = true;
-    this.plotErrorMessage = '';
-    this.fullPlotSub?.unsubscribe();
-    this.fullPlotSub = this.moviesApi.getOmdbPlot(this.movie.imdbId, 'full').subscribe({
-      next: plot => {
-        this.fullPlot = plot || 'Full plot is not available.';
-        this.fullPlotLoading = false;
-      },
-      error: err => {
-        this.plotErrorMessage = err?.message ?? 'Could not load full plot';
-        this.fullPlotLoading = false;
-      }
-    });
-  }
-
   avatar(seed: string): string {
     return `https://api.dicebear.com/6.x/avataaars/svg?seed=${encodeURIComponent(seed || 'user')}`;
   }
@@ -164,17 +118,6 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
     this.saving = false;
     this.recommendationSaving = false;
     this.errorMessage = '';
-    this.clearPlot();
     this.commentForm.reset();
-  }
-
-  private clearPlot(): void {
-    this.plotSub?.unsubscribe();
-    this.fullPlotSub?.unsubscribe();
-    this.shortPlot = '';
-    this.fullPlot = '';
-    this.plotLoading = false;
-    this.fullPlotLoading = false;
-    this.plotErrorMessage = '';
   }
 }

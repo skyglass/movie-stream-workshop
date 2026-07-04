@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { BehaviorSubject, map, Observable, tap } from 'rxjs';
+import { BehaviorSubject, map, Observable, of, tap, throwError } from 'rxjs';
 import { AppConfigService } from '../config/app-config.service';
 
 export interface LoginRequest {
@@ -62,6 +62,40 @@ export class AuthService {
     window.location.assign(this.getRegistrationUrl());
   }
 
+  completeLoginRedirect(): Observable<boolean> {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get('code');
+    const error = url.searchParams.get('error');
+
+    if (error) {
+      const errorDescription = url.searchParams.get('error_description') || error;
+      this.clearOidcQueryParams(url);
+      return throwError(() => new Error(errorDescription));
+    }
+
+    if (!code) {
+      return of(false);
+    }
+
+    const c = this.cfg.config;
+    const redirectUri = this.cleanRedirectUrl(window.location.href);
+    const body = new URLSearchParams();
+    body.set('grant_type', 'authorization_code');
+    body.set('client_id', c.clientId);
+    body.set('code', code);
+    body.set('redirect_uri', redirectUri);
+
+    return this.http.post<TokenResponse>(`${c.apiBaseUrl}${c.authTokenPath}`, body.toString(), {
+      headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' })
+    }).pipe(
+      tap(response => {
+        this.storeToken(response.access_token);
+        this.clearOidcQueryParams(url);
+      }),
+      map(() => true)
+    );
+  }
+
   login(request: LoginRequest): Observable<void> {
     const c = this.cfg.config;
     const body = new URLSearchParams();
@@ -74,9 +108,7 @@ export class AuthService {
       headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' })
     }).pipe(
       tap(response => {
-        localStorage.setItem(this.tokenKey, response.access_token);
-        this.userState.next(this.decodeToken(response.access_token));
-        this.authState.next(true);
+        this.storeToken(response.access_token);
       }),
       map(() => void 0)
     );
@@ -128,9 +160,20 @@ export class AuthService {
     return values.find(value => !!value && value.trim().length > 0)?.trim() ?? '';
   }
 
+  private storeToken(accessToken: string): void {
+    localStorage.setItem(this.tokenKey, accessToken);
+    this.userState.next(this.decodeToken(accessToken));
+    this.authState.next(true);
+  }
+
   private cleanRedirectUrl(redirectUrl: string): string {
     const url = new URL(redirectUrl);
     ['code', 'state', 'session_state', 'iss', 'error', 'error_description'].forEach(param => url.searchParams.delete(param));
     return url.toString();
+  }
+
+  private clearOidcQueryParams(url: URL): void {
+    ['code', 'state', 'session_state', 'iss', 'error', 'error_description'].forEach(param => url.searchParams.delete(param));
+    window.history.replaceState(window.history.state, document.title, `${url.pathname}${url.search}${url.hash}`);
   }
 }

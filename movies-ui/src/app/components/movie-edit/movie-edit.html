@@ -1,0 +1,95 @@
+<section class="edit-page">
+  <a [routerLink]="['/movies', imdbId]" class="back-link">Back to movie</a>
+
+  @if (loading) {
+    <div class="state">Loading movie</div>
+  } @else if (errorMessage && !movieForm.value.imdbId) {
+    <div class="state error">{{ errorMessage }}</div>
+  } @else {
+    <div class="edit-layout">
+      <aside class="edit-nav">
+        <ol>
+          <li class="active">
+            <span class="material-icons icon" aria-hidden="true">edit</span>
+            <div>
+              <strong>Edit</strong>
+              <small>Edit Movie</small>
+            </div>
+          </li>
+        </ol>
+      </aside>
+
+      <main class="edit-content">
+        <section class="form-panel">
+          <form [formGroup]="movieForm" (ngSubmit)="submit()" class="movie-form">
+            <label>
+              IMDb ID
+              <input formControlName="imdbId" readonly />
+            </label>
+
+            <label>
+              Title
+              <input formControlName="title" [class.invalid]="movieForm.controls.title.invalid && movieForm.controls.title.touched" />
+            </label>
+
+            <label>
+              Director
+              <input formControlName="director" [class.invalid]="movieForm.controls.director.invalid && movieForm.controls.director.touched" />
+            </label>
+
+            <label>
+              Writer
+              <input formControlName="writer" [class.invalid]="movieForm.controls.writer.invalid && movieForm.controls.writer.touched" />
+            </label>
+
+            <label>
+              Year
+              <input formControlName="year" [class.invalid]="movieForm.controls.year.invalid && movieForm.controls.year.touched" />
+            </label>
+
+            <label>
+              Type
+              <select formControlName="type" [class.invalid]="movieForm.controls.type.invalid && movieForm.controls.type.touched">
+                @for (type of movieTypes; track type.value) {
+                  <option [value]="type.value">{{ type.label }}</option>
+                }
+              </select>
+            </label>
+
+            <label>
+              Genre
+              <input formControlName="genre" />
+            </label>
+
+            <label>
+              Country
+              <input formControlName="country" />
+            </label>
+
+            <label class="wide">
+              Poster
+              <input formControlName="poster" />
+            </label>
+
+            @if (errorMessage) {
+              <div class="form-message error wide">{{ errorMessage }}</div>
+            }
+
+            <div class="form-actions wide">
+              <button type="button" class="secondary" (click)="updateFromOmdb()" [disabled]="refreshing || saving">
+                {{ refreshing ? 'Updating from OMDB' : 'Update from OMDB' }}
+              </button>
+              <button type="submit" class="primary" [disabled]="movieForm.invalid || saving || refreshing">
+                {{ saving ? 'Saving' : 'Submit' }}
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="poster-panel">
+          <img [src]="poster()" alt="Movie poster preview" />
+        </aside>
+      </main>
+    </div>
+  }
+</section>

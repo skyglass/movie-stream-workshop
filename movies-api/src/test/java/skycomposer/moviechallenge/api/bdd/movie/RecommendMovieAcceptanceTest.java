@@ -60,6 +60,23 @@ public class RecommendMovieAcceptanceTest {
         fixture.selectedMovie(objectMapper.readValue(result.getResponse().getContentAsString(), MovieDto.class));
     }
 
+    @When("regular user {string} tries to recommend new movie {string} titled {string} through the movie API with type {string}")
+    public void regularUserTriesToRecommendNewMovieWithType(String username, String imdbId, String title, String type)
+            throws Exception {
+        fixture.authenticateRegularUser(username);
+        fixture.lastResponse(mockMvc.perform(post("/api/movies/recommendation")
+                        .with(fixture.jwtForCurrentUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "imdbId", imdbId,
+                                "title", title,
+                                "director", "N/A",
+                                "writer", "N/A",
+                                "year", "N/A",
+                                "type", type))))
+                .andReturn());
+    }
+
     @Then("movie {string} is recommended by {string}")
     public void movieIsRecommendedBy(String imdbId, String username) {
         fixture.assertMovieRecommendedBy(imdbId, username);

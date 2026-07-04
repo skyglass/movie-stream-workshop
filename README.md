@@ -21,6 +21,8 @@ Create a `.env.local` file in the repository root before starting Compose:
 
 ```text
 OMDB_API_KEY=<your-omdb-api-key>
+MOVIES_PER_PAGE=50
+SEARCH_RESULTS_PER_PAGE=5
 ```
 
 The `.env.local` file is ignored by Git. If it was already staged or tracked, remove it from the Git index while keeping the local file:
@@ -29,7 +31,7 @@ The `.env.local` file is ignored by Git. If it was already staged or tracked, re
 git rm --cached .env.local
 ```
 
-The `movies-ui` Docker build reads `OMDB_API_KEY` from this file and bakes it into the static UI runtime config used by the movie wizard. Teardown commands such as `docker compose down -v` do not need the env file.
+The Docker Compose stack reads `MOVIES_PER_PAGE` for the API, and the `movies-ui` Docker build reads `OMDB_API_KEY`, `MOVIES_PER_PAGE`, and `SEARCH_RESULTS_PER_PAGE` from this file to bake them into the static UI runtime config used by movie lists, movie search, and the movie wizard. Teardown commands such as `docker compose down -v` do not need the env file.
 
 ## Build Docker Images
 

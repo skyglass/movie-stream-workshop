@@ -24,6 +24,10 @@ export class App implements OnInit, OnDestroy {
   private readonly subscriptions: Subscription[] = [];
 
   ngOnInit(): void {
+    this.auth.completeLoginRedirect().subscribe({
+      error: () => void 0
+    });
+
     this.subscriptions.push(this.auth.isAuthenticated$.subscribe(authenticated => {
       if (authenticated) {
         this.moviesApi.syncMe().subscribe({

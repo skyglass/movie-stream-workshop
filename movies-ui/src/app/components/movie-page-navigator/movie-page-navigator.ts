@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, inject } from '@angular/core';
 
 @Component({
   standalone: true,
@@ -9,6 +9,8 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
   styleUrl: './movie-page-navigator.css'
 })
 export class MoviePageNavigatorComponent {
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
   @Input() currentPage = 1;
   @Input() totalCount = 0;
   @Input() pageSize = 50;
@@ -34,5 +36,14 @@ export class MoviePageNavigatorComponent {
   goToPage(page: number): void {
     if (page < 1 || page > this.totalPages || page === this.currentPage) return;
     this.pageChange.emit(page);
+    this.scrollToListStart();
+  }
+
+  private scrollToListStart(): void {
+    requestAnimationFrame(() => {
+      const target = this.host.nativeElement.closest('section') ?? this.host.nativeElement;
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      target.scrollIntoView({ block: 'start', behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+    });
   }
 }

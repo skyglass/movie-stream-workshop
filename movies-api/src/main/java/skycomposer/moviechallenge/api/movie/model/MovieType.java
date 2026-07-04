@@ -6,8 +6,7 @@ import java.util.Arrays;
 
 public enum MovieType {
     MOVIE(0, "movie", "Movie"),
-    SERIES(1, "series", "Series"),
-    EPISODE(2, "episode", "Episode");
+    SERIES(1, "series", "Series");
 
     private final int code;
     private final String omdbValue;

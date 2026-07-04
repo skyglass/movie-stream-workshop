@@ -6,7 +6,7 @@ Movie catalog contribution and recommendation should preserve the OMDb result ty
 
 ## Change
 
-- Add a required movie type classification with allowed values Movie, Series, and Episode.
+- Add a required movie type classification with allowed values Movie and Series.
 - Default existing and omitted values to Movie.
 - Persist the type as an explicit numeric enum code in the movie catalog.
 - Return the type and its display description in movie API responses.

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, forkJoin, map, Observable, of, switchMap } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of, throwError } from 'rxjs';
 import { AppConfigService } from '../config/app-config.service';
 
 export interface MovieComment {
@@ -10,7 +10,7 @@ export interface MovieComment {
   timestamp: string;
 }
 
-export type MovieType = 'MOVIE' | 'SERIES' | 'EPISODE';
+export type MovieType = 'MOVIE' | 'SERIES';
 
 export interface Movie {
   imdbId: string;
@@ -83,15 +83,7 @@ export interface OmdbSearchResponse {
   Error?: string;
 }
 
-export type OmdbSearchType = 'movie' | 'series' | 'episode';
-export type OmdbPlotType = 'short' | 'full';
-
-export interface OmdbPlotResponse {
-  Plot?: string;
-  Response: string;
-  Error?: string;
-}
-
+export type OmdbSearchType = 'movie' | 'series';
 export interface OmdbMovieSearchCriteria {
   title: string;
   year: string;
@@ -114,6 +106,7 @@ export interface OmdbMovieSearchResult {
   imdbRating: string;
   type: MovieType;
   typeDescription: string;
+  detailsLoaded: boolean;
 }
 
 export interface OmdbMovieSearchPage {
@@ -137,6 +130,7 @@ export interface RecommendMovieFromSearchRequest {
 
 @Injectable({ providedIn: 'root' })
 export class MoviesApiService {
+  private readonly omdbResultsPerPage = 10;
   private readonly moviesBase: string;
   private readonly movieChallengesBase: string;
   private readonly favoriteMoviesBase: string;
@@ -157,8 +151,11 @@ export class MoviesApiService {
   }
 
   get moviePageSize(): number {
-    const configuredPageSize = Number(this.cfg.config.moviesPerPage ?? 50);
-    return Number.isFinite(configuredPageSize) && configuredPageSize > 0 ? Math.floor(configuredPageSize) : 50;
+    return this.positiveConfigNumber(this.cfg.config.moviesPerPage, 'moviesPerPage');
+  }
+
+  get searchResultsPageSize(): number {
+    return this.positiveConfigNumber(this.cfg.config.searchResultsPerPage, 'searchResultsPerPage');
   }
 
   listMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
@@ -244,19 +241,13 @@ export class MoviesApiService {
     return this.http.get<OmdbMovie>(`${c.omdbBaseUrl}?${params.toString()}`);
   }
 
-  getOmdbPlot(imdbId: string, plot: OmdbPlotType): Observable<string> {
-    const c = this.cfg.config;
-    const params = new URLSearchParams({
-      apikey: c.omdbApiKey,
-      i: imdbId,
-      plot
-    });
-    return this.http.get<OmdbPlotResponse>(`${c.omdbBaseUrl}?${params.toString()}`).pipe(
-      map(response => {
-        if (response.Response === 'False') {
-          throw new Error(response.Error || 'OMDb plot was not found');
+  getOmdbMovieById(imdbId: string): Observable<OmdbMovieSearchResult> {
+    return this.lookupOmdbById(imdbId).pipe(
+      map(movie => {
+        if (!movie || !this.successfulOmdbMovie(movie)) {
+          throw new Error(movie?.Error || 'OMDb movie was not found');
         }
-        return this.cleanOmdbValue(response.Plot);
+        return this.toSearchResult(movie);
       })
     );
   }
@@ -266,38 +257,39 @@ export class MoviesApiService {
     const year = criteria.year.trim();
     const type = criteria.type;
     const exact = criteria.exactTitleMatch;
-    const omdbPage = Math.max(1, Math.floor((Math.max(1, page) - 1) / 2) + 1);
-    const sliceStart = ((Math.max(1, page) - 1) % 2) * 5;
-    const exactMovie$ = exact && page === 1
+    const normalizedPage = Math.max(1, Math.floor(page));
+    const pageSize = this.searchResultsPageSize;
+    const firstResultIndex = (normalizedPage - 1) * pageSize;
+    const lastResultIndex = firstResultIndex + pageSize - 1;
+    const firstOmdbPage = Math.floor(firstResultIndex / this.omdbResultsPerPage) + 1;
+    const lastOmdbPage = Math.floor(lastResultIndex / this.omdbResultsPerPage) + 1;
+    const sliceStart = firstResultIndex - ((firstOmdbPage - 1) * this.omdbResultsPerPage);
+    const omdbPages = Array.from(
+      { length: lastOmdbPage - firstOmdbPage + 1 },
+      (_, index) => firstOmdbPage + index
+    );
+    const exactMovie$ = exact && normalizedPage === 1
       ? this.lookupOmdbTitle(titleQuery, year, type)
       : of(null);
-    const primarySearch$ = this.searchOmdbPage(titleQuery, omdbPage, type, year);
+    const primarySearches$ = forkJoin(omdbPages.map(omdbPage => this.searchOmdbPage(titleQuery, omdbPage, type, year)));
 
     return forkJoin({
       exactMovie: exactMovie$,
-      primarySearch: primarySearch$,
+      primarySearches: primarySearches$,
     }).pipe(
-      switchMap(({ exactMovie, primarySearch }) => {
-        const searchItems = this.searchItems(primarySearch);
-        if (searchItems.length === 0) {
-          const exactResults = exactMovie && this.successfulOmdbMovie(exactMovie)
-            ? [this.toSearchResult(exactMovie)]
-            : [];
-          return of(this.toSearchPage(exactResults, criteria, titleQuery, sliceStart, page, primarySearch));
+      map(({ exactMovie, primarySearches }) => {
+        const searchError = this.omdbSearchError(primarySearches);
+        if (searchError) {
+          throw new Error(searchError);
         }
 
-        const details$ = forkJoin(searchItems.map(item => this.lookupOmdbById(item.imdbID)));
-        return details$.pipe(
-          map(details => {
-            const results = details
-              .filter((movie): movie is OmdbMovie => movie !== null && this.successfulOmdbMovie(movie))
-              .map(movie => this.toSearchResult(movie));
-            if (exactMovie && this.successfulOmdbMovie(exactMovie)) {
-              results.unshift(this.toSearchResult(exactMovie));
-            }
-            return this.toSearchPage(results, criteria, titleQuery, sliceStart, page, primarySearch);
-          })
-        );
+        const searchItems = this.searchItems(primarySearches);
+        const pageSearchItems = searchItems.slice(sliceStart, sliceStart + pageSize);
+        const results = pageSearchItems.map(item => this.toSearchResultFromItem(item));
+        if (exactMovie && this.successfulOmdbMovie(exactMovie)) {
+          results.unshift(this.toSearchResult(exactMovie));
+        }
+        return this.toSearchPage(results, criteria, titleQuery, normalizedPage, pageSize, primarySearches);
       })
     );
   }
@@ -307,6 +299,14 @@ export class MoviesApiService {
       page: String(page),
       pageSize: String(pageSize)
     };
+  }
+
+  private positiveConfigNumber(value: number | string | undefined, name: string): number {
+    const configuredValue = Number(value);
+    if (!Number.isFinite(configuredValue) || configuredValue < 1) {
+      throw new Error(`${name} must be configured as a positive number in app-config.json`);
+    }
+    return Math.floor(configuredValue);
   }
 
   private searchOmdbPage(query: string, page: number, type: OmdbSearchType, year: string): Observable<OmdbSearchResponse> {
@@ -321,18 +321,31 @@ export class MoviesApiService {
       params.set('y', year);
     }
     return this.http.get<OmdbSearchResponse>(`${c.omdbBaseUrl}?${params.toString()}`).pipe(
-      catchError(() => of({ Response: 'False', Error: 'OMDb search failed' }))
+      catchError(() => throwError(() => new Error('OMDb search failed')))
     );
   }
 
-  private lookupOmdbById(imdbId: string): Observable<OmdbMovie | null> {
+  private omdbSearchError(searches: OmdbSearchResponse[]): string {
+    const failedSearch = searches.find(search =>
+      search.Response === 'False'
+      && !!search.Error
+      && !this.omdbNoSearchResults(search.Error)
+    );
+    return failedSearch?.Error ?? '';
+  }
+
+  private omdbNoSearchResults(error: string): boolean {
+    return error.trim().toLowerCase() === 'movie not found!';
+  }
+
+  private lookupOmdbById(imdbId: string): Observable<OmdbMovie> {
     const c = this.cfg.config;
     const params = new URLSearchParams({
       apikey: c.omdbApiKey,
       i: imdbId
     });
     return this.http.get<OmdbMovie>(`${c.omdbBaseUrl}?${params.toString()}`).pipe(
-      catchError(() => of(null))
+      catchError(() => throwError(() => new Error('OMDb movie lookup failed')))
     );
   }
 
@@ -352,9 +365,10 @@ export class MoviesApiService {
     );
   }
 
-  private searchItems(primarySearch: OmdbSearchResponse): OmdbSearchItem[] {
+  private searchItems(primarySearches: OmdbSearchResponse[]): OmdbSearchItem[] {
     const byId = new Map<string, OmdbSearchItem>();
-    (primarySearch.Search ?? [])
+    primarySearches
+      .flatMap(search => search.Search ?? [])
       .forEach(item => byId.set(item.imdbID, item));
     return [...byId.values()];
   }
@@ -363,12 +377,15 @@ export class MoviesApiService {
     results: OmdbMovieSearchResult[],
     criteria: OmdbMovieSearchCriteria,
     titleQuery: string,
-    sliceStart: number,
     page: number,
-    primarySearch: OmdbSearchResponse
+    pageSize: number,
+    primarySearches: OmdbSearchResponse[]
   ): OmdbMovieSearchPage {
     const uniqueResults = this.uniqueResults(results);
-    const scoredResults = uniqueResults
+    const matchedResults = criteria.exactTitleMatch
+      ? uniqueResults.filter(movie => this.matchesExactSearch(movie, criteria, titleQuery))
+      : uniqueResults;
+    const scoredResults = matchedResults
       .map(movie => ({ movie, score: this.searchScore(movie, criteria, titleQuery) }))
       .filter(result => result.score > 0 || !criteria.exactTitleMatch)
       .sort((left, right) => {
@@ -380,13 +397,28 @@ export class MoviesApiService {
           || left.movie.imdbId.localeCompare(right.movie.imdbId);
       })
       .map(result => result.movie);
-    const totalResults = this.totalSearchResults(primarySearch, uniqueResults.length);
+    const totalResults = criteria.exactTitleMatch
+      ? scoredResults.length
+      : this.totalSearchResults(primarySearches, uniqueResults.length);
+    const pageResults = scoredResults.slice(0, pageSize);
 
     return {
-      movies: scoredResults.slice(sliceStart, sliceStart + 5),
+      movies: pageResults,
       totalResults,
-      hasNext: page * 5 < totalResults
+      hasNext: pageResults.length === pageSize && page * pageSize < totalResults
     };
+  }
+
+  private matchesExactSearch(
+    movie: OmdbMovieSearchResult,
+    criteria: OmdbMovieSearchCriteria,
+    titleQuery: string
+  ): boolean {
+    const normalizedTitleQuery = this.normalize(titleQuery);
+    const titleMatches = this.normalize(movie.englishTitle) === normalizedTitleQuery
+      || this.normalize(movie.originalTitle) === normalizedTitleQuery;
+    const yearMatches = !criteria.year || movie.year.includes(criteria.year);
+    return titleMatches && yearMatches;
   }
 
   private toSearchResult(movie: OmdbMovie): OmdbMovieSearchResult {
@@ -405,7 +437,29 @@ export class MoviesApiService {
       genre: this.cleanOmdbValue(movie.Genre),
       imdbRating: this.cleanOmdbValue(movie.imdbRating),
       type,
-      typeDescription: this.movieTypeDescription(type)
+      typeDescription: this.movieTypeDescription(type),
+      detailsLoaded: true
+    };
+  }
+
+  private toSearchResultFromItem(item: OmdbSearchItem): OmdbMovieSearchResult {
+    const type = this.movieTypeFromOmdb(item.Type);
+    return {
+      imdbId: item.imdbID,
+      originalTitle: '',
+      englishTitle: this.cleanOmdbValue(item.Title),
+      directors: '',
+      writers: '',
+      year: this.cleanOmdbValue(item.Year),
+      country: '',
+      poster: '',
+      language: '',
+      runtime: '',
+      genre: '',
+      imdbRating: '',
+      type,
+      typeDescription: this.movieTypeDescription(type),
+      detailsLoaded: false
     };
   }
 
@@ -458,10 +512,10 @@ export class MoviesApiService {
   }
 
   private totalSearchResults(
-    primarySearch: OmdbSearchResponse,
+    primarySearches: OmdbSearchResponse[],
     fallbackTotal: number
   ): number {
-    const primaryTotal = Number(primarySearch.totalResults ?? 0);
+    const primaryTotal = Math.max(...primarySearches.map(search => Number(search.totalResults ?? 0)), 0);
     const total = Math.max(primaryTotal, fallbackTotal);
     return Number.isFinite(total) ? total : fallbackTotal;
   }
@@ -499,8 +553,6 @@ export class MoviesApiService {
     switch (this.cleanOmdbValue(type).toLowerCase()) {
       case 'series':
         return 'SERIES';
-      case 'episode':
-        return 'EPISODE';
       case 'movie':
       default:
         return 'MOVIE';
@@ -511,8 +563,6 @@ export class MoviesApiService {
     switch (type) {
       case 'SERIES':
         return 'Series';
-      case 'EPISODE':
-        return 'Episode';
       case 'MOVIE':
       default:
         return 'Movie';

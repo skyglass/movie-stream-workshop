@@ -14,6 +14,11 @@ Feature: recommend-movie
     And movie "tt0098936" exists in the catalog with director "Mark Frost, David Lynch", writer "Mark Frost, David Lynch", year "1990-1991", genre "Crime, Drama, Mystery", country "United States", and type "Series"
     And the recommendation response marks movie "tt0098936" as recommended
 
+  Scenario: Regular user cannot recommend a new episode type movie
+    Given the movie catalog is empty
+    When regular user "user" tries to recommend new movie "tt0583459" titled "The One Where Monica Gets a Roommate" through the movie API with type "Episode"
+    Then the movie API response status is 400
+
   Scenario: Regular user can unrecommend a movie
     Given movie "tt0083658" exists with title "Blade Runner"
     And movie "tt0083658" is already recommended by "user"

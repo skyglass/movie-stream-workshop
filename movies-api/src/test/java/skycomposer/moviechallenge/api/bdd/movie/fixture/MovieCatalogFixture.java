@@ -363,6 +363,11 @@ public class MovieCatalogFixture {
         currentRole = "MOVIES_USER";
     }
 
+    public void authenticateAdminUser(String username) {
+        currentUsername = username;
+        currentRole = "MOVIES_ADMIN";
+    }
+
     public String currentUserEmail() {
         return currentUsername + "@skycomposer.net";
     }

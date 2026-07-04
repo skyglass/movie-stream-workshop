@@ -41,6 +41,23 @@ public class AddMovieToCatalogAcceptanceTest {
                 MovieType.fromValue(type)));
     }
 
+    @When("contributor {string} tries to add movie {string} titled {string} through the movie API with type {string}")
+    public void contributorTriesToAddMovieWithType(String username, String imdbId, String title, String type)
+            throws Exception {
+        fixture.authenticateRegularUser(username);
+        fixture.lastResponse(mockMvc.perform(post("/api/movies")
+                        .with(fixture.jwtForCurrentUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "imdbId", imdbId,
+                                "title", title,
+                                "director", "N/A",
+                                "writer", "N/A",
+                                "year", "N/A",
+                                "type", type))))
+                .andReturn());
+    }
+
     @When("an anonymous caller tries to add movie {string}")
     public void anonymousCallerTriesToAddMovie(String imdbId) throws Exception {
         fixture.lastResponse(mockMvc.perform(post("/api/movies")

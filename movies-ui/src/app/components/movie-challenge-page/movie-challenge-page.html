@@ -1,30 +1,200 @@
 <section class="challenge-page">
-  <header class="challenge-page-header">
-    <div>
-      <p class="eyebrow">Movie Challenge</p>
-      <h1>Choose the better movie</h1>
-    </div>
-    <p>Compare two recommended movies and keep moving through the next available challenge.</p>
-  </header>
-
   @if (!auth.token) {
     <section class="challenge-state">
       <p>Sign in to play Movie Challenge.</p>
       <a routerLink="/home">Go to Movie Challenge</a>
     </section>
   } @else {
-    @if (!loaded) {
-      <section class="challenge-start">
-        <button type="button" class="primary-button" (click)="loadNextChallenge()">Start Movie Challenge</button>
-      </section>
-    } @else if (loading) {
+    @if (loading) {
       <section class="challenge-state">Loading movie challenge</section>
     } @else if (errorMessage) {
       <section class="challenge-state error">{{ errorMessage }}</section>
     } @else if (!challenge) {
-      <section class="challenge-state">
-        <p>Recommend more movies to participate.</p>
-        <a routerLink="/search">Search movies</a>
+      <section class="challenge-wizard">
+        <h2 class="challenge-wizard-heading">Recommend more movies to participate</h2>
+        <aside class="search-nav">
+          <ol>
+            <li [class.active]="fallbackStep === 1">
+              <span class="material-icons icon" aria-hidden="true">search</span>
+              <div>
+                <strong>Search</strong>
+                <small>Search Movie</small>
+              </div>
+            </li>
+            <li [class.active]="fallbackStep === 2">
+              <span class="material-icons icon" aria-hidden="true">favorite</span>
+              <div>
+                <strong>Recommend</strong>
+                <small>Preview and recommend</small>
+              </div>
+            </li>
+            <li [class.active]="fallbackStep === 3">
+              <span class="material-icons icon" aria-hidden="true">movie</span>
+              <div>
+                <strong>Movie Challenge</strong>
+                <small>Compare and vote</small>
+              </div>
+            </li>
+          </ol>
+
+          @if (fallbackStep > 1) {
+            <div class="wizard-buttons">
+              <button type="button" (click)="fallbackBack()">Back</button>
+            </div>
+          }
+        </aside>
+
+        <main class="search-content">
+          @if (fallbackStep === 1) {
+            <section class="search-panel" aria-labelledby="movie-challenge-search-title">
+              <form [formGroup]="fallbackSearchForm" (ngSubmit)="fallbackSearch()" class="search-form">
+                <label class="field title-field" for="movie-challenge-search-title">
+                  <span>Title</span>
+                  <input
+                    id="movie-challenge-search-title"
+                    formControlName="title"
+                    type="search"
+                    autocomplete="off" />
+                </label>
+
+                <label class="field year-field" for="movie-challenge-search-year">
+                  <span>Year</span>
+                  <input
+                    id="movie-challenge-search-year"
+                    formControlName="year"
+                    inputmode="numeric"
+                    autocomplete="off" />
+                </label>
+
+                <label class="field type-field" for="movie-challenge-search-type">
+                  <span>Type</span>
+                  <select id="movie-challenge-search-type" formControlName="type">
+                    @for (type of searchTypes; track type) {
+                      <option [value]="type.value">{{ type.label }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="checkbox-field">
+                  <input type="checkbox" formControlName="exactTitleMatch" />
+                  <span>Exact Title Match</span>
+                </label>
+
+                <button type="submit" [disabled]="fallbackSearchDisabled()">
+                  {{ fallbackSearchLoading ? 'Searching' : 'Search' }}
+                </button>
+              </form>
+
+              @if (fallbackSearchForm.controls.title.invalid && fallbackSearchForm.controls.title.touched) {
+                <div class="message error">Title is required</div>
+              }
+
+              @if (fallbackErrorMessage) {
+                <div class="message error">{{ fallbackErrorMessage }}</div>
+              }
+              @if (fallbackSuccessMessage) {
+                <div class="message success">
+                  <span>{{ fallbackSuccessMessage }}</span>
+                </div>
+              }
+
+              @if (fallbackMovies.length > 0) {
+                <div class="results-wrap">
+                  <table aria-label="Found movies">
+                    <thead>
+                      <tr>
+                        <th>Title</th>
+                        <th>Year</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (movie of fallbackMovies; track movie.imdbId) {
+                        <tr
+                          [class.selected]="fallbackSelectedMovie?.imdbId === movie.imdbId"
+                          role="button"
+                          tabindex="0"
+                          (click)="selectFallbackMovie(movie)"
+                          (keydown.enter)="selectFallbackMovie(movie)"
+                          (keydown.space)="selectFallbackMovie(movie); $event.preventDefault()">
+                          <td>{{ movie.englishTitle || movie.originalTitle || 'N/A' }}</td>
+                          <td>{{ movie.year || 'N/A' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+
+              @if (fallbackSelectingMovie) {
+                <div class="message">Loading movie details</div>
+              }
+
+              @if ((fallbackCurrentPage > 1 || fallbackHasNext) && fallbackMovies.length > 0) {
+                <footer class="result-actions">
+                  @if (fallbackCurrentPage > 1) {
+                    <button type="button" (click)="previousFallbackSearchPage()" [disabled]="fallbackSearchLoading">
+                      Previous results
+                    </button>
+                  }
+                  @if (fallbackHasNext) {
+                    <button type="button" (click)="nextFallbackSearchPage()" [disabled]="fallbackSearchLoading">
+                      Next results
+                    </button>
+                  }
+                </footer>
+              }
+            </section>
+          }
+
+          @if (fallbackStep === 2 && fallbackSelectedMovie; as movie) {
+            <section class="recommend-panel" aria-labelledby="movie-challenge-recommend-title">
+              <article class="movie-card">
+                <div class="poster-link">
+                  <img [src]="poster(movie)" [alt]="(movie.englishTitle || movie.originalTitle) + ' poster'" />
+                </div>
+                <button
+                  type="button"
+                  class="recommend-button"
+                  [class.recommended]="fallbackRecommendationSaved"
+                  [disabled]="fallbackRecommending || fallbackRecommendationSaved"
+                  (click)="recommendFallbackSelectedMovie()">
+                  <span class="material-icons" aria-hidden="true">{{ fallbackRecommendationSaved ? 'check_circle' : 'favorite_border' }}</span>
+                  {{ fallbackRecommendationSaved ? 'Recommended' : (fallbackRecommending ? 'Recommending' : 'Recommend') }}
+                </button>
+                <div class="movie-link">
+                  <h3 class="movie-title" id="movie-challenge-recommend-title">{{ movie.englishTitle || movie.originalTitle }}</h3>
+                  <dl>
+                    <div>
+                      <dt>Year:</dt>
+                      <dd>{{ movie.year || 'N/A' }}</dd>
+                    </div>
+                    <div>
+                      <dt>Director:</dt>
+                      <dd>{{ movie.directors || 'N/A' }}</dd>
+                    </div>
+                    <div>
+                      <dt>Genre:</dt>
+                      <dd>{{ movie.genre || 'N/A' }}</dd>
+                    </div>
+                  </dl>
+                </div>
+              </article>
+              @if (fallbackErrorMessage) {
+                <div class="message error">{{ fallbackErrorMessage }}</div>
+              }
+            </section>
+          }
+
+          @if (fallbackStep === 3) {
+            <section class="recommend-panel challenge-start" aria-labelledby="movie-challenge-fallback-start" aria-live="polite">
+              <span class="material-icons challenge-icon" aria-hidden="true">movie</span>
+              <h2 id="movie-challenge-fallback-start">Movie Challenge</h2>
+              @if (fallbackSuccessMessage) {
+                <div class="message success">{{ fallbackSuccessMessage }}</div>
+              }
+            </section>
+          }
+        </main>
       </section>
     } @else {
       <section class="challenge-board" [class.has-selection]="selectedMovieId">
@@ -33,8 +203,8 @@
           class="challenge-movie"
           [class.winner]="isWinner(challenge.movie1)"
           [class.loser]="isLoser(challenge.movie1)"
-          [disabled]="!!selectedMovieId"
-          (click)="selectMovie(challenge.movie1)">
+          [disabled]="saving"
+          (click)="selectMovieLocally(challenge.movie1)">
           <span class="poster-shell">
             <img [src]="poster(challenge.movie1)" [alt]="challenge.movie1.title + ' poster'" />
             <span class="check-circle" aria-hidden="true">
@@ -44,13 +214,18 @@
           <span class="challenge-title">{{ challenge.movie1.title }}</span>
         </button>
 
+        <div class="versus-wrap" aria-hidden="true">
+          <span class="destiny-label">Choose Your Movie</span>
+          <span class="vs-badge">VS</span>
+        </div>
+
         <button
           type="button"
           class="challenge-movie"
           [class.winner]="isWinner(challenge.movie2)"
           [class.loser]="isLoser(challenge.movie2)"
-          [disabled]="!!selectedMovieId"
-          (click)="selectMovie(challenge.movie2)">
+          [disabled]="saving"
+          (click)="selectMovieLocally(challenge.movie2)">
           <span class="poster-shell">
             <img [src]="poster(challenge.movie2)" [alt]="challenge.movie2.title + ' poster'" />
             <span class="check-circle" aria-hidden="true">
@@ -62,7 +237,9 @@
       </section>
 
       <footer class="challenge-actions" [class.visible]="showNext">
-        <button type="button" class="primary-button" [disabled]="!showNext" (click)="loadNextChallenge()">Next</button>
+        <button type="button" class="primary-button" [disabled]="!showNext || saving" (click)="saveSelectionAndLoadNext()">
+          {{ saving ? 'Saving' : 'Next' }}
+        </button>
       </footer>
     }
   }

@@ -3,15 +3,15 @@
     <a class="brand-name" routerLink="/home" aria-label="Movie Challenge home">Movie Challenge</a>
     <nav>
       <a routerLink="/home" routerLinkActive="active">Home</a>
-      <a routerLink="/search" routerLinkActive="active">Search</a>
+      <a routerLink="/search" routerLinkActive="active">Search Wizard</a>
       @if (auth.token) {
-        <a routerLink="/wizard" routerLinkActive="active">Movie Wizard</a>
         <a routerLink="/movie-challenge" routerLinkActive="active">Movie Challenge</a>
         <a routerLink="/favorites" routerLinkActive="active">My Favorite Movies</a>
         <a routerLink="/users-favorites" routerLinkActive="active">Users Favorite Movies</a>
         <a routerLink="/users-recommended" routerLinkActive="active">Users Recommended Movies</a>
       }
       @if (auth.isAdmin) {
+        <a routerLink="/wizard" routerLinkActive="active">Movie Wizard</a>
         <a routerLink="/admin" routerLinkActive="active">Admin</a>
       }
     </nav>

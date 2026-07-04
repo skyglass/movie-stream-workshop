@@ -3,64 +3,48 @@
     <section class="intro-section" aria-labelledby="home-title">
       <div class="intro-copy">
         <p class="eyebrow">Movie Challenge</p>
-        <h1 id="home-title">Discover movies people actually recommend</h1>
-        <p class="intro-lead">
-          Browse Movie Challenge with posters, directors, release years, IMDb identifiers,
-          personal favorites, and recommendations from other movie fans.
-        </p>
+        <h1 id="home-title">Discover movies recommended by people who vote like you</h1>
         <div class="intro-actions">
           <button type="button" class="primary-action" (click)="auth.register()">Create account</button>
-          <a class="secondary-action" href="#movie-catalog">Browse Movie Challenge</a>
         </div>
       </div>
 
       <div class="intro-highlights" aria-label="Movie Challenge features">
         <article>
+          <span class="material-icons" aria-hidden="true">collections_bookmark</span>
+          <h2>Movie Search</h2>
+          <p>Find films by title, year and type.</p>
+        </article>
+        <article>
           <span class="material-icons" aria-hidden="true">movie</span>
           <h2>Movie Challenge</h2>
-          <p>Find film titles by poster, director, release year, and IMDb reference.</p>
+          <p>Compare movies in 1-1 challenges to rank them from highest to lowest.</p>
         </article>
         <article>
           <span class="material-icons" aria-hidden="true">favorite</span>
           <h2>Favorite movies</h2>
-          <p>Build a personal watchlist and revisit the films you want to remember.</p>
+          <p>Build a personal favorite movies list, ranked from highest to lowest, based on the Movie Challenge votes.</p>
         </article>
         <article>
           <span class="material-icons" aria-hidden="true">recommend</span>
           <h2>Community recommendations</h2>
-          <p>See which movies other users recommend and compare audience favorites.</p>
+          <p>Discover movies recommended by people who vote like you, ranked from strongest weighted match to weakest.</p>
         </article>
       </div>
     </section>
 
-    <section class="search-summary" aria-labelledby="search-summary-title">
+    <section class="search-summary seo-copy" aria-labelledby="search-summary-title" aria-hidden="true">
       <h2 id="search-summary-title">A public movie discovery page for film fans</h2>
       <p>
         Movie Challenge helps users discover recommended movies, compare favorite films, discuss movie details,
         and participate in movie challenges after signing in.
       </p>
     </section>
-  } @else {
-    <header class="catalog-intro">
-      <p class="eyebrow">Movie Challenge</p>
-      <h1>Browse Movie Challenge</h1>
-      <p>Open a title to view comments, recommend it to other users, or add it to your favorites.</p>
-    </header>
   }
 
-  <section id="movie-catalog" class="catalog-section" aria-labelledby="catalog-title">
-    <header class="catalog-heading">
-      <div>
-        <p class="eyebrow">Movie Challenge</p>
-        <h2 id="catalog-title">Movie Challenge titles and recommendations</h2>
-      </div>
-      <p>
-        Explore movies with poster artwork, directors, release years, and community recommendation status.
-      </p>
-    </header>
-
+  <section id="movie-catalog" class="catalog-section" aria-label="Movie Catalog">
     @if (loading) {
-      <div class="state">Loading Movie Challenge</div>
+      <div class="state">Loading Movie Catalog</div>
     } @else if (errorMessage) {
       <div class="state error">{{ errorMessage }}</div>
     } @else if (movies.length > 0) {
@@ -92,32 +76,16 @@
                 <h3 class="movie-title" [id]="'movie-title-' + movie.imdbId" itemprop="name">{{ movie.title }}</h3>
                 <dl>
                   <div>
-                    <dt>IMDb ID:</dt>
-                    <dd itemprop="identifier">{{ movie.imdbId }}</dd>
+                    <dt>Year:</dt>
+                    <dd itemprop="datePublished">{{ movie.year }}</dd>
                   </div>
                   <div>
                     <dt>Director:</dt>
                     <dd itemprop="director">{{ movie.director }}</dd>
                   </div>
                   <div>
-                    <dt>Writer:</dt>
-                    <dd>{{ movie.writer || 'N/A' }}</dd>
-                  </div>
-                  <div>
-                    <dt>Year:</dt>
-                    <dd itemprop="datePublished">{{ movie.year }}</dd>
-                  </div>
-                  <div>
-                    <dt>Type:</dt>
-                    <dd>{{ movie.typeDescription || movie.type || 'Movie' }}</dd>
-                  </div>
-                  <div>
                     <dt>Genre:</dt>
                     <dd itemprop="genre">{{ movie.genre || 'N/A' }}</dd>
-                  </div>
-                  <div>
-                    <dt>Country:</dt>
-                    <dd>{{ movie.country || 'N/A' }}</dd>
                   </div>
                 </dl>
               </a>
@@ -126,32 +94,16 @@
                 <h3 class="movie-title" [id]="'movie-title-' + movie.imdbId" itemprop="name">{{ movie.title }}</h3>
                 <dl>
                   <div>
-                    <dt>IMDb ID:</dt>
-                    <dd itemprop="identifier">{{ movie.imdbId }}</dd>
+                    <dt>Year:</dt>
+                    <dd itemprop="datePublished">{{ movie.year }}</dd>
                   </div>
                   <div>
                     <dt>Director:</dt>
                     <dd itemprop="director">{{ movie.director }}</dd>
                   </div>
                   <div>
-                    <dt>Writer:</dt>
-                    <dd>{{ movie.writer || 'N/A' }}</dd>
-                  </div>
-                  <div>
-                    <dt>Year:</dt>
-                    <dd itemprop="datePublished">{{ movie.year }}</dd>
-                  </div>
-                  <div>
-                    <dt>Type:</dt>
-                    <dd>{{ movie.typeDescription || movie.type || 'Movie' }}</dd>
-                  </div>
-                  <div>
                     <dt>Genre:</dt>
                     <dd itemprop="genre">{{ movie.genre || 'N/A' }}</dd>
-                  </div>
-                  <div>
-                    <dt>Country:</dt>
-                    <dd>{{ movie.country || 'N/A' }}</dd>
                   </div>
                 </dl>
               </div>

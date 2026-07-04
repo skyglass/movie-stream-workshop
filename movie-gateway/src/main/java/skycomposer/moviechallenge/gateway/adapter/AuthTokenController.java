@@ -32,15 +32,16 @@ public class AuthTokenController {
         return exchange.getFormData()
               .flatMap(form -> {
                   String clientId = first(form, "client_id", "movies-ui");
-                  String username = first(form, "username", "");
-                  String password = first(form, "password", "");
+                  String grantType = first(form, "grant_type", "password");
                   String scope = form.getFirst("scope");
 
                   MultiValueMap<String, String> keycloakForm = new LinkedMultiValueMap<>();
-                  keycloakForm.add("grant_type", "password");
+                  keycloakForm.add("grant_type", grantType);
                   keycloakForm.add("client_id", clientId);
-                  keycloakForm.add("username", username);
-                  keycloakForm.add("password", password);
+                  copyIfPresent(form, keycloakForm, "username");
+                  copyIfPresent(form, keycloakForm, "password");
+                  copyIfPresent(form, keycloakForm, "code");
+                  copyIfPresent(form, keycloakForm, "redirect_uri");
                   if (scope != null && !scope.isBlank()) {
                       keycloakForm.add("scope", scope);
                   }
@@ -61,5 +62,13 @@ public class AuthTokenController {
     private static String first(MultiValueMap<String, String> form, String key, String fallback) {
         String value = form.getFirst(key);
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private static void copyIfPresent(MultiValueMap<String, String> source, MultiValueMap<String, String> target,
+          String key) {
+        String value = source.getFirst(key);
+        if (value != null && !value.isBlank()) {
+            target.add(key, value);
+        }
     }
 }

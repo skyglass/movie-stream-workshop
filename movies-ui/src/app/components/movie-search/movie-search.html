@@ -1,182 +1,170 @@
 <section class="search-page">
-  <header class="search-header">
-    <div>
-      <p class="eyebrow">Search</p>
-      <h1>Find movies</h1>
-    </div>
-    <p>
-      Search starts automatically after four title characters. Use Search for shorter titles, and Exact Title Match to place exact title matches first.
-    </p>
-  </header>
+  <aside class="search-nav">
+    <ol>
+      <li [class.active]="step === 1">
+        <span class="material-icons icon" aria-hidden="true">search</span>
+        <div>
+          <strong>Search</strong>
+          <small>Search Movie</small>
+        </div>
+      </li>
+      <li [class.active]="step === 2">
+        <span class="material-icons icon" aria-hidden="true">favorite</span>
+        <div>
+          <strong>Recommend</strong>
+          <small>Preview and recommend</small>
+        </div>
+      </li>
+    </ol>
 
-  <section class="search-panel" aria-labelledby="movie-search-title">
-    <form [formGroup]="searchForm" (ngSubmit)="search()" class="search-form">
-      <label class="field title-field" for="movie-search-title">
-        <span>Title</span>
-        <input
-          id="movie-search-title"
-          formControlName="title"
-          type="search"
-          autocomplete="off"
-          placeholder="Psycho" />
-      </label>
-
-      <label class="field year-field" for="movie-search-year">
-        <span>Year</span>
-        <input
-          id="movie-search-year"
-          formControlName="year"
-          inputmode="numeric"
-          autocomplete="off"
-          placeholder="1998" />
-      </label>
-
-      <label class="field type-field" for="movie-search-type">
-        <span>Type</span>
-        <select id="movie-search-type" formControlName="type">
-          @for (type of searchTypes; track type) {
-            <option [value]="type.value">{{ type.label }}</option>
-          }
-        </select>
-      </label>
-
-      <label class="checkbox-field">
-        <input type="checkbox" formControlName="exactTitleMatch" />
-        <span>Exact Title Match</span>
-      </label>
-
-      <button type="submit" [disabled]="searchForm.invalid || loading">
-        {{ loading ? 'Searching' : 'Search' }}
-      </button>
-    </form>
-
-    @if (searchForm.controls.title.invalid && searchForm.controls.title.touched) {
-      <div class="message error">Title is required</div>
-    }
-
-    @if (errorMessage) {
-      <div class="message error">{{ errorMessage }}</div>
-    }
-    @if (successMessage) {
-      <div class="message success">
-        <span>{{ successMessage }}</span>
-        <a routerLink="/movie-challenge">Movie Challenge</a>
+    @if (step > 1) {
+      <div class="wizard-buttons">
+        <button type="button" (click)="back()">Back</button>
       </div>
     }
 
-    <div class="results-wrap">
-      <table aria-label="Found movies">
-        <thead>
-          <tr>
-            <th>Original name</th>
-            <th>English name</th>
-            <th>Directors</th>
-            <th>Writers</th>
-            <th>Type</th>
-            <th>Year</th>
-            <th>Country</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (movie of movies; track movie.imdbId) {
-            <tr [class.selected]="selectedMovie?.imdbId === movie.imdbId" (click)="selectMovie(movie)">
-              <td>{{ movie.originalTitle || movie.englishTitle }}</td>
-              <td>{{ movie.englishTitle || movie.originalTitle }}</td>
-              <td>{{ movie.directors || 'N/A' }}</td>
-              <td>{{ movie.writers || 'N/A' }}</td>
-              <td>{{ movie.typeDescription }}</td>
-              <td>{{ movie.year || 'N/A' }}</td>
-              <td>{{ movie.country || 'N/A' }}</td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="7" class="empty-row"></td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+  </aside>
 
-    <footer class="result-actions">
-      <span>Page {{ currentPage }}</span>
-      <div class="result-action-buttons">
-        @if (auth.token) {
-          <a routerLink="/movie-challenge">Movie Challenge</a>
-        } @else {
-          <a [href]="movieChallengeRegistrationUrl()">Movie Challenge</a>
-        }
-        <button type="button" (click)="next()" [disabled]="!hasNext || loading">
-          Next
-        </button>
-      </div>
-    </footer>
-  </section>
+  <main class="search-content">
+    @if (step === 1) {
+      <section class="search-panel" aria-labelledby="movie-search-title">
+        <form [formGroup]="searchForm" (ngSubmit)="search()" class="search-form">
+          <label class="field title-field" for="movie-search-title">
+            <span>Title</span>
+            <input
+              id="movie-search-title"
+              formControlName="title"
+              type="search"
+              autocomplete="off" />
+          </label>
 
-  @if (selectedMovie; as movie) {
-    <section class="detail-panel" aria-labelledby="selected-movie-title">
-      <img [src]="poster(movie)" [alt]="(movie.englishTitle || movie.originalTitle) + ' poster'" />
-      <div class="detail-content">
-        <p class="eyebrow">Selected movie</p>
-        <h2 id="selected-movie-title">{{ movie.englishTitle || movie.originalTitle }}</h2>
-        <dl>
-          <div>
-            <dt>Original name</dt>
-            <dd>{{ movie.originalTitle || 'N/A' }}</dd>
-          </div>
-          <div>
-            <dt>English name</dt>
-            <dd>{{ movie.englishTitle || 'N/A' }}</dd>
-          </div>
-          <div>
-            <dt>Directors</dt>
-            <dd>{{ movie.directors || 'N/A' }}</dd>
-          </div>
-          <div>
-            <dt>Writers</dt>
-            <dd>{{ movie.writers || 'N/A' }}</dd>
-          </div>
-          <div>
-            <dt>Type</dt>
-            <dd>{{ movie.typeDescription }}</dd>
-          </div>
-          <div>
-            <dt>Year</dt>
-            <dd>{{ movie.year || 'N/A' }}</dd>
-          </div>
-          <div>
-            <dt>Country</dt>
-            <dd>{{ movie.country || 'N/A' }}</dd>
-          </div>
-          <div>
-            <dt>Language</dt>
-            <dd>{{ movie.language || 'N/A' }}</dd>
-          </div>
-          <div>
-            <dt>Runtime</dt>
-            <dd>{{ movie.runtime || 'N/A' }}</dd>
-          </div>
-          <div>
-            <dt>Genre</dt>
-            <dd>{{ movie.genre || 'N/A' }}</dd>
-          </div>
-          <div>
-            <dt>IMDb rating</dt>
-            <dd>{{ movie.imdbRating || 'N/A' }}</dd>
-          </div>
-          <div>
-            <dt>IMDb ID</dt>
-            <dd>{{ movie.imdbId }}</dd>
-          </div>
-        </dl>
-        @if (auth.token) {
-          <button type="button" class="recommend-button" (click)="recommendSelectedMovie()" [disabled]="recommending">
-            <span class="material-icons" aria-hidden="true">favorite</span>
-            {{ recommending ? 'Recommending' : 'Recommend' }}
+          <label class="field year-field" for="movie-search-year">
+            <span>Year</span>
+            <input
+              id="movie-search-year"
+              formControlName="year"
+              inputmode="numeric"
+              autocomplete="off" />
+          </label>
+
+          <label class="field type-field" for="movie-search-type">
+            <span>Type</span>
+            <select id="movie-search-type" formControlName="type">
+              @for (type of searchTypes; track type) {
+                <option [value]="type.value">{{ type.label }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="checkbox-field">
+            <input type="checkbox" formControlName="exactTitleMatch" />
+            <span>Exact Title Match</span>
+          </label>
+
+          <button type="submit" [disabled]="searchDisabled()">
+            {{ loading ? 'Searching' : 'Search' }}
           </button>
-        } @else {
-          <p class="auth-note">Sign in to recommend this movie.</p>
+        </form>
+
+        @if (searchForm.controls.title.invalid && searchForm.controls.title.touched) {
+          <div class="message error">Title is required</div>
         }
-      </div>
-    </section>
-  }
+
+        @if (errorMessage) {
+          <div class="message error">{{ errorMessage }}</div>
+        }
+        @if (successMessage) {
+          <div class="message success">
+            <span>{{ successMessage }}</span>
+          </div>
+        }
+
+        @if (movies.length > 0) {
+          <div class="results-wrap">
+            <table aria-label="Found movies">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Year</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (movie of movies; track movie.imdbId) {
+                  <tr
+                    [class.selected]="selectedMovie?.imdbId === movie.imdbId"
+                    role="button"
+                    tabindex="0"
+                    (click)="selectMovie(movie)"
+                    (keydown.enter)="selectMovie(movie)"
+                    (keydown.space)="selectMovie(movie); $event.preventDefault()">
+                    <td>{{ movie.englishTitle || movie.originalTitle || 'N/A' }}</td>
+                    <td>{{ movie.year || 'N/A' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        @if (selectingMovie) {
+          <div class="message">Loading movie details</div>
+        }
+
+        @if ((currentPage > 1 || hasNext) && movies.length > 0) {
+          <footer class="result-actions">
+            @if (currentPage > 1) {
+              <button type="button" (click)="previousSearchPage()" [disabled]="loading">
+                Previous results
+              </button>
+            }
+            @if (hasNext) {
+              <button type="button" (click)="nextSearchPage()" [disabled]="loading">
+                Next results
+              </button>
+            }
+          </footer>
+        }
+      </section>
+    }
+
+    @if (step === 2 && selectedMovie; as movie) {
+      <section class="recommend-panel" aria-labelledby="recommend-movie-title">
+        <article class="movie-card">
+          <div class="poster-link">
+            <img [src]="poster(movie)" [alt]="(movie.englishTitle || movie.originalTitle) + ' poster'" />
+          </div>
+          <button
+            type="button"
+            class="recommend-button"
+            [class.recommended]="recommendationSaved"
+            [disabled]="recommending || recommendationSaved"
+            (click)="recommendSelectedMovie()">
+            <span class="material-icons" aria-hidden="true">{{ recommendationSaved ? 'check_circle' : 'favorite_border' }}</span>
+            {{ recommendationSaved ? 'Recommended' : (recommending ? 'Recommending' : 'Recommend') }}
+          </button>
+          <div class="movie-link">
+            <h3 class="movie-title" id="recommend-movie-title">{{ movie.englishTitle || movie.originalTitle }}</h3>
+            <dl>
+              <div>
+                <dt>Year:</dt>
+                <dd>{{ movie.year || 'N/A' }}</dd>
+              </div>
+              <div>
+                <dt>Director:</dt>
+                <dd>{{ movie.directors || 'N/A' }}</dd>
+              </div>
+              <div>
+                <dt>Genre:</dt>
+                <dd>{{ movie.genre || 'N/A' }}</dd>
+              </div>
+            </dl>
+          </div>
+        </article>
+        @if (errorMessage) {
+          <div class="message error">{{ errorMessage }}</div>
+        }
+      </section>
+    }
+
+  </main>
 </section>
