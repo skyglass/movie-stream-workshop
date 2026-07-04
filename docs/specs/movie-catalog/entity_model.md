@@ -4,9 +4,10 @@ The `movie-catalog` Software Capability owns movie discovery, movie contribution
 recommendations, movie challenges, and admin movie maintenance. The `MOVIE` aggregate is the consistency boundary.
 `MOVIE_COMMENT` is a child entity because comments cannot exist without a movie and are deleted with it.
 `MOVIE_RECOMMENDATION` records the current user's positive or negative feedback for a movie. Movie challenge records are
-per-user projections over positively recommended movies: transitive winner-loser closure prevents duplicate or
-already-inferred challenges, while challenge counts prioritize under-participating movies. Users recommended movies are
-a weighted read model over matching transitive winner-loser relationships and other users' transitive win counts.
+per-user projections over positively recommended movies: direct winner-loser rows preserve the actual challenge audit
+trail, transitive winner-loser closure prevents duplicate or already-inferred challenges, and challenge counts
+prioritize under-participating movies. Users recommended movies are a weighted read model over matching transitive
+winner-loser relationships and other users' transitive win counts.
 
 ## Aggregate Boundary Diagram
 
@@ -18,6 +19,7 @@ flowchart TB
         MOVIE_METADATA["MOVIE_METADATA\nTitle, Director, Writer, Year, Type, Poster"]
         MOVIE_COMMENT["MOVIE_COMMENT\nChild Entity"]
         MOVIE_RECOMMENDATION["MOVIE_RECOMMENDATION\nPositive or negative feedback"]
+        USER_MOVIE_WINNER_LOSER["USER_MOVIE_WINNER_LOSER\nDirect challenge result"]
         USER_MOVIE_WINNER_LOSER_ALL["USER_MOVIE_WINNER_LOSER_ALL\nTransitive winner-loser closure"]
         USER_MOVIE_CHALLENGE["USER_MOVIE_CHALLENGE\nChallenge count"]
         COMMENT_TEXT["COMMENT_TEXT\nValue Object"]
@@ -31,6 +33,7 @@ flowchart TB
     MOVIE --> MOVIE_METADATA
     MOVIE --> MOVIE_COMMENT
     MOVIE --> MOVIE_RECOMMENDATION
+    MOVIE --> USER_MOVIE_WINNER_LOSER
     MOVIE --> USER_MOVIE_WINNER_LOSER_ALL
     MOVIE --> USER_MOVIE_CHALLENGE
     MOVIE_COMMENT --> COMMENT_TEXT
@@ -46,9 +49,11 @@ flowchart TB
 erDiagram
     MOVIES ||--o{ MOVIE_COMMENTS : receives
     MOVIES ||--o{ MOVIE_RECOMMENDATIONS : receives_feedback
+    MOVIES ||--o{ USER_MOVIE_WINNER_LOSER : wins_or_loses_directly
     MOVIES ||--o{ USER_MOVIE_WINNER_LOSER_ALL : wins_or_loses_transitively
     MOVIES ||--o{ USER_MOVIE_CHALLENGE : appears_in_challenge
     USERS ||--o{ MOVIE_RECOMMENDATIONS : makes
+    USERS ||--o{ USER_MOVIE_WINNER_LOSER : ranks_directly
     USERS ||--o{ USER_MOVIE_WINNER_LOSER_ALL : ranks
     USERS ||--o{ USER_MOVIE_CHALLENGE : counts
 ```
@@ -84,6 +89,14 @@ erDiagram
 | user_id | Feedback author username | String | Foreign Key to users.username, Primary Key part |
 | movie_id | Feedback IMDb id | String | Foreign Key to movies.imdb_id, Primary Key part |
 | positive | Whether the feedback is a positive recommendation | Boolean | Not Null, default `true`; `false` means disliked |
+
+### USER_MOVIE_WINNER_LOSER
+
+| Attribute | Description | Data Type | Validation Rules |
+|-----------|-------------|-----------|------------------|
+| user_id | Challenged username | String | Foreign Key to users.username, Primary Key part |
+| winner_id | Directly selected winning movie | String | Foreign Key to movies.imdb_id, Primary Key part |
+| loser_id | Directly defeated movie in the same challenge | String | Foreign Key to movies.imdb_id, Primary Key part, different from winner_id |
 
 ### USER_MOVIE_WINNER_LOSER_ALL
 
@@ -130,6 +143,7 @@ Read model used by `movie-challenge`.
 |-----------|-------------|-----------|------------------|
 | movie1 | First recommended movie in the challenge pair | MOVIE metadata | Selected from recommended movies only |
 | movie2 | Second recommended movie in the challenge pair | MOVIE metadata | Different from movie1 |
+| direct_result | Actual selected winner-loser relationship | USER_MOVIE_WINNER_LOSER | Written when the user chooses a winner |
 | ranked_pair | Direct or transitive winner-loser relationship | USER_MOVIE_WINNER_LOSER_ALL | Must not already connect the two movies for the user |
 
 ### FAVORITE_MOVIES

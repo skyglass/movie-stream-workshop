@@ -79,6 +79,11 @@ public class MovieChallengeAcceptanceTest {
         fixture.assertDirectWinnerLoserExists(username, winnerId, loserId);
     }
 
+    @Then("movie {string} is not recorded as direct winner over {string} for {string}")
+    public void movieIsNotRecordedAsDirectWinnerOverFor(String winnerId, String loserId, String username) {
+        fixture.assertDirectWinnerLoserDoesNotExist(username, winnerId, loserId);
+    }
+
     @Then("movie {string} is transitively ranked over {string} for {string}")
     public void movieIsTransitivelyRankedOverFor(String winnerId, String loserId, String username) {
         fixture.assertTransitiveWinnerLoserExists(username, winnerId, loserId);

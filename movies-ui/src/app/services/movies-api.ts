@@ -245,7 +245,7 @@ export class MoviesApiService {
     return this.lookupOmdbById(imdbId).pipe(
       map(movie => {
         if (!movie || !this.successfulOmdbMovie(movie)) {
-          throw new Error(movie?.Error || 'OMDb movie was not found');
+          throw new Error(this.omdbErrorMessage(movie?.Error, 'OMDb movie was not found'));
         }
         return this.toSearchResult(movie);
       })
@@ -331,11 +331,24 @@ export class MoviesApiService {
       && !!search.Error
       && !this.omdbNoSearchResults(search.Error)
     );
-    return failedSearch?.Error ?? '';
+    return failedSearch ? this.omdbErrorMessage(failedSearch.Error, 'OMDb search failed') : '';
   }
 
   private omdbNoSearchResults(error: string): boolean {
     return error.trim().toLowerCase() === 'movie not found!';
+  }
+
+  private omdbErrorMessage(error: string | undefined, fallback: string): string {
+    if (error && this.omdbRequestLimitExceeded(error)) {
+      return 'OMDB request limit exceeded';
+    }
+
+    return fallback;
+  }
+
+  private omdbRequestLimitExceeded(error: string): boolean {
+    const normalizedError = error.trim().toLowerCase();
+    return normalizedError.includes('request limit') || normalizedError.includes('limit reached');
   }
 
   private lookupOmdbById(imdbId: string): Observable<OmdbMovie> {

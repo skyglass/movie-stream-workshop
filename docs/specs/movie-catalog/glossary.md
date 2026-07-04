@@ -16,6 +16,8 @@
 | Completed challenge pair | Alphabetically sorted recommended movie pair already shown to a user.           |
 | Challenge count | Number of times a movie has appeared in that user's movie challenges.           |
 | Movie vote | Count of times a user selected a movie as a movie challenge winner.             |
+| Direct winner-loser result | Actual Movie Challenge choice where one movie was selected over the other. |
+| Transitive winner-loser result | Direct or inferred Movie Challenge ranking derived from the user's choices. |
 | Favorite movie | Movie ordered by the current user's Movie Challenge vote count.                 |
 | Users favorite movie | Community favorite movie ordered by total Movie Challenge votes across users.   |
 | Relative user rating | Count of completed challenge pairs where another user chose the same winner as the current user. |

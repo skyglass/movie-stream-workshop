@@ -68,6 +68,7 @@ public class MovieCatalogFixture {
     }
 
     public void clearMovies() {
+        jdbcTemplate.update("delete from user_movie_winner_loser");
         jdbcTemplate.update("delete from user_movie_winner_loser_all");
         jdbcTemplate.update("delete from user_movie_challenge");
         movieRecommendationRepository.deleteAll();
@@ -175,6 +176,7 @@ public class MovieCatalogFixture {
         ensureUser(username);
         recommendMovie(winnerId, username);
         recommendMovie(loserId, username);
+        movieChallengeRepository.insertDirectWinnerLoser(username, winnerId, loserId);
         movieChallengeRepository.insertWinnerLoserClosure(username, winnerId, loserId);
     }
 
@@ -275,7 +277,11 @@ public class MovieCatalogFixture {
     }
 
     public void assertDirectWinnerLoserExists(String username, String winnerId, String loserId) {
-        assertTrue(movieChallengeRepository.transitiveWinnerLoserExists(username, winnerId, loserId));
+        assertTrue(movieChallengeRepository.directWinnerLoserExists(username, winnerId, loserId));
+    }
+
+    public void assertDirectWinnerLoserDoesNotExist(String username, String winnerId, String loserId) {
+        assertFalse(movieChallengeRepository.directWinnerLoserExists(username, winnerId, loserId));
     }
 
     public void assertTransitiveWinnerLoserExists(String username, String winnerId, String loserId) {

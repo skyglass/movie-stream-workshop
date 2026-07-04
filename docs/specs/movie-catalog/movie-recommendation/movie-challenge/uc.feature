@@ -56,6 +56,20 @@ Feature: movie-challenge
     When regular user "user" requests the next movie challenge
     Then no movie challenge is available
 
+  Scenario: Direct challenge results stay separate from inferred transitive rankings
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    When regular user "user" selects movie "tt101" from movie challenge pair "tt101" and "tt102"
+    And regular user "user" selects movie "tt102" from movie challenge pair "tt102" and "tt103"
+    Then movie "tt101" is recorded as winner over "tt102" for "user"
+    And movie "tt102" is recorded as winner over "tt103" for "user"
+    And movie "tt101" is not recorded as direct winner over "tt103" for "user"
+    And movie "tt101" is transitively ranked over "tt103" for "user"
+
   Scenario: Transitive loser is not suggested against the transitive winner
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"

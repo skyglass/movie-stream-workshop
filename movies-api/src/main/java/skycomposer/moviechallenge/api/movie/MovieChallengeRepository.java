@@ -143,6 +143,23 @@ public class MovieChallengeRepository {
         jdbcTemplate.update(sql, params(username, winnerId, loserId));
     }
 
+    public void insertDirectWinnerLoser(String username, String winnerId, String loserId) {
+        String sql = """
+                insert into user_movie_winner_loser (user_id, winner_id, loser_id)
+                select :username, :winnerId, :loserId
+                where :winnerId <> :loserId
+                    and not exists (
+                        select 1
+                        from user_movie_winner_loser existing
+                        where existing.user_id = :username
+                            and existing.winner_id = :winnerId
+                            and existing.loser_id = :loserId
+                    )
+                """;
+        jdbcTemplate.update(sql, params(username, winnerId, loserId));
+    }
+
+
     public void incrementChallengeCount(String username, String movieId) {
         String updateSql = """
                 update user_movie_challenge
@@ -185,6 +202,19 @@ public class MovieChallengeRepository {
                 select case when exists (
                     select 1
                     from user_movie_winner_loser_all
+                    where user_id = :username
+                        and winner_id = :winnerId
+                        and loser_id = :loserId
+                ) then true else false end
+                """;
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, params(username, winnerId, loserId), Boolean.class));
+    }
+
+    public boolean directWinnerLoserExists(String username, String winnerId, String loserId) {
+        String sql = """
+                select case when exists (
+                    select 1
+                    from user_movie_winner_loser
                     where user_id = :username
                         and winner_id = :winnerId
                         and loser_id = :loserId

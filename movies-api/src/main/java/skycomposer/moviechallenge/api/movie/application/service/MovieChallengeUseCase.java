@@ -46,6 +46,7 @@ public class MovieChallengeUseCase {
             throw new MovieChallengeUnavailableException();
         }
 
+        movieChallengeRepository.insertDirectWinnerLoser(username, selectedMovieId, loserId);
         movieChallengeRepository.insertWinnerLoserClosure(username, selectedMovieId, loserId);
         movieChallengeRepository.incrementChallengeCount(username, movie1Id);
         movieChallengeRepository.incrementChallengeCount(username, movie2Id);

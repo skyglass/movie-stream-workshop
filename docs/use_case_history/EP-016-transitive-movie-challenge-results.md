@@ -9,7 +9,7 @@
 ## Short Description
 
 Movie Challenge results are no longer modeled as sorted completed pairs plus a separate vote counter. A selected movie is
-stored as the winner over the other movie in `user_movie_winner_loser_all`, together with the full transitive closure.
+stored as a direct winner over the other movie, and `user_movie_winner_loser_all` stores the full transitive closure.
 
 When a user chooses `movie1` over `movie2`, and later chooses `movie2` over `movie3`, the system infers `movie1` over
 `movie3`. The `movie1` versus `movie3` pair is therefore considered already ranked and must not be offered as a future
