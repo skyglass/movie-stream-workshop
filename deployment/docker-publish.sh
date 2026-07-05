@@ -28,7 +28,6 @@ required_vars=(
   GITHUB_TOKEN
   OMDB_API_KEY
   MOVIES_PER_PAGE
-  SEARCH_RESULTS_PER_PAGE
 )
 
 for var in "${required_vars[@]}"; do
@@ -63,6 +62,6 @@ build_and_push() {
 
 build_and_push "movie-gateway" "$ROOT_DIR" "$ROOT_DIR/movie-gateway/Dockerfile"
 build_and_push "movies-api" "$ROOT_DIR" "$ROOT_DIR/movies-api/Dockerfile"
-build_and_push "movies-ui" "$ROOT_DIR/movies-ui" "$ROOT_DIR/movies-ui/Dockerfile" --build-arg "OMDB_API_KEY=$OMDB_API_KEY" --build-arg "MOVIES_PER_PAGE=$MOVIES_PER_PAGE" --build-arg "SEARCH_RESULTS_PER_PAGE=$SEARCH_RESULTS_PER_PAGE"
+build_and_push "movies-ui" "$ROOT_DIR/movies-ui" "$ROOT_DIR/movies-ui/Dockerfile" --build-arg "OMDB_API_KEY=$OMDB_API_KEY" --build-arg "MOVIES_PER_PAGE=$MOVIES_PER_PAGE"
 
 echo "Published movie-gateway, movies-api, and movies-ui with version $IMAGE_VERSION."

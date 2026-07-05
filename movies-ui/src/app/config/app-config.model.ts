@@ -11,7 +11,6 @@ export interface AppConfig {
   usersFavoriteMoviesPath: string;
   usersRecommendedMoviesPath: string;
   moviesPerPage?: number | string;
-  searchResultsPerPage?: number | string;
   userExtrasPath: string;
   usersApiPath: string;
   omdbBaseUrl: string;

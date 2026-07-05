@@ -19,8 +19,6 @@ public class MovieChallengeRepository {
                 on r2.user_id = r1.user_id
                 and r1.movie_id < r2.movie_id
                 and r2.positive = true
-            join movies m1 on m1.imdb_id = r1.movie_id
-            join movies m2 on m2.imdb_id = r2.movie_id
             left join user_movie_challenge c1
                 on c1.user_id = r1.user_id
                 and c1.movie_id = r1.movie_id
@@ -33,8 +31,15 @@ public class MovieChallengeRepository {
                     select 1
                     from user_movie_winner_loser_all winner_loser
                     where winner_loser.user_id = r1.user_id
-                        and (r1.movie_id = winner_loser.winner_id or r1.movie_id = winner_loser.loser_id)
-                        and (r2.movie_id = winner_loser.winner_id or r2.movie_id = winner_loser.loser_id)
+                        and winner_loser.winner_id = r1.movie_id
+                        and winner_loser.loser_id = r2.movie_id
+                )
+                and not exists (
+                    select 1
+                    from user_movie_winner_loser_all winner_loser
+                    where winner_loser.user_id = r1.user_id
+                        and winner_loser.winner_id = r2.movie_id
+                        and winner_loser.loser_id = r1.movie_id
                 )
             """;
 
@@ -51,13 +56,21 @@ public class MovieChallengeRepository {
 
     public Optional<MovieChallengeDto> findNextChallenge(String username) {
         String sql = """
+                with next_pair as (
+                    select r1.movie_id as movie1_id,
+                        r2.movie_id as movie2_id
+                """ + NEXT_CHALLENGE_CANDIDATE_SQL + NEXT_CHALLENGE_ORDER_SQL + """
+                )
                 select m1.imdb_id as movie1_id,
                     m1.title as movie1_title,
                     m1.poster as movie1_poster,
                     m2.imdb_id as movie2_id,
                     m2.title as movie2_title,
                     m2.poster as movie2_poster
-                """ + NEXT_CHALLENGE_CANDIDATE_SQL + NEXT_CHALLENGE_ORDER_SQL;
+                from next_pair
+                join movies m1 on m1.imdb_id = next_pair.movie1_id
+                join movies m2 on m2.imdb_id = next_pair.movie2_id
+                """;
 
         List<MovieChallengeDto> challenges = jdbcTemplate.query(sql, Map.of("username", username), (rs, rowNum) ->
                 new MovieChallengeDto(
@@ -103,8 +116,15 @@ public class MovieChallengeRepository {
                         select 1
                         from user_movie_winner_loser_all winner_loser
                         where user_id = :username
-                            and (:winnerId = winner_loser.winner_id or :winnerId = winner_loser.loser_id)
-                            and (:loserId = winner_loser.winner_id or :loserId = winner_loser.loser_id)
+                            and winner_loser.winner_id = :winnerId
+                            and winner_loser.loser_id = :loserId
+                    )
+                    and not exists (
+                        select 1
+                        from user_movie_winner_loser_all winner_loser
+                        where user_id = :username
+                            and winner_loser.winner_id = :loserId
+                            and winner_loser.loser_id = :winnerId
                     )
                 then true else false end
                 """;

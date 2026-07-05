@@ -239,7 +239,6 @@ render_app_config() {
   "usersFavoriteMoviesPath": "/api/movies/users-favorite-movies",
   "usersRecommendedMoviesPath": "/api/movies/users-recommended-movies",
   "moviesPerPage": "$MOVIES_PER_PAGE",
-  "searchResultsPerPage": "$SEARCH_RESULTS_PER_PAGE",
   "userExtrasPath": "/api/movies/userextras",
   "usersApiPath": "/api/movies/users",
   "omdbBaseUrl": "https://www.omdbapi.com/",
@@ -295,7 +294,6 @@ render_remote_env() {
     MOVIES_JDBC_PASSWORD
     MOVIES_POSTGRES_DB
     MOVIES_PER_PAGE
-    SEARCH_RESULTS_PER_PAGE
     MOVIES_POSTGRES_HOST_DIR
     MOVIES_POSTGRES_VOLUME_ID
     MOVIES_POSTGRES_DEVICE_NAME
@@ -370,7 +368,7 @@ copy_keycloak_theme_to_remote() {
   local key_path
   key_path="$(expand_path "$SSH_PRIVATE_KEY_PATH")"
 
-  remote_run "$target" "mkdir -p '$REMOTE_APP_DIR/keycloak-theme/login/resources/css'"
+  remote_run "$target" "mkdir -p '$REMOTE_APP_DIR/keycloak-theme/login/resources/css' '$REMOTE_APP_DIR/keycloak-theme/login/messages'"
   scp -i "$key_path" -o StrictHostKeyChecking=accept-new \
     "$ROOT_DIR/config/keycloak-themes/movie-stream/login/theme.properties" \
     "$ROOT_DIR/config/keycloak-themes/movie-stream/login/register.ftl" \
@@ -378,6 +376,9 @@ copy_keycloak_theme_to_remote() {
   scp -i "$key_path" -o StrictHostKeyChecking=accept-new \
     "$ROOT_DIR/config/keycloak-themes/movie-stream/login/resources/css/movie-challenge-login.css" \
     "$target:$REMOTE_APP_DIR/keycloak-theme/login/resources/css/"
+  scp -i "$key_path" -o StrictHostKeyChecking=accept-new \
+    "$ROOT_DIR/config/keycloak-themes/movie-stream/login/messages/messages_en.properties" \
+    "$target:$REMOTE_APP_DIR/keycloak-theme/login/messages/"
 }
 
 prepare_remote_host() {
@@ -699,7 +700,6 @@ deploy_app() {
     GITHUB_TOKEN
     OMDB_API_KEY
     MOVIES_PER_PAGE
-    SEARCH_RESULTS_PER_PAGE
     MOVIES_JDBC_USERNAME
     MOVIES_JDBC_PASSWORD
     KEYCLOAK_POSTGRES_DB
@@ -736,7 +736,7 @@ deploy_app() {
 
   export APP_DOMAIN APP_BASE_URL APP_CORS_ALLOWED_ORIGINS CONTAINER_REGISTRY
   export KEYCLOAK_EXTERNAL_URL KEYCLOAK_ISSUER_URI KEYCLOAK_TOKEN_URI KEYCLOAK_REALM
-  export MOVIES_JDBC_URL MOVIES_PER_PAGE SEARCH_RESULTS_PER_PAGE
+  export MOVIES_JDBC_URL MOVIES_PER_PAGE
 
   derive_movies_postgres_db
 

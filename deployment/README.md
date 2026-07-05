@@ -125,7 +125,6 @@ PGADMIN_DEFAULT_PASSWORD=<secure-password>
 
 OMDB_API_KEY=<your-omdb-api-key>
 MOVIES_PER_PAGE=50
-SEARCH_RESULTS_PER_PAGE=5
 ```
 
 ## 2. Prepare EBS gp3 Volumes

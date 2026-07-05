@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, forkJoin, map, Observable, of, throwError } from 'rxjs';
+import { catchError, map, Observable, of, throwError } from 'rxjs';
 import { AppConfigService } from '../config/app-config.service';
 
 export interface MovieComment {
@@ -130,7 +130,7 @@ export interface RecommendMovieFromSearchRequest {
 
 @Injectable({ providedIn: 'root' })
 export class MoviesApiService {
-  private readonly omdbResultsPerPage = 10;
+  private readonly omdbSearchPageSize = 10;
   private readonly moviesBase: string;
   private readonly movieChallengesBase: string;
   private readonly favoriteMoviesBase: string;
@@ -152,10 +152,6 @@ export class MoviesApiService {
 
   get moviePageSize(): number {
     return this.positiveConfigNumber(this.cfg.config.moviesPerPage, 'moviesPerPage');
-  }
-
-  get searchResultsPageSize(): number {
-    return this.positiveConfigNumber(this.cfg.config.searchResultsPerPage, 'searchResultsPerPage');
   }
 
   listMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
@@ -258,37 +254,32 @@ export class MoviesApiService {
     const type = criteria.type;
     const exact = criteria.exactTitleMatch;
     const normalizedPage = Math.max(1, Math.floor(page));
-    const pageSize = this.searchResultsPageSize;
-    const firstResultIndex = (normalizedPage - 1) * pageSize;
-    const lastResultIndex = firstResultIndex + pageSize - 1;
-    const firstOmdbPage = Math.floor(firstResultIndex / this.omdbResultsPerPage) + 1;
-    const lastOmdbPage = Math.floor(lastResultIndex / this.omdbResultsPerPage) + 1;
-    const sliceStart = firstResultIndex - ((firstOmdbPage - 1) * this.omdbResultsPerPage);
-    const omdbPages = Array.from(
-      { length: lastOmdbPage - firstOmdbPage + 1 },
-      (_, index) => firstOmdbPage + index
-    );
-    const exactMovie$ = exact && normalizedPage === 1
-      ? this.lookupOmdbTitle(titleQuery, year, type)
-      : of(null);
-    const primarySearches$ = forkJoin(omdbPages.map(omdbPage => this.searchOmdbPage(titleQuery, omdbPage, type, year)));
+    const pageSize = this.omdbSearchPageSize;
+    if (exact) {
+      const exactMovie$ = normalizedPage === 1
+        ? this.lookupOmdbTitle(titleQuery, year, type)
+        : of(null);
 
-    return forkJoin({
-      exactMovie: exactMovie$,
-      primarySearches: primarySearches$,
-    }).pipe(
-      map(({ exactMovie, primarySearches }) => {
+      return exactMovie$.pipe(
+        map(exactMovie => {
+          const results = exactMovie && this.successfulOmdbMovie(exactMovie)
+            ? [this.toSearchResult(exactMovie)]
+            : [];
+          return this.toSearchPage(results, criteria, titleQuery, normalizedPage, pageSize, []);
+        })
+      );
+    }
+
+    return this.searchOmdbPage(titleQuery, normalizedPage, type, year).pipe(
+      map(primarySearch => {
+        const primarySearches = [primarySearch];
         const searchError = this.omdbSearchError(primarySearches);
         if (searchError) {
           throw new Error(searchError);
         }
 
         const searchItems = this.searchItems(primarySearches);
-        const pageSearchItems = searchItems.slice(sliceStart, sliceStart + pageSize);
-        const results = pageSearchItems.map(item => this.toSearchResultFromItem(item));
-        if (exactMovie && this.successfulOmdbMovie(exactMovie)) {
-          results.unshift(this.toSearchResult(exactMovie));
-        }
+        const results = searchItems.map(item => this.toSearchResultFromItem(item));
         return this.toSearchPage(results, criteria, titleQuery, normalizedPage, pageSize, primarySearches);
       })
     );
@@ -373,8 +364,21 @@ export class MoviesApiService {
       params.set('y', year);
     }
     return this.http.get<OmdbMovie>(`${c.omdbBaseUrl}?${params.toString()}`).pipe(
-      map(movie => this.successfulOmdbMovie(movie) ? movie : null),
-      catchError(() => of(null))
+      map(movie => {
+        if (this.successfulOmdbMovie(movie)) {
+          return movie;
+        }
+
+        if (movie.Error && this.omdbRequestLimitExceeded(movie.Error)) {
+          throw new Error('OMDB request limit exceeded');
+        }
+
+        return null;
+      }),
+      catchError(error => error instanceof Error && error.message === 'OMDB request limit exceeded'
+        ? throwError(() => error)
+        : of(null)
+      )
     );
   }
 

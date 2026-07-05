@@ -150,7 +150,6 @@ services:
       args:
         OMDB_API_KEY: ${OMDB_API_KEY:-}
         MOVIES_PER_PAGE: ${MOVIES_PER_PAGE:?MOVIES_PER_PAGE is required}
-        SEARCH_RESULTS_PER_PAGE: ${SEARCH_RESULTS_PER_PAGE:?SEARCH_RESULTS_PER_PAGE is required}
     image: movies-ui:latest
     container_name: movies-ui
     restart: unless-stopped
