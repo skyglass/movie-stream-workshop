@@ -4,7 +4,9 @@
 **Use Case Name:** View Users Favorite Movies  
 **Primary Actor:** Authenticated User  
 **Goal:** Show community favorite movies ordered by total transitive Movie Challenge wins across all users.  
-**Status:** Implemented
+**Status:** Implemented; superseded by EP-023 for rating-based community favorites.
+
+> Current behavior reads `user_movie_rating`. This earlier epic describes the original transitive-win implementation.
 
 ## Short Description
 

@@ -1,5 +1,6 @@
 package skycomposer.moviechallenge.api.movie.application.service;
 
+import skycomposer.moviechallenge.api.movie.MovieChallengeRepository;
 import skycomposer.moviechallenge.api.movie.MovieRecommendationService;
 import skycomposer.moviechallenge.api.movie.MovieService;
 import skycomposer.moviechallenge.api.movie.dto.MovieDto;
@@ -19,6 +20,7 @@ public class RecommendMovieUseCase {
 
     private final MovieService movieService;
     private final MovieRecommendationService movieRecommendationService;
+    private final MovieChallengeRepository movieChallengeRepository;
     private final MovieDtoMapper movieMapper;
     private final UserExtraService userExtraService;
 
@@ -33,7 +35,7 @@ public class RecommendMovieUseCase {
         UserExtra userExtra = userExtraService.syncFromJwt(jwt);
         Movie movie = movieService.getOrCreateMovie(request);
         movieRecommendationService.recommend(userExtra.getUsername(), movie.getImdbId());
-        return movieMapper.toMovieDto(movie, true, false);
+        return toMovieDto(userExtra.getUsername(), movie, true, false);
     }
 
     @Transactional
@@ -69,19 +71,27 @@ public class RecommendMovieUseCase {
     private MovieDto recommendExistingMovie(String username, String imdbId) {
         Movie movie = movieService.validateAndGetMovie(imdbId);
         movieRecommendationService.recommend(username, imdbId);
-        return movieMapper.toMovieDto(movie, true, false);
+        return toMovieDto(username, movie, true, false);
     }
 
     private MovieDto unrecommendExistingMovie(String username, String imdbId) {
         Movie movie = movieService.validateAndGetMovie(imdbId);
         movieRecommendationService.unrecommend(username, imdbId);
-        return movieMapper.toMovieDto(movie, false, false);
+        return toMovieDto(username, movie, false, false);
     }
 
     private MovieDto dislikeExistingMovie(String username, String imdbId) {
         Movie movie = movieService.validateAndGetMovie(imdbId);
         movieRecommendationService.dislike(username, imdbId);
-        return movieMapper.toMovieDto(movie, false, true);
+        return toMovieDto(username, movie, false, true);
+    }
+
+    private MovieDto toMovieDto(String username, Movie movie, boolean recommended, boolean disliked) {
+        return movieMapper.toMovieDto(
+                movie,
+                recommended,
+                disliked,
+                movieChallengeRepository.movieRating(username, movie.getImdbId()).orElse(null));
     }
 
     private void syncUser(String username) {

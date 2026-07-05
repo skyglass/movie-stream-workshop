@@ -52,6 +52,14 @@
             <dd>{{ movie.genre || 'N/A' }}</dd>
           </div>
           <div>
+            <dt>Your Rank:</dt>
+            <dd>{{ movie.rankPosition ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Your Rating:</dt>
+            <dd>{{ movie.rating != null ? (movie.rating | number:'1.2-2') : '-' }}</dd>
+          </div>
+          <div>
             <dt>Country:</dt>
             <dd>{{ movie.country || 'N/A' }}</dd>
           </div>

@@ -4,7 +4,9 @@
 **Use Case Name:** Movie Challenge  
 **Primary Actor:** Authenticated User  
 **Goal:** Let a user compare two recommended movies, vote for one, and continue until no unranked recommended pair remains.  
-**Status:** Implemented
+**Status:** Implemented; superseded by EP-023 for confidence-aware direct-vote ranking.
+
+> Current behavior is documented in EP-023. This earlier epic describes the original closure-table implementation.
 
 ## Short Description
 

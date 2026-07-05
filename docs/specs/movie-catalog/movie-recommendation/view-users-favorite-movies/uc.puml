@@ -5,13 +5,13 @@ left to right direction
 actor "Authenticated User" as user
 rectangle "movie-catalog" {
     usecase "view-users-favorite-movies" as UC
-    entity "USER_MOVIE_WINNER_LOSER_ALL" as closureResult
+    entity "USER_MOVIE_RATING" as rating
     entity "MOVIE" as movie
     entity "MOVIE_RECOMMENDATION" as recommendation
 }
 
 user --> UC
-UC --> closureResult : orders by total winner count desc
-closureResult --> movie : groups by winner movie
+UC --> rating : orders by average rating and voter count
+rating --> movie : groups by rated movie
 UC --> recommendation : enriches current user's recommended state
 @enduml

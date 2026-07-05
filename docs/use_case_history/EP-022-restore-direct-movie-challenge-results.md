@@ -4,7 +4,10 @@
 **Use Case Name:** Movie Challenge  
 **Primary Actor:** Authenticated User  
 **Goal:** Preserve direct winner-loser challenge rows for auditability while keeping transitive closure for ranking.  
-**Status:** Implemented
+**Status:** Implemented; superseded by EP-023.
+
+> Current behavior stores direct choices in `user_movie_challenge_vote` and uses `user_movie_rank` /
+> `user_movie_rating` for ranking. This earlier epic describes the restored direct audit table used before EP-023.
 
 ## Short Description
 

@@ -14,10 +14,11 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
     @Query(value = """
             select m.*
             from movies m
-            left join user_movie_winner_loser_all wins on wins.winner_id = m.imdb_id
+            left join user_movie_rating rating
+                on rating.movie_id = m.imdb_id
             group by m.imdb_id, m.title, m.director, m.writer, m.release_year, m.poster, m.genre, m.country, m.type
-            order by count(wins.winner_id) desc,
-                count(distinct wins.user_id) desc,
+            order by coalesce(avg(rating.rating), 0) desc,
+                count(distinct rating.user_id) desc,
                 regexp_replace(lower(m.title), '^(the|a)[[:space:]]+', '') asc,
                 lower(m.title) asc,
                 m.imdb_id asc
@@ -30,103 +31,209 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
     @Query(value = """
             select m.*
             from movies m
-            join (
-                select winner_id, count(1) as win_count
-                from user_movie_winner_loser_all
-                where user_id = :username
-                group by winner_id
-            ) wins on wins.winner_id = m.imdb_id
-            order by wins.win_count desc, m.title asc, m.imdb_id asc
+            join movie_recommendations recommendation
+                on recommendation.movie_id = m.imdb_id
+                and recommendation.user_id = :username
+                and recommendation.positive = true
+            left join user_movie_rating rating
+                on rating.movie_id = m.imdb_id
+                and rating.user_id = recommendation.user_id
+            order by case when rating.rank_position is null then 1 else 0 end,
+                rating.rank_position asc,
+                rating.score desc,
+                m.title asc,
+                m.imdb_id asc
             """, countQuery = """
             select count(1)
-            from (
-                select winner_id
-                from user_movie_winner_loser_all
-                where user_id = :username
-                group by winner_id
-            ) favorite_movies
+            from movie_recommendations recommendation
+            where recommendation.user_id = :username
+                and recommendation.positive = true
             """, nativeQuery = true)
     Page<Movie> findFavoriteMoviesByUsername(@Param("username") String username, Pageable pageable);
 
     @Query(value = """
             select m.*
             from movies m
-            join user_movie_winner_loser_all wins on wins.winner_id = m.imdb_id
+            join user_movie_rating rating
+                on rating.movie_id = m.imdb_id
             group by m.imdb_id, m.title, m.director, m.writer, m.release_year, m.poster, m.genre, m.country, m.type
-            order by count(1) desc,
-                count(distinct wins.user_id) desc,
+            order by avg(rating.rating) desc,
+                count(distinct rating.user_id) desc,
                 m.title asc,
                 m.imdb_id asc
             """, countQuery = """
             select count(1)
             from (
-                select winner_id
-                from user_movie_winner_loser_all
-                group by winner_id
+                select movie_id
+                from user_movie_rating
+                group by movie_id
             ) users_favorite_movies
             """, nativeQuery = true)
     Page<Movie> findUsersFavoriteMovies(Pageable pageable);
 
     @Query(value = """
-            select m.*
-            from movies m
-            join (
-                select user_id, winner_id as movie_id, count(1) as win_count
-                from user_movie_winner_loser_all
-                group by user_id, winner_id
-            ) wins on wins.movie_id = m.imdb_id
-            join (
-                select other_winner_loser.user_id,
-                    count(*) as relative_rating
-                from user_movie_winner_loser_all current_winner_loser
-                join user_movie_winner_loser_all other_winner_loser
-                    on other_winner_loser.winner_id = current_winner_loser.winner_id
-                    and other_winner_loser.loser_id = current_winner_loser.loser_id
-                    and other_winner_loser.user_id <> current_winner_loser.user_id
-                where current_winner_loser.user_id = :username
-                group by other_winner_loser.user_id
-            ) user_rating on user_rating.user_id = wins.user_id
-            where not exists (
-                    select 1
-                    from movie_recommendations recommendation
-                    where recommendation.user_id = :username
-                        and recommendation.movie_id = m.imdb_id
-                )
-            group by m.imdb_id, m.title, m.director, m.writer, m.release_year, m.poster, m.genre, m.country, m.type
-            having sum(wins.win_count * user_rating.relative_rating) > 0
-            order by sum(wins.win_count * user_rating.relative_rating) desc,
-                count(distinct wins.user_id) desc,
-                m.title asc,
-                m.imdb_id asc
-            """, countQuery = """
-            select count(1)
-            from (
-                select wins.movie_id
-                from (
-                    select user_id, winner_id as movie_id, count(1) as win_count
-                    from user_movie_winner_loser_all
-                    group by user_id, winner_id
-                ) wins
-                join (
-                    select other_winner_loser.user_id,
-                        count(*) as relative_rating
-                    from user_movie_winner_loser_all current_winner_loser
-                    join user_movie_winner_loser_all other_winner_loser
-                        on other_winner_loser.winner_id = current_winner_loser.winner_id
-                        and other_winner_loser.loser_id = current_winner_loser.loser_id
-                        and other_winner_loser.user_id <> current_winner_loser.user_id
-                    where current_winner_loser.user_id = :username
-                    group by other_winner_loser.user_id
-                ) user_rating on user_rating.user_id = wins.user_id
+            with rating_similarity as (
+                select other_rating.user_id,
+                    avg(cast(1 as numeric(12, 6))
+                        - (abs(current_rating.rating - other_rating.rating) / cast(10 as numeric(12, 6)))) as rating_similarity,
+                    least(cast(1 as numeric(12, 6)),
+                        cast(count(1) as numeric(12, 6)) / cast(8 as numeric(12, 6))) as rating_confidence
+                from user_movie_rating current_rating
+                join user_movie_rating other_rating
+                    on other_rating.movie_id = current_rating.movie_id
+                    and other_rating.user_id <> current_rating.user_id
+                where current_rating.user_id = :username
+                group by other_rating.user_id
+            ),
+            direct_vote_similarity as (
+                select other_vote.user_id,
+                    avg(case
+                        when other_vote.winner_id = current_vote.winner_id
+                            and other_vote.loser_id = current_vote.loser_id
+                        then cast(1 as numeric(12, 6))
+                        else cast(0 as numeric(12, 6))
+                    end) as direct_agreement,
+                    least(cast(1 as numeric(12, 6)),
+                        cast(count(1) as numeric(12, 6)) / cast(8 as numeric(12, 6))) as direct_confidence
+                from user_movie_challenge_vote current_vote
+                join user_movie_challenge_vote other_vote
+                    on other_vote.user_id <> current_vote.user_id
+                    and (
+                        (other_vote.winner_id = current_vote.winner_id
+                            and other_vote.loser_id = current_vote.loser_id)
+                        or (other_vote.winner_id = current_vote.loser_id
+                            and other_vote.loser_id = current_vote.winner_id)
+                    )
+                where current_vote.user_id = :username
+                group by other_vote.user_id
+            ),
+            similar_user_ids as (
+                select user_id from rating_similarity
+                union
+                select user_id from direct_vote_similarity
+            ),
+            weighted_similar_users as (
+                select similar_user_ids.user_id,
+                    (coalesce(rating_similarity.rating_similarity * rating_similarity.rating_confidence,
+                        cast(0 as numeric(12, 6))) * cast(0.70 as numeric(12, 6))
+                    + coalesce(direct_vote_similarity.direct_agreement * direct_vote_similarity.direct_confidence,
+                        cast(0 as numeric(12, 6))) * cast(0.30 as numeric(12, 6))) as similarity
+                from similar_user_ids
+                left join rating_similarity
+                    on rating_similarity.user_id = similar_user_ids.user_id
+                left join direct_vote_similarity
+                    on direct_vote_similarity.user_id = similar_user_ids.user_id
+            ),
+            similar_users as (
+                select user_id, similarity
+                from weighted_similar_users
+                where similarity > 0
+            ),
+            recommended_movies as (
+                select candidate_rating.movie_id,
+                    sum(candidate_rating.rating * similar_users.similarity)
+                        / sum(similar_users.similarity) as recommended_score,
+                    sum(similar_users.similarity) as similarity_weight,
+                    count(distinct candidate_rating.user_id) as similar_user_count
+                from user_movie_rating candidate_rating
+                join similar_users
+                    on similar_users.user_id = candidate_rating.user_id
                 where not exists (
                         select 1
                         from movie_recommendations recommendation
                         where recommendation.user_id = :username
-                            and recommendation.movie_id = wins.movie_id
+                            and recommendation.movie_id = candidate_rating.movie_id
                     )
-                group by wins.movie_id
-                having sum(wins.win_count * user_rating.relative_rating) > 0
-            ) users_recommended_movies
+                group by candidate_rating.movie_id
+                having sum(similar_users.similarity) > 0
+                    and sum(candidate_rating.rating * similar_users.similarity)
+                        / sum(similar_users.similarity) > 0
+            )
+            select m.*
+            from recommended_movies
+            join movies m
+                on m.imdb_id = recommended_movies.movie_id
+            order by recommended_movies.recommended_score desc,
+                recommended_movies.similarity_weight desc,
+                recommended_movies.similar_user_count desc,
+                m.title asc,
+                m.imdb_id asc
+            """, countQuery = """
+            with rating_similarity as (
+                select other_rating.user_id,
+                    avg(cast(1 as numeric(12, 6))
+                        - (abs(current_rating.rating - other_rating.rating) / cast(10 as numeric(12, 6)))) as rating_similarity,
+                    least(cast(1 as numeric(12, 6)),
+                        cast(count(1) as numeric(12, 6)) / cast(8 as numeric(12, 6))) as rating_confidence
+                from user_movie_rating current_rating
+                join user_movie_rating other_rating
+                    on other_rating.movie_id = current_rating.movie_id
+                    and other_rating.user_id <> current_rating.user_id
+                where current_rating.user_id = :username
+                group by other_rating.user_id
+            ),
+            direct_vote_similarity as (
+                select other_vote.user_id,
+                    avg(case
+                        when other_vote.winner_id = current_vote.winner_id
+                            and other_vote.loser_id = current_vote.loser_id
+                        then cast(1 as numeric(12, 6))
+                        else cast(0 as numeric(12, 6))
+                    end) as direct_agreement,
+                    least(cast(1 as numeric(12, 6)),
+                        cast(count(1) as numeric(12, 6)) / cast(8 as numeric(12, 6))) as direct_confidence
+                from user_movie_challenge_vote current_vote
+                join user_movie_challenge_vote other_vote
+                    on other_vote.user_id <> current_vote.user_id
+                    and (
+                        (other_vote.winner_id = current_vote.winner_id
+                            and other_vote.loser_id = current_vote.loser_id)
+                        or (other_vote.winner_id = current_vote.loser_id
+                            and other_vote.loser_id = current_vote.winner_id)
+                    )
+                where current_vote.user_id = :username
+                group by other_vote.user_id
+            ),
+            similar_user_ids as (
+                select user_id from rating_similarity
+                union
+                select user_id from direct_vote_similarity
+            ),
+            weighted_similar_users as (
+                select similar_user_ids.user_id,
+                    (coalesce(rating_similarity.rating_similarity * rating_similarity.rating_confidence,
+                        cast(0 as numeric(12, 6))) * cast(0.70 as numeric(12, 6))
+                    + coalesce(direct_vote_similarity.direct_agreement * direct_vote_similarity.direct_confidence,
+                        cast(0 as numeric(12, 6))) * cast(0.30 as numeric(12, 6))) as similarity
+                from similar_user_ids
+                left join rating_similarity
+                    on rating_similarity.user_id = similar_user_ids.user_id
+                left join direct_vote_similarity
+                    on direct_vote_similarity.user_id = similar_user_ids.user_id
+            ),
+            similar_users as (
+                select user_id, similarity
+                from weighted_similar_users
+                where similarity > 0
+            ),
+            recommended_movies as (
+                select candidate_rating.movie_id
+                from user_movie_rating candidate_rating
+                join similar_users
+                    on similar_users.user_id = candidate_rating.user_id
+                where not exists (
+                        select 1
+                        from movie_recommendations recommendation
+                        where recommendation.user_id = :username
+                            and recommendation.movie_id = candidate_rating.movie_id
+                    )
+                group by candidate_rating.movie_id
+                having sum(similar_users.similarity) > 0
+                    and sum(candidate_rating.rating * similar_users.similarity)
+                        / sum(similar_users.similarity) > 0
+            )
+            select count(1)
+            from recommended_movies
             """, nativeQuery = true)
     Page<Movie> findUsersRecommendedMoviesByUsername(@Param("username") String username, Pageable pageable);
 }

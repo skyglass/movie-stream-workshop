@@ -1,5 +1,6 @@
 package skycomposer.moviechallenge.api.movie.application.service;
 
+import skycomposer.moviechallenge.api.movie.MovieChallengeRepository;
 import skycomposer.moviechallenge.api.movie.MovieService;
 import skycomposer.moviechallenge.api.movie.MovieRecommendationService;
 import skycomposer.moviechallenge.api.movie.dto.MovieDto;
@@ -15,6 +16,7 @@ public class ViewMovieDetailsUseCase {
 
     private final MovieService movieService;
     private final MovieRecommendationService movieRecommendationService;
+    private final MovieChallengeRepository movieChallengeRepository;
     private final MovieDtoMapper movieMapper;
 
     @Transactional(readOnly = true)
@@ -28,6 +30,7 @@ public class ViewMovieDetailsUseCase {
         return movieMapper.toMovieDto(
                 movie,
                 movieRecommendationService.isRecommended(username, imdbId),
-                movieRecommendationService.isDisliked(username, imdbId));
+                movieRecommendationService.isDisliked(username, imdbId),
+                movieChallengeRepository.movieRating(username, imdbId).orElse(null));
     }
 }

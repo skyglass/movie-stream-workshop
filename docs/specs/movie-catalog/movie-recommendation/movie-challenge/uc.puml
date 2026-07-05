@@ -6,17 +6,19 @@ actor "Authenticated User" as user
 rectangle "movie-catalog" {
     usecase "movie-challenge" as UC
     entity "MOVIE_RECOMMENDATION" as recommendation
-    entity "USER_MOVIE_WINNER_LOSER_ALL" as closureResult
-    entity "USER_MOVIE_CHALLENGE" as challengeCount
+    entity "USER_MOVIE_CHALLENGE_VOTE" as directVote
+    entity "USER_MOVIE_RANK" as rank
     entity "MOVIE" as movie
 }
 
 user --> UC
 UC --> recommendation : reads user recommendations
-UC --> closureResult : excludes direct or inferred ranked pair
-UC --> closureResult : records selected winner and inferred winner-loser rows
-UC --> challengeCount : prioritizes least challenged movies and increments both
+UC --> directVote : excludes directly completed pair
+UC --> rank : skips only confident far-apart pairs
+UC --> rank : prioritizes least direct evidence
+UC --> directVote : records selected winner-loser row
+UC --> rank : rebuilds per-user ranking projection
 recommendation --> movie : references
-closureResult --> movie : references winner and loser
-challengeCount --> movie : references
+directVote --> movie : references winner and loser
+rank --> movie : references ranked movie
 @enduml

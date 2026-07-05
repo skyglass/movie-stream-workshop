@@ -1,6 +1,7 @@
 package skycomposer.moviechallenge.api.movie.mapper;
 
 import skycomposer.moviechallenge.api.movie.dto.MovieDto;
+import skycomposer.moviechallenge.api.movie.dto.MovieRatingDto;
 import skycomposer.moviechallenge.api.movie.model.Movie;
 import skycomposer.moviechallenge.api.movie.model.MovieComment;
 import skycomposer.moviechallenge.api.userextra.UserExtraService;
@@ -26,6 +27,10 @@ public class MovieDtoMapper {
     }
 
     public MovieDto toMovieDto(Movie movie, boolean recommended, boolean disliked) {
+        return toMovieDto(movie, recommended, disliked, null);
+    }
+
+    public MovieDto toMovieDto(Movie movie, boolean recommended, boolean disliked, MovieRatingDto rating) {
         List<MovieDto.CommentDto> comments = movie.getComments().stream()
                 .map(this::toMovieDtoCommentDto)
                 .toList();
@@ -43,6 +48,8 @@ public class MovieDtoMapper {
                 movie.getType().getDescription(),
                 recommended,
                 disliked,
+                rating == null ? null : rating.rankPosition(),
+                rating == null ? null : rating.rating(),
                 comments
         );
     }

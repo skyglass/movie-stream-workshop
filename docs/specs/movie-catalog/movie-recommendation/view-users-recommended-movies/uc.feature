@@ -1,18 +1,13 @@
 Feature: view-users-recommended-movies
 
-  Scenario: Users recommended movies prefer votes from users with similar movie challenge choices
+  Scenario: Users recommended movies prefer calculated ratings from similar users
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"
     And movie "tt201" exists with title "Pair One"
     And movie "tt202" exists with title "Pair Two"
-    And movie "tt203" exists with title "Pair Three"
-    And user "user" has already chosen "tt201" over "tt202" in movie challenges
-    And user "user" has already chosen "tt202" over "tt203" in movie challenges
-    And user "alice" has already chosen "tt201" over "tt202" in movie challenges
-    And user "alice" has already chosen "tt202" over "tt203" in movie challenges
-    And user "bob" has already chosen "tt201" over "tt202" in movie challenges
-    And movie "tt101" has already won 2 challenge comparisons for "alice"
-    And movie "tt102" has already won 5 challenge comparisons for "bob"
+    And user "user" has already ranked movies "tt201,tt202" from best to worst
+    And user "alice" has already ranked movies "tt101,tt201,tt202" from best to worst
+    And user "bob" has already ranked movies "tt201,tt102,tt202" from best to worst
     When regular user "user" requests users recommended movies
     Then users recommended movies show "tt101" before "tt102"
 
@@ -23,8 +18,7 @@ Feature: view-users-recommended-movies
     And movie "tt202" exists with title "Pair Two"
     And user "user" has already chosen "tt201" over "tt202" in movie challenges
     And user "alice" has already chosen "tt201" over "tt202" in movie challenges
-    And movie "tt101" has already won 10 challenge comparisons for "alice"
-    And movie "tt102" has already won 1 challenge comparison for "alice"
+    And user "alice" has already ranked movies "tt101,tt102" from best to worst
     And movie "tt101" is already recommended by "user"
     When regular user "user" requests users recommended movies
     Then users recommended movies do not contain "tt101"
@@ -37,8 +31,7 @@ Feature: view-users-recommended-movies
     And movie "tt202" exists with title "Pair Two"
     And user "user" has already chosen "tt201" over "tt202" in movie challenges
     And user "alice" has already chosen "tt201" over "tt202" in movie challenges
-    And movie "tt101" has already won 10 challenge comparisons for "alice"
-    And movie "tt102" has already won 1 challenge comparison for "alice"
+    And user "alice" has already ranked movies "tt101,tt102" from best to worst
     And movie "tt101" is already disliked by "user"
     When regular user "user" requests users recommended movies
     Then users recommended movies do not contain "tt101"
@@ -46,7 +39,7 @@ Feature: view-users-recommended-movies
 
   Scenario: Users recommended movies are empty without matching movie challenge history
     Given movie "tt101" exists with title "Movie One"
-    And movie "tt101" has already won 5 challenge comparisons for "admin"
+    And movie "tt101" has already won 5 direct challenge comparisons for "admin"
     When regular user "user" requests users recommended movies
     Then users recommended movies contain 0 movies
 
@@ -59,10 +52,7 @@ Feature: view-users-recommended-movies
     And movie "tt202" exists with title "Pair Two"
     And user "user" has already chosen "tt201" over "tt202" in movie challenges
     And user "alice" has already chosen "tt201" over "tt202" in movie challenges
-    And movie "tt101" has already won 4 challenge comparisons for "alice"
-    And movie "tt102" has already won 3 challenge comparisons for "alice"
-    And movie "tt103" has already won 2 challenge comparisons for "alice"
-    And movie "tt104" has already won 1 challenge comparison for "alice"
+    And user "alice" has already ranked movies "tt101,tt102,tt103,tt104" from best to worst
     When regular user "user" requests page 2 of users recommended movies with 3 movies per page
     Then users recommended movies contain 1 movies
     And users recommended movies total count is 4

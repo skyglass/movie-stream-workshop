@@ -50,10 +50,10 @@ but controllers delegate use-case behavior to services named after the use case.
 | `add-movie-to-catalog` | `POST /api/movies` | `AddMovieToCatalogUseCase` | `MOVIE` aggregate |
 | `add-movie-comment` | `POST /api/movies/{imdbId}/comments` | `AddMovieCommentUseCase` | `MOVIE_COMMENT` child entity |
 | `recommend-movie` | `POST/DELETE /api/movies/{imdbId}/recommendation`, `POST /api/movies/{imdbId}/recommendation/dislike`, `POST /api/movies/recommendation` | `RecommendMovieUseCase` | `MOVIE_RECOMMENDATION` |
-| `movie-challenge` | `GET /api/movie-challenges/next`, `POST /api/movie-challenges/votes` | `MovieChallengeUseCase` | `USER_MOVIE_WINNER_LOSER_ALL`, `USER_MOVIE_CHALLENGE` |
-| `view-favorite-movies` | `GET /api/favorite-movies` | `ViewFavoriteMoviesUseCase` | `USER_MOVIE_WINNER_LOSER_ALL` read model |
-| `view-users-favorite-movies` | `GET /api/users-favorite-movies` | `ViewUsersFavoriteMoviesUseCase` | `USER_MOVIE_WINNER_LOSER_ALL` aggregate read model |
-| `view-users-recommended-movies` | `GET /api/users-recommended-movies` | `ViewUsersRecommendedMoviesUseCase` | `USER_MOVIE_WINNER_LOSER_ALL` weighted read model |
+| `movie-challenge` | `GET /api/movie-challenges/next`, `POST /api/movie-challenges/votes` | `MovieChallengeUseCase` | `USER_MOVIE_CHALLENGE_VOTE`, `USER_MOVIE_RANK` |
+| `view-favorite-movies` | `GET /api/favorite-movies` | `ViewFavoriteMoviesUseCase` | `USER_MOVIE_RATING` read model |
+| `view-users-favorite-movies` | `GET /api/users-favorite-movies` | `ViewUsersFavoriteMoviesUseCase` | `USER_MOVIE_RATING` aggregate read model |
+| `view-users-recommended-movies` | `GET /api/users-recommended-movies` | `ViewUsersRecommendedMoviesUseCase` | `USER_MOVIE_RATING`, `USER_MOVIE_CHALLENGE_VOTE` hybrid-similarity read model |
 | `view-own-user-profile` | `GET /api/userextras/me` | `ViewOwnUserProfileUseCase` | `USER_EXTRA` |
 | `change-own-avatar` | `POST /api/userextras/me` | `ChangeOwnAvatarUseCase` | `USER_EXTRA` |
 | `view-registered-users` | `GET /api/users` | `ViewRegisteredUsersUseCase` | `USER_EXTRA` listing |

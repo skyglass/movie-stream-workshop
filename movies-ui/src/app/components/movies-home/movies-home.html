@@ -87,6 +87,10 @@
                     <dt>Genre:</dt>
                     <dd itemprop="genre">{{ movie.genre || 'N/A' }}</dd>
                   </div>
+                  <div>
+                    <dt>Your Rating:</dt>
+                    <dd>{{ movie.rating != null && movie.rankPosition != null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-' }}</dd>
+                  </div>
                 </dl>
               </a>
             } @else {
@@ -104,6 +108,10 @@
                   <div>
                     <dt>Genre:</dt>
                     <dd itemprop="genre">{{ movie.genre || 'N/A' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Your Rating:</dt>
+                    <dd>{{ movie.rating != null && movie.rankPosition != null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-' }}</dd>
                   </div>
                 </dl>
               </div>

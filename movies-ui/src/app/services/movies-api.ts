@@ -25,6 +25,8 @@ export interface Movie {
   typeDescription: string;
   recommended: boolean;
   disliked: boolean;
+  rankPosition: number | null;
+  rating: number | null;
   comments: MovieComment[];
 }
 

@@ -31,6 +31,10 @@
                 <dt>Genre:</dt>
                 <dd>{{ movie.genre || 'N/A' }}</dd>
               </div>
+              <div>
+                <dt>Your Rating:</dt>
+                <dd>{{ movie.rating != null && movie.rankPosition != null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-' }}</dd>
+              </div>
             </dl>
           </a>
         </article>

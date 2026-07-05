@@ -4,7 +4,10 @@
 **Use Case Name:** Movie Challenge  
 **Primary Actor:** Authenticated User  
 **Goal:** Treat Movie Challenge winner-loser relationships as transitive so already-inferred pairs are not challenged again.  
-**Status:** Implemented
+**Status:** Implemented; superseded by EP-023.
+
+> Current behavior treats transitivity as a weak inference. Direct votes decide ranking, and only confident far-apart
+> pairs are skipped without direct voting.
 
 ## Short Description
 

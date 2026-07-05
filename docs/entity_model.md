@@ -11,8 +11,9 @@ flowchart LR
         MOVIE["MOVIE\nAggregate Root"]
         MOVIE_COMMENT["MOVIE_COMMENT\nChild Entity"]
         MOVIE_RECOMMENDATION["MOVIE_RECOMMENDATION\nUser recommendation"]
-        USER_MOVIE_WINNER_LOSER["USER_MOVIE_WINNER_LOSER\nDirect challenge result"]
-        USER_MOVIE_WINNER_LOSER_ALL["USER_MOVIE_WINNER_LOSER_ALL\nTransitive challenge result"]
+        USER_MOVIE_CHALLENGE_VOTE["USER_MOVIE_CHALLENGE_VOTE\nDirect challenge vote"]
+        USER_MOVIE_RANK["USER_MOVIE_RANK\nRank projection"]
+        USER_MOVIE_RATING["USER_MOVIE_RATING\n0-10 rating view"]
     end
 
     subgraph user_access["user-access"]
@@ -22,8 +23,9 @@ flowchart LR
 
     MOVIE ||--o{ MOVIE_COMMENT : receives
     MOVIE ||--o{ MOVIE_RECOMMENDATION : recommended_by
-    MOVIE ||--o{ USER_MOVIE_WINNER_LOSER : wins_or_loses_directly
-    MOVIE ||--o{ USER_MOVIE_WINNER_LOSER_ALL : wins_or_loses_transitively
+    MOVIE ||--o{ USER_MOVIE_CHALLENGE_VOTE : wins_or_loses_directly
+    MOVIE ||--o{ USER_MOVIE_RANK : is_ranked
+    USER_MOVIE_RANK --> USER_MOVIE_RATING : projects
     MOVIE_COMMENT --> USER_EXTRA : "renders avatar for username"
     ROLE --> USER_EXTRA : "protects admin listing"
 ```
@@ -34,12 +36,12 @@ flowchart LR
 erDiagram
     MOVIES ||--o{ MOVIE_COMMENTS : receives
     MOVIES ||--o{ MOVIE_RECOMMENDATIONS : recommended_by
-    MOVIES ||--o{ USER_MOVIE_WINNER_LOSER : wins_or_loses_directly
-    MOVIES ||--o{ USER_MOVIE_WINNER_LOSER_ALL : wins_or_loses_transitively
+    MOVIES ||--o{ USER_MOVIE_CHALLENGE_VOTE : wins_or_loses_directly
+    MOVIES ||--o{ USER_MOVIE_RANK : is_ranked
     USERS ||--o{ MOVIE_COMMENTS : "referenced by username"
     USERS ||--o{ MOVIE_RECOMMENDATIONS : makes
-    USERS ||--o{ USER_MOVIE_WINNER_LOSER : decides
-    USERS ||--o{ USER_MOVIE_WINNER_LOSER_ALL : ranks
+    USERS ||--o{ USER_MOVIE_CHALLENGE_VOTE : votes
+    USERS ||--o{ USER_MOVIE_RANK : ranks
 ```
 
 ### MOVIE
@@ -85,7 +87,7 @@ Represents one authenticated user's recommendation of one movie.
 | user_id | Recommending username | String | Foreign Key to `users.username`, Primary Key part |
 | movie_id | Recommended movie | String | Foreign Key to `movies.imdb_id`, Primary Key part |
 
-### USER_MOVIE_WINNER_LOSER
+### USER_MOVIE_CHALLENGE_VOTE
 
 Represents one direct Movie Challenge winner-loser decision for one user.
 
@@ -95,15 +97,29 @@ Represents one direct Movie Challenge winner-loser decision for one user.
 | winner_id | Selected winning movie | String | Foreign Key to `movies.imdb_id`, Primary Key part |
 | loser_id | Losing movie from the same challenge | String | Foreign Key to `movies.imdb_id`, Primary Key part, different from winner_id |
 
-### USER_MOVIE_WINNER_LOSER_ALL
+### USER_MOVIE_RANK
 
-Represents direct and inferred transitive Movie Challenge winner-loser relationships for one user.
+Represents the current per-user ranking projection rebuilt from direct challenge votes.
 
 | Attribute | Description | Data Type | Validation Rules |
 |-----------|-------------|-----------|------------------|
-| user_id | Challenged username | String | Foreign Key to `users.username`, Primary Key part |
-| winner_id | Direct or inferred winning movie | String | Foreign Key to `movies.imdb_id`, Primary Key part |
-| loser_id | Direct or inferred losing movie | String | Foreign Key to `movies.imdb_id`, Primary Key part, different from winner_id |
+| user_id | Ranked username | String | Foreign Key to `users.username`, Primary Key part |
+| movie_id | Ranked movie | String | Foreign Key to `movies.imdb_id`, Primary Key part |
+| rank_position | Current rank, where `1` is best | Integer | Positive, unique per user |
+| score | Internal regularized ranking score on a positive 1-10 scale | Decimal | Not Null, not user-facing |
+| direct_comparisons | Number of direct votes containing the movie | Integer | Not Null, non-negative |
+| confidence | Confidence derived from direct comparisons | Decimal | Not Null, between `0` and `1` |
+
+### USER_MOVIE_RATING
+
+Represents the per-user rank mapped onto the 0-10 rating scale.
+
+| Attribute | Description | Data Type | Validation Rules |
+|-----------|-------------|-----------|------------------|
+| user_id | Rated username | String | Derived from `user_movie_rank` |
+| movie_id | Rated movie | String | Derived from `user_movie_rank` |
+| rank_position | Current rank, where `1` is best | Integer | Derived from `user_movie_rank` |
+| rating | Rank mapped onto the 0-10 scale | Decimal | `10` for best, `0` for worst, linearly distributed between |
 
 ## Cross-Context Policies
 
@@ -112,5 +128,8 @@ Represents direct and inferred transitive Movie Challenge winner-loser relations
   read model.
 - `MOVIES_ADMIN` is required for `/api/users` and movie administration endpoints.
 - Authenticated non-admin users can read only their own profile through `GET /api/userextras/me`.
-- Users recommended movies exclude the current user's own recommendations and rank remaining movies with weighted
-  transitive Movie Challenge wins from users who share the same winner-loser relationships.
+- Users recommended movies exclude the current user's own recommendations and rank remaining movies by a weighted
+  average of other users' calculated ratings. User similarity is `70%` shared-rating similarity and `30%` capped direct
+  vote agreement.
+- Movie list cards show the viewer-specific `Your Rating` with rank in parentheses, for example `9.6 (#2)`.
+  When rating or rank is absent, the UI renders `-`.

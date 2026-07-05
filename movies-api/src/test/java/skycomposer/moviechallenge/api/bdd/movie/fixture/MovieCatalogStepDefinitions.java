@@ -43,8 +43,8 @@ public class MovieCatalogStepDefinitions {
         fixture.dislikeMovie(imdbId, username);
     }
 
-    @Given("movie {string} has already won {int} challenge comparison(s) for {string}")
-    public void movieHasAlreadyWonChallengeComparisonsFor(String imdbId, int count, String username) {
+    @Given("movie {string} has already won {int} direct challenge comparison(s) for {string}")
+    public void movieHasAlreadyWonDirectChallengeComparisonsFor(String imdbId, int count, String username) {
         fixture.recordTransitiveWins(imdbId, username, count);
     }
 

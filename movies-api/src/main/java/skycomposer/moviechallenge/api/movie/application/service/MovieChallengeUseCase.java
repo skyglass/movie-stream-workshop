@@ -47,8 +47,6 @@ public class MovieChallengeUseCase {
         }
 
         movieChallengeRepository.insertDirectWinnerLoser(username, selectedMovieId, loserId);
-        movieChallengeRepository.insertWinnerLoserClosure(username, selectedMovieId, loserId);
-        movieChallengeRepository.incrementChallengeCount(username, movie1Id);
-        movieChallengeRepository.incrementChallengeCount(username, movie2Id);
+        movieChallengeRepository.rebuildUserMovieRanks(username);
     }
 }

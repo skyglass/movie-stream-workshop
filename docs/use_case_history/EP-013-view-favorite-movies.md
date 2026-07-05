@@ -4,7 +4,9 @@
 **Use Case Name:** View Favorite Movies  
 **Primary Actor:** Authenticated User  
 **Goal:** Show the user's favorite movies ordered from most favorite to less favorite based on transitive Movie Challenge wins.  
-**Status:** Implemented
+**Status:** Implemented; superseded by EP-023 for rank/rating-based favorites.
+
+> Current behavior reads `user_movie_rating`. This earlier epic describes the original transitive-win implementation.
 
 ## Short Description
 

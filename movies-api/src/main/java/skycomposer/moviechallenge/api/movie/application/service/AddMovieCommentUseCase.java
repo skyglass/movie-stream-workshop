@@ -1,5 +1,6 @@
 package skycomposer.moviechallenge.api.movie.application.service;
 
+import skycomposer.moviechallenge.api.movie.MovieChallengeRepository;
 import skycomposer.moviechallenge.api.movie.MovieService;
 import skycomposer.moviechallenge.api.movie.MovieRecommendationService;
 import skycomposer.moviechallenge.api.movie.dto.MovieDto;
@@ -17,6 +18,7 @@ public class AddMovieCommentUseCase {
 
     private final MovieService movieService;
     private final MovieRecommendationService movieRecommendationService;
+    private final MovieChallengeRepository movieChallengeRepository;
     private final MovieDtoMapper movieMapper;
 
     @Transactional
@@ -30,7 +32,8 @@ public class AddMovieCommentUseCase {
         return movieMapper.toMovieDto(
                 savedMovie,
                 movieRecommendationService.isRecommended(command.username(), command.imdbId()),
-                movieRecommendationService.isDisliked(command.username(), command.imdbId()));
+                movieRecommendationService.isDisliked(command.username(), command.imdbId()),
+                movieChallengeRepository.movieRating(command.username(), command.imdbId()).orElse(null));
     }
 
     public record AddCommentCommand(String imdbId, String username, String text) {

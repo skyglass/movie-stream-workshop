@@ -10,6 +10,8 @@ import skycomposer.moviechallenge.api.movie.model.Movie;
 import skycomposer.moviechallenge.api.movie.model.MovieComment;
 import skycomposer.moviechallenge.api.movie.model.MovieRecommendation;
 import skycomposer.moviechallenge.api.movie.model.MovieType;
+import java.math.BigDecimal;
+import java.util.Arrays;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.data.domain.PageRequest;
@@ -68,8 +70,8 @@ public class MovieCatalogFixture {
     }
 
     public void clearMovies() {
-        jdbcTemplate.update("delete from user_movie_winner_loser");
-        jdbcTemplate.update("delete from user_movie_winner_loser_all");
+        jdbcTemplate.update("delete from user_movie_rank");
+        jdbcTemplate.update("delete from user_movie_challenge_vote");
         jdbcTemplate.update("delete from user_movie_challenge");
         movieRecommendationRepository.deleteAll();
         movieRecommendationRepository.flush();
@@ -163,7 +165,11 @@ public class MovieCatalogFixture {
     public void incrementChallengeCount(String imdbId, String username, int times) {
         ensureUser(username);
         for (int i = 0; i < times; i++) {
-            movieChallengeRepository.incrementChallengeCount(username, imdbId);
+            String loserId = imdbId + "-comparison-" + i + "-" + username;
+            if (!movieRepository.existsById(loserId)) {
+                saveMovie(loserId, "Synthetic Comparison " + i + " for " + imdbId);
+            }
+            recordWinnerLoser(username, imdbId, loserId);
         }
     }
 
@@ -177,7 +183,41 @@ public class MovieCatalogFixture {
         recommendMovie(winnerId, username);
         recommendMovie(loserId, username);
         movieChallengeRepository.insertDirectWinnerLoser(username, winnerId, loserId);
-        movieChallengeRepository.insertWinnerLoserClosure(username, winnerId, loserId);
+        movieChallengeRepository.rebuildUserMovieRanks(username);
+    }
+
+    public void recordOrderedRankingExceptPair(String username,
+                                               String orderedMovieIds,
+                                               String firstExcludedMovieId,
+                                               String secondExcludedMovieId) {
+        List<String> movieIds = Arrays.stream(orderedMovieIds.split(","))
+                .map(String::trim)
+                .filter(movieId -> !movieId.isBlank())
+                .toList();
+        MoviePair excludedPair = sortedPair(firstExcludedMovieId, secondExcludedMovieId);
+
+        for (int winnerIndex = 0; winnerIndex < movieIds.size(); winnerIndex++) {
+            for (int loserIndex = winnerIndex + 1; loserIndex < movieIds.size(); loserIndex++) {
+                String winnerId = movieIds.get(winnerIndex);
+                String loserId = movieIds.get(loserIndex);
+                if (!sortedPair(winnerId, loserId).equals(excludedPair)) {
+                    recordWinnerLoser(username, winnerId, loserId);
+                }
+            }
+        }
+    }
+
+    public void recordOrderedRanking(String username, String orderedMovieIds) {
+        List<String> movieIds = Arrays.stream(orderedMovieIds.split(","))
+                .map(String::trim)
+                .filter(movieId -> !movieId.isBlank())
+                .toList();
+
+        for (int winnerIndex = 0; winnerIndex < movieIds.size(); winnerIndex++) {
+            for (int loserIndex = winnerIndex + 1; loserIndex < movieIds.size(); loserIndex++) {
+                recordWinnerLoser(username, movieIds.get(winnerIndex), movieIds.get(loserIndex));
+            }
+        }
     }
 
     public void recordTransitiveWins(String imdbId, String username, int count) {
@@ -271,9 +311,15 @@ public class MovieCatalogFixture {
         assertEquals(expectedCount, movieChallengeRepository.challengeCount(username, imdbId));
     }
 
+    public void assertMovieRankAndRating(String imdbId, String username, int rankPosition, String rating) {
+        var movieRating = movieChallengeRepository.movieRating(username, imdbId).orElseThrow();
+        assertEquals(rankPosition, movieRating.rankPosition());
+        assertEquals(0, new BigDecimal(rating).compareTo(movieRating.rating()));
+    }
+
     public void assertMoviePairChallengeExists(String username, String firstMovieId, String secondMovieId) {
-        assertTrue(movieChallengeRepository.transitiveWinnerLoserExists(username, firstMovieId, secondMovieId)
-                || movieChallengeRepository.transitiveWinnerLoserExists(username, secondMovieId, firstMovieId));
+        assertTrue(movieChallengeRepository.directWinnerLoserExists(username, firstMovieId, secondMovieId)
+                || movieChallengeRepository.directWinnerLoserExists(username, secondMovieId, firstMovieId));
     }
 
     public void assertDirectWinnerLoserExists(String username, String winnerId, String loserId) {

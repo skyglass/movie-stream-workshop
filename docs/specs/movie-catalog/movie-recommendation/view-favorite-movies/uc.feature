@@ -1,15 +1,14 @@
 Feature: view-favorite-movies
 
-  Scenario: Favorite movies are ordered by transitive user wins
+  Scenario: Favorite movies are ordered by direct challenge rank
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"
     And movie "tt103" exists with title "Movie Three"
-    And movie "tt101" has already won 2 challenge comparisons for "user"
-    And movie "tt102" has already won 5 challenge comparisons for "user"
-    And movie "tt103" has already won 1 challenge comparison for "user"
+    And user "user" has already ranked movies "tt102,tt101,tt103" from best to worst
     When regular user "user" requests favorite movies
     Then favorite movies show "tt102" before "tt101"
     And favorite movies show "tt101" before "tt103"
+    And favorite movies total count is 3
 
   Scenario: User without movie challenge votes has no favorite movies yet
     Given movie "tt101" exists with title "Movie One"
@@ -20,10 +19,9 @@ Feature: view-favorite-movies
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"
     And movie "tt103" exists with title "Movie Three"
-    And movie "tt101" has already won 5 challenge comparisons for "user"
-    And movie "tt102" has already won 4 challenge comparisons for "user"
-    And movie "tt103" has already won 3 challenge comparisons for "user"
+    And user "user" has already ranked movies "tt101,tt102,tt103" from best to worst
     When regular user "user" requests page 2 of favorite movies with 2 movies per page
     Then favorite movies contain 1 movies
     And favorite movies total count is 3
     And favorite movies contain movie "tt103"
+    And movie "tt103" has rank 3 and rating "0.00" for "user"

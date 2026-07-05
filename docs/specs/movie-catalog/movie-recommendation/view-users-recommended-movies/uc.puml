@@ -5,15 +5,16 @@ left to right direction
 actor "Authenticated User" as user
 rectangle "movie-catalog" {
     usecase "view-users-recommended-movies" as UC
-    entity "USER_MOVIE_WINNER_LOSER_ALL" as closureResult
+    entity "USER_MOVIE_RATING" as rating
+    entity "USER_MOVIE_CHALLENGE_VOTE" as directVote
     entity "MOVIE_RECOMMENDATION" as recommendation
     entity "MOVIE" as movie
 }
 
 user --> UC
-UC --> closureResult : counts matching transitive winner-loser rows by other user
-UC --> closureResult : weights other users' winner counts by relative rating
+UC --> rating : compares shared calculated ratings and scores candidates
+UC --> directVote : adds capped direct vote agreement to similarity
 UC --> recommendation : excludes current user's liked or disliked movies
-closureResult --> movie : ranks candidate movies
+rating --> movie : ranks candidate movies
 recommendation --> movie : references
 @enduml
