@@ -155,6 +155,7 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
     this.movieForm.reset({ type: movie.type });
     if (movie.detailsLoaded) {
       this.patchMovieForm(movie);
+      this.step = 2;
       return;
     }
 
@@ -166,6 +167,7 @@ export class MovieWizardComponent implements OnInit, OnDestroy {
         this.selectedMovie = selectedMovie;
         this.patchMovieForm(selectedMovie);
         this.selectingMovie = false;
+        this.step = 2;
       },
       error: err => {
         if (this.selectedMovie?.imdbId !== movie.imdbId) return;
