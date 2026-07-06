@@ -17,6 +17,7 @@
 | Completed challenge pair | Recommended movie pair that already has a direct challenge vote from the user. |
 | User movie rank | Per-user ranking projection rebuilt from direct challenge votes. |
 | Direct comparison count | Number of direct challenge votes where the movie was either winner or loser. |
+| Enough comparisons | Dynamic Movie Challenge workload target: `clamp(4, 10, ceil(log2(movie_count)) + 1)` direct comparisons. New movies below this target can still be challenged against already well-compared movies. |
 | Challenge confidence | Calculated value from direct comparison count; high confidence lets the selector skip far-apart ranked pairs. |
 | Movie rating | Rating from 0 to 10 derived from the user's current rank positions. |
 | Your Rank | Current viewer's own rank for a movie; list cards show it in parentheses after `Your Rating`. |

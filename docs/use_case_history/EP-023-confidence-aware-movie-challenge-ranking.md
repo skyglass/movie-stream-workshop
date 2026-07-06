@@ -25,7 +25,17 @@ The next challenge selector uses the rank projection to reduce unnecessary work:
 2. Pairs with weak inferred ordering can still be offered.
 3. A pair is skipped without direct voting only when both movies have enough direct comparisons, both have enough
    confidence, and their rank positions are far apart.
-4. Among eligible pairs, the selector prefers the pair with the least direct evidence.
+4. A pair is useful when at least one movie has fewer than the dynamic direct-comparison target, or when both ranked
+   movies are inside the dynamic close-rank window.
+5. Once both movies have enough direct evidence, far-apart unresolved pairs are not offered only because they are
+   missing a direct vote.
+6. A newly recommended movie can still be challenged against an already well-compared movie because the new movie still
+   needs evidence.
+7. Among eligible pairs, the selector prefers the pair with the least direct evidence.
+
+The direct-comparison target scales with the current number of positive challenge candidates:
+`clamp(4, 10, ceil(log2(movie_count)) + 1)`. For example, `32` movies target `6` direct comparisons per movie, while
+`292` movies target `10`. The close-rank window is `clamp(3, 12, ceil(sqrt(movie_count) / 2))`.
 
 For performance, the selector no longer asks the database to build and sort the full recommendation-pair cross product.
 It loads the user's positive challenge candidates and completed direct pairs through indexed queries, then applies the

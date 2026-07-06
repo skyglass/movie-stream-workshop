@@ -20,6 +20,10 @@ public class MovieChallengeRepository {
     private static final int MINIMUM_SKIP_COMPARISONS = 8;
     private static final int MINIMUM_SKIP_RANK_DISTANCE = 10;
     private static final double MINIMUM_SKIP_CONFIDENCE = 0.80;
+    private static final int MIN_TARGET_DIRECT_COMPARISONS = 4;
+    private static final int MAX_TARGET_DIRECT_COMPARISONS = 10;
+    private static final int MIN_CLOSE_RANK_DISTANCE = 3;
+    private static final int MAX_CLOSE_RANK_DISTANCE = 12;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -31,9 +35,11 @@ public class MovieChallengeRepository {
 
         Map<String, Integer> candidateIndexes = candidateIndexes(candidates);
         BitSet[] completedPairs = completedPairs(username, candidates.size(), candidateIndexes);
+        ChallengeThresholds thresholds = challengeThresholds(candidates.size());
 
         int bestFirstIndex = -1;
         int bestSecondIndex = -1;
+        int bestUsefulnessCategory = Integer.MAX_VALUE;
         int bestRankCategory = Integer.MAX_VALUE;
         int bestMinComparisons = Integer.MAX_VALUE;
         int bestMaxComparisons = Integer.MAX_VALUE;
@@ -53,16 +59,23 @@ public class MovieChallengeRepository {
                     continue;
                 }
 
+                int usefulnessCategory = usefulnessCategory(first, second, thresholds);
+                if (usefulnessCategory < 0) {
+                    continue;
+                }
+
                 int rankCategory = rankCategory(first, second);
                 int minComparisons = Math.min(first.directComparisons(), second.directComparisons());
                 int maxComparisons = Math.max(first.directComparisons(), second.directComparisons());
                 int rankDistance = rankDistance(first, second);
-                if (betterPair(rankCategory, minComparisons, maxComparisons, rankDistance,
+                if (betterPair(usefulnessCategory, rankCategory, minComparisons, maxComparisons, rankDistance,
                         first.movieId(), second.movieId(),
-                        bestRankCategory, bestMinComparisons, bestMaxComparisons, bestRankDistance,
+                        bestUsefulnessCategory, bestRankCategory,
+                        bestMinComparisons, bestMaxComparisons, bestRankDistance,
                         bestFirstMovieId, bestSecondMovieId)) {
                     bestFirstIndex = firstIndex;
                     bestSecondIndex = secondIndex;
+                    bestUsefulnessCategory = usefulnessCategory;
                     bestRankCategory = rankCategory;
                     bestMinComparisons = minComparisons;
                     bestMaxComparisons = maxComparisons;
@@ -358,18 +371,68 @@ public class MovieChallengeRepository {
         return Math.abs(first.rankPosition() - second.rankPosition());
     }
 
-    private boolean betterPair(int rankCategory,
+    private int usefulnessCategory(ChallengeCandidate first,
+                                   ChallengeCandidate second,
+                                   ChallengeThresholds thresholds) {
+        if (needsMoreEvidence(first, thresholds) || needsMoreEvidence(second, thresholds)) {
+            return 0;
+        }
+        if (closeRankedPair(first, second, thresholds)) {
+            return 1;
+        }
+        return -1;
+    }
+
+    private boolean needsMoreEvidence(ChallengeCandidate candidate, ChallengeThresholds thresholds) {
+        return candidate.directComparisons() < thresholds.targetDirectComparisons();
+    }
+
+    private boolean closeRankedPair(ChallengeCandidate first,
+                                    ChallengeCandidate second,
+                                    ChallengeThresholds thresholds) {
+        return first.rankPosition() != null
+                && second.rankPosition() != null
+                && Math.abs(first.rankPosition() - second.rankPosition()) <= thresholds.closeRankDistance();
+    }
+
+    private ChallengeThresholds challengeThresholds(int movieCount) {
+        return new ChallengeThresholds(
+                clamp(MIN_TARGET_DIRECT_COMPARISONS,
+                        MAX_TARGET_DIRECT_COMPARISONS,
+                        ceilLog2(movieCount) + 1),
+                clamp(MIN_CLOSE_RANK_DISTANCE,
+                        MAX_CLOSE_RANK_DISTANCE,
+                        (int) Math.ceil(Math.sqrt(movieCount) / 2.0)));
+    }
+
+    private int ceilLog2(int value) {
+        if (value <= 1) {
+            return 0;
+        }
+        return Integer.SIZE - Integer.numberOfLeadingZeros(value - 1);
+    }
+
+    private int clamp(int min, int max, int value) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private boolean betterPair(int usefulnessCategory,
+                               int rankCategory,
                                int minComparisons,
                                int maxComparisons,
                                int rankDistance,
                                String firstMovieId,
                                String secondMovieId,
+                               int bestUsefulnessCategory,
                                int bestRankCategory,
                                int bestMinComparisons,
                                int bestMaxComparisons,
                                int bestRankDistance,
                                String bestFirstMovieId,
                                String bestSecondMovieId) {
+        if (usefulnessCategory != bestUsefulnessCategory) {
+            return usefulnessCategory < bestUsefulnessCategory;
+        }
         if (rankCategory != bestRankCategory) {
             return rankCategory < bestRankCategory;
         }
@@ -400,5 +463,8 @@ public class MovieChallengeRepository {
                                       Integer rankPosition,
                                       int directComparisons,
                                       double confidence) {
+    }
+
+    private record ChallengeThresholds(int targetDirectComparisons, int closeRankDistance) {
     }
 }

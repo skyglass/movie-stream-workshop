@@ -153,7 +153,7 @@ Read model used by `movie-challenge`.
 | movie1 | First recommended movie in the challenge pair | MOVIE metadata | Selected from recommended movies only |
 | movie2 | Second recommended movie in the challenge pair | MOVIE metadata | Different from movie1 |
 | direct_vote | Actual selected winner-loser relationship | USER_MOVIE_CHALLENGE_VOTE | Written when the user chooses a winner |
-| rank | Current rank projection | USER_MOVIE_RANK | Used to skip only confident far-apart pairs |
+| rank | Current rank projection | USER_MOVIE_RANK | Used to skip confident far-apart pairs and stop low-value far pairs once both movies reach the dynamic comparison target |
 
 ### FAVORITE_MOVIES
 

@@ -84,6 +84,71 @@ Feature: movie-challenge
     When regular user "user" requests the next movie challenge
     Then the movie challenge contains movies "tt101" and "tt103"
 
+  Scenario: No movie challenge is available when only a far low-value pair remains
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt105" exists with title "Movie Five"
+    And movie "tt106" exists with title "Movie Six"
+    And movie "tt107" exists with title "Movie Seven"
+    And movie "tt108" exists with title "Movie Eight"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie "tt104" is already recommended by "user"
+    And movie "tt105" is already recommended by "user"
+    And movie "tt106" is already recommended by "user"
+    And movie "tt107" is already recommended by "user"
+    And movie "tt108" is already recommended by "user"
+    And user "user" has already ranked movies "tt101,tt102,tt103,tt104,tt105,tt106,tt107,tt108" from best to worst except pair "tt101" and "tt108"
+    When regular user "user" requests the next movie challenge
+    Then no movie challenge is available
+
+  Scenario: Close ranked movies can still be challenged after the comparison target is reached
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt105" exists with title "Movie Five"
+    And movie "tt106" exists with title "Movie Six"
+    And movie "tt107" exists with title "Movie Seven"
+    And movie "tt108" exists with title "Movie Eight"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie "tt104" is already recommended by "user"
+    And movie "tt105" is already recommended by "user"
+    And movie "tt106" is already recommended by "user"
+    And movie "tt107" is already recommended by "user"
+    And movie "tt108" is already recommended by "user"
+    And user "user" has already ranked movies "tt101,tt102,tt103,tt104,tt105,tt106,tt107,tt108" from best to worst except pair "tt104" and "tt105"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge contains movies "tt104" and "tt105"
+
+  Scenario: New movies can be challenged against movies that already have enough comparisons
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt105" exists with title "Movie Five"
+    And movie "tt106" exists with title "Movie Six"
+    And movie "tt107" exists with title "Movie Seven"
+    And movie "tt108" exists with title "Movie Eight"
+    And movie "tt109" exists with title "Movie Nine"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie "tt104" is already recommended by "user"
+    And movie "tt105" is already recommended by "user"
+    And movie "tt106" is already recommended by "user"
+    And movie "tt107" is already recommended by "user"
+    And movie "tt108" is already recommended by "user"
+    And movie "tt109" is already recommended by "user"
+    And user "user" has already ranked movies "tt101,tt102,tt103,tt104,tt105,tt106,tt107,tt108" from best to worst
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge contains movies "tt101" and "tt109"
+
   Scenario: No movie challenge is available when the only remaining pair is transitively confident
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"
