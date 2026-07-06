@@ -27,6 +27,10 @@ The next challenge selector uses the rank projection to reduce unnecessary work:
    confidence, and their rank positions are far apart.
 4. Among eligible pairs, the selector prefers the pair with the least direct evidence.
 
+For performance, the selector no longer asks the database to build and sort the full recommendation-pair cross product.
+It loads the user's positive challenge candidates and completed direct pairs through indexed queries, then applies the
+same pair ordering and confidence-skip rules in memory.
+
 `My Favorite Movies` lists the current user's positive recommendations. Challenge rank and rating sort and annotate
 those movies when available, but an internal ranking score never hides a positively recommended movie.
 

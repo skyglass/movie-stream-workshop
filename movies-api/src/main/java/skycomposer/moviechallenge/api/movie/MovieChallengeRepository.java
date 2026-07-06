@@ -3,6 +3,7 @@ package skycomposer.moviechallenge.api.movie;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto.MovieChallengeMovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieRatingDto;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -20,99 +21,67 @@ public class MovieChallengeRepository {
     private static final int MINIMUM_SKIP_RANK_DISTANCE = 10;
     private static final double MINIMUM_SKIP_CONFIDENCE = 0.80;
 
-    private static final String NEXT_CHALLENGE_CANDIDATE_SQL = """
-            from movie_recommendations r1
-            join movie_recommendations r2
-                on r2.user_id = r1.user_id
-                and r1.movie_id < r2.movie_id
-                and r2.positive = true
-            left join user_movie_rank rank1
-                on rank1.user_id = r1.user_id
-                and rank1.movie_id = r1.movie_id
-            left join user_movie_rank rank2
-                on rank2.user_id = r2.user_id
-                and rank2.movie_id = r2.movie_id
-            where r1.user_id = :username
-                and r1.positive = true
-                and not exists (
-                    select 1
-                    from user_movie_challenge_vote vote
-                    where vote.user_id = r1.user_id
-                        and (
-                            (vote.winner_id = r1.movie_id and vote.loser_id = r2.movie_id)
-                            or (vote.winner_id = r2.movie_id and vote.loser_id = r1.movie_id)
-                        )
-                )
-                and not exists (
-                    select 1
-                    where rank1.movie_id is not null
-                        and rank2.movie_id is not null
-                        and rank1.direct_comparisons >= :minimumSkipComparisons
-                        and rank2.direct_comparisons >= :minimumSkipComparisons
-                        and rank1.confidence >= :minimumSkipConfidence
-                        and rank2.confidence >= :minimumSkipConfidence
-                        and abs(rank1.rank_position - rank2.rank_position) >= :minimumSkipRankDistance
-                )
-            """;
-
-    private static final String NEXT_CHALLENGE_ORDER_SQL = """
-            order by case
-                    when rank1.movie_id is null and rank2.movie_id is null then 0
-                    when rank1.movie_id is null or rank2.movie_id is null then 1
-                    else 2
-                end,
-                least(coalesce(rank1.direct_comparisons, 0), coalesce(rank2.direct_comparisons, 0)),
-                greatest(coalesce(rank1.direct_comparisons, 0), coalesce(rank2.direct_comparisons, 0)),
-                case
-                    when rank1.rank_position is null or rank2.rank_position is null then 0
-                    else abs(rank1.rank_position - rank2.rank_position)
-                end,
-                r1.movie_id,
-                r2.movie_id
-            fetch first 1 row only
-            """;
-
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public Optional<MovieChallengeDto> findNextChallenge(String username) {
-        String sql = """
-                with next_pair as (
-                    select r1.movie_id as movie1_id,
-                        r2.movie_id as movie2_id
-                """ + NEXT_CHALLENGE_CANDIDATE_SQL + NEXT_CHALLENGE_ORDER_SQL + """
-                )
-                select m1.imdb_id as movie1_id,
-                    m1.title as movie1_title,
-                    m1.poster as movie1_poster,
-                    m2.imdb_id as movie2_id,
-                    m2.title as movie2_title,
-                    m2.poster as movie2_poster
-                from next_pair
-                join movies m1 on m1.imdb_id = next_pair.movie1_id
-                join movies m2 on m2.imdb_id = next_pair.movie2_id
-                """;
+        List<ChallengeCandidate> candidates = challengeCandidates(username);
+        if (candidates.size() < 2) {
+            return Optional.empty();
+        }
 
-        List<MovieChallengeDto> challenges = jdbcTemplate.query(sql, challengeParams(username), (rs, rowNum) ->
-                new MovieChallengeDto(
-                        new MovieChallengeMovieDto(
-                                rs.getString("movie1_id"),
-                                rs.getString("movie1_title"),
-                                rs.getString("movie1_poster")),
-                        new MovieChallengeMovieDto(
-                                rs.getString("movie2_id"),
-                                rs.getString("movie2_title"),
-                                rs.getString("movie2_poster"))));
-        return challenges.stream().findFirst();
+        Map<String, Integer> candidateIndexes = candidateIndexes(candidates);
+        BitSet[] completedPairs = completedPairs(username, candidates.size(), candidateIndexes);
+
+        int bestFirstIndex = -1;
+        int bestSecondIndex = -1;
+        int bestRankCategory = Integer.MAX_VALUE;
+        int bestMinComparisons = Integer.MAX_VALUE;
+        int bestMaxComparisons = Integer.MAX_VALUE;
+        int bestRankDistance = Integer.MAX_VALUE;
+        String bestFirstMovieId = null;
+        String bestSecondMovieId = null;
+
+        for (int firstIndex = 0; firstIndex < candidates.size() - 1; firstIndex++) {
+            ChallengeCandidate first = candidates.get(firstIndex);
+            for (int secondIndex = firstIndex + 1; secondIndex < candidates.size(); secondIndex++) {
+                if (completedPairs[firstIndex] != null && completedPairs[firstIndex].get(secondIndex)) {
+                    continue;
+                }
+
+                ChallengeCandidate second = candidates.get(secondIndex);
+                if (confidentlySeparated(first, second)) {
+                    continue;
+                }
+
+                int rankCategory = rankCategory(first, second);
+                int minComparisons = Math.min(first.directComparisons(), second.directComparisons());
+                int maxComparisons = Math.max(first.directComparisons(), second.directComparisons());
+                int rankDistance = rankDistance(first, second);
+                if (betterPair(rankCategory, minComparisons, maxComparisons, rankDistance,
+                        first.movieId(), second.movieId(),
+                        bestRankCategory, bestMinComparisons, bestMaxComparisons, bestRankDistance,
+                        bestFirstMovieId, bestSecondMovieId)) {
+                    bestFirstIndex = firstIndex;
+                    bestSecondIndex = secondIndex;
+                    bestRankCategory = rankCategory;
+                    bestMinComparisons = minComparisons;
+                    bestMaxComparisons = maxComparisons;
+                    bestRankDistance = rankDistance;
+                    bestFirstMovieId = first.movieId();
+                    bestSecondMovieId = second.movieId();
+                }
+            }
+        }
+
+        if (bestFirstIndex < 0) {
+            return Optional.empty();
+        }
+
+        return Optional.of(toMovieChallenge(candidates.get(bestFirstIndex), candidates.get(bestSecondIndex)));
     }
 
     public boolean hasAvailableChallenge(String username) {
-        String sql = """
-                select case when exists (
-                    select 1
-                """ + NEXT_CHALLENGE_CANDIDATE_SQL + """
-                ) then true else false end
-                """;
-        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(sql, challengeParams(username), Boolean.class));
+        return findNextChallenge(username).isPresent();
     }
 
     public boolean canRecordWinnerLoser(String username, String winnerId, String loserId) {
@@ -295,15 +264,141 @@ public class MovieChallengeRepository {
         return ratings;
     }
 
-    private Map<String, Object> challengeParams(String username) {
-        return Map.of(
-                "username", username,
-                "minimumSkipComparisons", MINIMUM_SKIP_COMPARISONS,
-                "minimumSkipConfidence", MINIMUM_SKIP_CONFIDENCE,
-                "minimumSkipRankDistance", MINIMUM_SKIP_RANK_DISTANCE);
-    }
-
     private Map<String, Object> params(String username, String winnerId, String loserId) {
         return Map.of("username", username, "winnerId", winnerId, "loserId", loserId);
+    }
+
+    private List<ChallengeCandidate> challengeCandidates(String username) {
+        String sql = """
+                select recommendation.movie_id,
+                    movie.title,
+                    movie.poster,
+                    rank.rank_position,
+                    rank.direct_comparisons,
+                    rank.confidence
+                from movie_recommendations recommendation
+                join movies movie
+                    on movie.imdb_id = recommendation.movie_id
+                left join user_movie_rank rank
+                    on rank.user_id = recommendation.user_id
+                    and rank.movie_id = recommendation.movie_id
+                where recommendation.user_id = :username
+                    and recommendation.positive = true
+                order by recommendation.movie_id asc
+                """;
+        return jdbcTemplate.query(sql, Map.of("username", username), (rs, rowNum) -> {
+            Integer rankPosition = (Integer) rs.getObject("rank_position");
+            Integer directComparisons = (Integer) rs.getObject("direct_comparisons");
+            Number confidence = (Number) rs.getObject("confidence");
+            return new ChallengeCandidate(
+                    rs.getString("movie_id"),
+                    rs.getString("title"),
+                    rs.getString("poster"),
+                    rankPosition,
+                    directComparisons == null ? 0 : directComparisons,
+                    confidence == null ? 0.0 : confidence.doubleValue());
+        });
+    }
+
+    private Map<String, Integer> candidateIndexes(List<ChallengeCandidate> candidates) {
+        Map<String, Integer> candidateIndexes = new HashMap<>(candidates.size());
+        for (int index = 0; index < candidates.size(); index++) {
+            candidateIndexes.put(candidates.get(index).movieId(), index);
+        }
+        return candidateIndexes;
+    }
+
+    private BitSet[] completedPairs(String username, int candidateCount, Map<String, Integer> candidateIndexes) {
+        String sql = """
+                select winner_id, loser_id
+                from user_movie_challenge_vote
+                where user_id = :username
+                """;
+        BitSet[] completedPairs = new BitSet[candidateCount];
+        jdbcTemplate.query(sql, Map.of("username", username), rs -> {
+            Integer winnerIndex = candidateIndexes.get(rs.getString("winner_id"));
+            Integer loserIndex = candidateIndexes.get(rs.getString("loser_id"));
+            if (winnerIndex != null && loserIndex != null) {
+                int firstIndex = Math.min(winnerIndex, loserIndex);
+                int secondIndex = Math.max(winnerIndex, loserIndex);
+                if (completedPairs[firstIndex] == null) {
+                    completedPairs[firstIndex] = new BitSet(candidateCount);
+                }
+                completedPairs[firstIndex].set(secondIndex);
+            }
+        });
+        return completedPairs;
+    }
+
+    private boolean confidentlySeparated(ChallengeCandidate first, ChallengeCandidate second) {
+        return first.rankPosition() != null
+                && second.rankPosition() != null
+                && first.directComparisons() >= MINIMUM_SKIP_COMPARISONS
+                && second.directComparisons() >= MINIMUM_SKIP_COMPARISONS
+                && first.confidence() >= MINIMUM_SKIP_CONFIDENCE
+                && second.confidence() >= MINIMUM_SKIP_CONFIDENCE
+                && Math.abs(first.rankPosition() - second.rankPosition()) >= MINIMUM_SKIP_RANK_DISTANCE;
+    }
+
+    private int rankCategory(ChallengeCandidate first, ChallengeCandidate second) {
+        int rankedMovies = 0;
+        if (first.rankPosition() != null) {
+            rankedMovies++;
+        }
+        if (second.rankPosition() != null) {
+            rankedMovies++;
+        }
+        return rankedMovies;
+    }
+
+    private int rankDistance(ChallengeCandidate first, ChallengeCandidate second) {
+        if (first.rankPosition() == null || second.rankPosition() == null) {
+            return 0;
+        }
+        return Math.abs(first.rankPosition() - second.rankPosition());
+    }
+
+    private boolean betterPair(int rankCategory,
+                               int minComparisons,
+                               int maxComparisons,
+                               int rankDistance,
+                               String firstMovieId,
+                               String secondMovieId,
+                               int bestRankCategory,
+                               int bestMinComparisons,
+                               int bestMaxComparisons,
+                               int bestRankDistance,
+                               String bestFirstMovieId,
+                               String bestSecondMovieId) {
+        if (rankCategory != bestRankCategory) {
+            return rankCategory < bestRankCategory;
+        }
+        if (minComparisons != bestMinComparisons) {
+            return minComparisons < bestMinComparisons;
+        }
+        if (maxComparisons != bestMaxComparisons) {
+            return maxComparisons < bestMaxComparisons;
+        }
+        if (rankDistance != bestRankDistance) {
+            return rankDistance < bestRankDistance;
+        }
+        if (bestFirstMovieId == null || !firstMovieId.equals(bestFirstMovieId)) {
+            return bestFirstMovieId == null || firstMovieId.compareTo(bestFirstMovieId) < 0;
+        }
+        return bestSecondMovieId == null || secondMovieId.compareTo(bestSecondMovieId) < 0;
+    }
+
+    private MovieChallengeDto toMovieChallenge(ChallengeCandidate first, ChallengeCandidate second) {
+        return new MovieChallengeDto(
+                new MovieChallengeMovieDto(first.movieId(), first.title(), first.poster()),
+                new MovieChallengeMovieDto(second.movieId(), second.title(), second.poster()));
+    }
+
+    private record ChallengeCandidate(String movieId,
+                                      String title,
+                                      String poster,
+                                      Integer rankPosition,
+                                      int directComparisons,
+                                      double confidence) {
     }
 }
