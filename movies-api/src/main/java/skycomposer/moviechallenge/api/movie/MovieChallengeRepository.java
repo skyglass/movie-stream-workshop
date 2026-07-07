@@ -3,12 +3,9 @@ package skycomposer.moviechallenge.api.movie;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto.MovieChallengeMovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieRatingDto;
-import java.util.BitSet;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+
+import java.util.*;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -39,7 +36,6 @@ public class MovieChallengeRepository {
 
         int bestFirstIndex = -1;
         int bestSecondIndex = -1;
-        int bestUsefulnessCategory = Integer.MAX_VALUE;
         int bestRankCategory = Integer.MAX_VALUE;
         int bestMinComparisons = Integer.MAX_VALUE;
         int bestMaxComparisons = Integer.MAX_VALUE;
@@ -59,23 +55,22 @@ public class MovieChallengeRepository {
                     continue;
                 }
 
-                int usefulnessCategory = usefulnessCategory(first, second, thresholds);
-                if (usefulnessCategory < 0) {
+                boolean needsMoreEvidence = needsMoreEvidence(first, second, thresholds);
+                if (!needsMoreEvidence) {
                     continue;
                 }
 
-                int rankCategory = rankCategory(first, second);
+                int rankCategory = rankCategory(first, second, thresholds);
                 int minComparisons = Math.min(first.directComparisons(), second.directComparisons());
                 int maxComparisons = Math.max(first.directComparisons(), second.directComparisons());
-                int rankDistance = rankDistance(first, second);
-                if (betterPair(usefulnessCategory, rankCategory, minComparisons, maxComparisons, rankDistance,
+                int rankDistance = rankDistance(first, second, thresholds);
+                if (betterPair(rankCategory, minComparisons, maxComparisons, rankDistance,
                         first.movieId(), second.movieId(),
-                        bestUsefulnessCategory, bestRankCategory,
+                        bestRankCategory,
                         bestMinComparisons, bestMaxComparisons, bestRankDistance,
                         bestFirstMovieId, bestSecondMovieId)) {
                     bestFirstIndex = firstIndex;
                     bestSecondIndex = secondIndex;
-                    bestUsefulnessCategory = usefulnessCategory;
                     bestRankCategory = rankCategory;
                     bestMinComparisons = minComparisons;
                     bestMaxComparisons = maxComparisons;
@@ -353,46 +348,80 @@ public class MovieChallengeRepository {
                 && Math.abs(first.rankPosition() - second.rankPosition()) >= MINIMUM_SKIP_RANK_DISTANCE;
     }
 
-    private int rankCategory(ChallengeCandidate first, ChallengeCandidate second) {
-        int rankedMovies = 0;
-        if (first.rankPosition() != null) {
-            rankedMovies++;
+    /**
+     * Returns a category score for the pair.
+     *
+     * Lower scores result higher priority because they compare candidates from different categories:
+     * - a new movie with a ranked movie
+     * - a movie that needs more evidence with one that already has enough evidence
+     *
+     * Higher scores are assigned when both candidates belong to the same category
+     * (both new, both ranked, both needing more evidence, or both having enough evidence).
+     */
+    private int rankCategory(ChallengeCandidate first, ChallengeCandidate second,
+                             ChallengeThresholds thresholds) {
+        int score = 0;
+
+        boolean firstIsRanked = first.rankPosition() != null;
+        boolean secondIsRanked = second.rankPosition() != null;
+
+        // Give lower priority to comparisons where both movies are either ranked or new.
+        if (firstIsRanked && secondIsRanked) {
+            score++;
         }
-        if (second.rankPosition() != null) {
-            rankedMovies++;
+        if (!firstIsRanked && !secondIsRanked) {
+            score++;
         }
-        return rankedMovies;
+
+        boolean firstNeedsMoreEvidence = needsMoreEvidence(first, thresholds);
+        boolean secondNeedsMoreEvidence = needsMoreEvidence(second, thresholds);
+
+        // Give lower priority to comparisons where both movies have the same
+        // evidence status.
+        if (firstNeedsMoreEvidence && secondNeedsMoreEvidence) {
+            score++;
+        }
+        if (!firstNeedsMoreEvidence && !secondNeedsMoreEvidence) {
+            score++;
+        }
+
+        return score;
     }
 
-    private int rankDistance(ChallengeCandidate first, ChallengeCandidate second) {
+    private int rankDistance(ChallengeCandidate first, ChallengeCandidate second,
+                             ChallengeThresholds thresholds) {
         if (first.rankPosition() == null || second.rankPosition() == null) {
             return 0;
         }
+
+        boolean firstNeedsMoreEvidence = needsMoreEvidence(first, thresholds);
+        boolean secondNeedsMoreEvidence = needsMoreEvidence(second, thresholds);
+
+        // If exactly one movie still needs more evidence, this comparison is valuable
+        // because it helps stabilize the uncertain movie's ranking.
+        // Mixed-confidence pairs are good candidates, but promoting all of them would dominate the ranking.
+        // Instead, deterministically promote approximately every fourth pair.
+        if (firstNeedsMoreEvidence != secondNeedsMoreEvidence) {
+            int hash = Math.abs(Objects.hash(first.movieId(), second.movieId()));
+            if (hash % 4 == 0) {
+                return 0;
+            }
+        }
+
         return Math.abs(first.rankPosition() - second.rankPosition());
     }
 
-    private int usefulnessCategory(ChallengeCandidate first,
+    private boolean needsMoreEvidence(ChallengeCandidate first,
                                    ChallengeCandidate second,
                                    ChallengeThresholds thresholds) {
         if (needsMoreEvidence(first, thresholds) || needsMoreEvidence(second, thresholds)) {
-            return 0;
+            return true;
         }
-        if (closeRankedPair(first, second, thresholds)) {
-            return 1;
-        }
-        return -1;
+        return false;
     }
 
     private boolean needsMoreEvidence(ChallengeCandidate candidate, ChallengeThresholds thresholds) {
         return candidate.directComparisons() < thresholds.targetDirectComparisons();
-    }
-
-    private boolean closeRankedPair(ChallengeCandidate first,
-                                    ChallengeCandidate second,
-                                    ChallengeThresholds thresholds) {
-        return first.rankPosition() != null
-                && second.rankPosition() != null
-                && Math.abs(first.rankPosition() - second.rankPosition()) <= thresholds.closeRankDistance();
     }
 
     private ChallengeThresholds challengeThresholds(int movieCount) {
@@ -416,23 +445,18 @@ public class MovieChallengeRepository {
         return Math.max(min, Math.min(max, value));
     }
 
-    private boolean betterPair(int usefulnessCategory,
-                               int rankCategory,
+    private boolean betterPair(int rankCategory,
                                int minComparisons,
                                int maxComparisons,
                                int rankDistance,
                                String firstMovieId,
                                String secondMovieId,
-                               int bestUsefulnessCategory,
                                int bestRankCategory,
                                int bestMinComparisons,
                                int bestMaxComparisons,
                                int bestRankDistance,
                                String bestFirstMovieId,
                                String bestSecondMovieId) {
-        if (usefulnessCategory != bestUsefulnessCategory) {
-            return usefulnessCategory < bestUsefulnessCategory;
-        }
         if (rankCategory != bestRankCategory) {
             return rankCategory < bestRankCategory;
         }
