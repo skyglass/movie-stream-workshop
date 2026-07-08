@@ -25,6 +25,21 @@ Feature: movie-challenge
     When regular user "user" requests the next movie challenge
     Then no movie challenge is available
 
+  Scenario: The selector advances when the lowest-comparison lead has no available pair
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie pair "tt101" and "tt102" is already completed for "user"
+    And movie pair "tt101" and "tt103" is already completed for "user"
+    And movie "tt101" has rank 1 and 1 direct comparison for "user"
+    And movie "tt102" has rank 2 and 2 direct comparisons for "user"
+    And movie "tt103" has rank 3 and 3 direct comparisons for "user"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge is movie "tt102" against movie "tt103"
+
   Scenario: A first movie above the direct-comparison threshold is still offered while it is behind the comparison balance
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"
@@ -33,10 +48,39 @@ Feature: movie-challenge
     And movie "tt102" is already recommended by "user"
     And movie "tt103" is already recommended by "user"
     And movie "tt101" has rank 5 and 11 direct comparisons for "user"
-    And movie "tt102" has rank 4 and 16 direct comparisons for "user"
+    And movie "tt102" has rank 4 and 12 direct comparisons for "user"
     And movie "tt103" has rank 7 and 17 direct comparisons for "user"
     When regular user "user" requests the next movie challenge
     Then the movie challenge is movie "tt101" against movie "tt102"
+
+  Scenario: The second movie does not use the current maximum after the first movie reaches the comparison threshold
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie "tt101" has rank 5 and 75 direct comparisons for "user"
+    And movie "tt102" has rank 1 and 80 direct comparisons for "user"
+    And movie "tt103" has rank 6 and 76 direct comparisons for "user"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge is movie "tt101" against movie "tt103"
+
+  Scenario: The second movie stays less than five comparisons ahead after the first movie reaches the threshold
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie "tt104" is already recommended by "user"
+    And movie "tt101" has rank 5 and 71 direct comparisons for "user"
+    And movie "tt102" has rank 4 and 76 direct comparisons for "user"
+    And movie "tt103" has rank 6 and 75 direct comparisons for "user"
+    And movie "tt104" has rank 1 and 100 direct comparisons for "user"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge is movie "tt101" against movie "tt103"
 
   Scenario: Balanced movies above the direct-comparison threshold are not offered
     Given movie "tt101" exists with title "Movie One"
@@ -66,6 +110,38 @@ Feature: movie-challenge
     And movie "tt104" has rank 20 and 24 direct comparisons for "user"
     When regular user "user" requests the next movie challenge
     Then the movie challenge is movie "tt101" against movie "tt102"
+
+  Scenario: Second movie priority avoids overshooting the comparison step while lower candidates are available
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie "tt104" is already recommended by "user"
+    And movie "tt101" has rank 10 and 10 direct comparisons for "user"
+    And movie "tt102" has rank 9 and 12 direct comparisons for "user"
+    And movie "tt103" has rank 1 and 21 direct comparisons for "user"
+    And movie "tt104" has rank 75 and 75 direct comparisons for "user"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge is movie "tt101" against movie "tt102"
+
+  Scenario: Comparison step is rounded to the nearest integer
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie "tt104" is already recommended by "user"
+    And movie "tt101" has rank 10 and 10 direct comparisons for "user"
+    And movie "tt102" has rank 9 and 12 direct comparisons for "user"
+    And movie "tt103" has rank 8 and 13 direct comparisons for "user"
+    And movie "tt104" has rank 26 and 26 direct comparisons for "user"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge is movie "tt101" against movie "tt103"
 
   Scenario: Rank step breaks ties between second movies with the same comparison distance
     Given movie "tt101" exists with title "Movie One"

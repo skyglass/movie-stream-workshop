@@ -7,7 +7,8 @@ recommendations, movie challenges, and admin movie maintenance. The `MOVIE` aggr
 per-user projections over positively recommended movies: `USER_MOVIE_CHALLENGE_VOTE` stores only direct choices,
 `USER_MOVIE_RANK` rebuilds the current rank, positive ranking score, comparison count, and confidence from those choices, and
 `USER_MOVIE_RATING` maps rank scores to 1-10 ratings. The selector excludes completed direct pairs in both directions,
-prioritizes the first movie by direct-comparison need, and then chooses the second movie by comparison and rank steps.
+prioritizes the first movie by direct-comparison need, and then chooses the second movie from the comparison-step window
+before using rank distance.
 
 ## Aggregate Boundary Diagram
 

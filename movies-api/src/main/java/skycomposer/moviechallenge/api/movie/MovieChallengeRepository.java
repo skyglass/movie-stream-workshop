@@ -35,7 +35,7 @@ public class MovieChallengeRepository {
                     select max_direct_comparisons,
                         max_rank_position,
                         greatest(
-                            cast(floor(cast(max_direct_comparisons as numeric) / 10) as integer),
+                            cast(round(cast(max_direct_comparisons as numeric) / 10) as integer),
                             1
                         ) as comparison_step,
                         greatest(
@@ -64,22 +64,86 @@ public class MovieChallengeRepository {
                     where recommendation.user_id = :username
                         and recommendation.positive = true
                 ),
-                eligible_pairs as (
+                eligible_first_movies as (
+                    select first_movie.user_id,
+                        first_movie.movie_id,
+                        first_movie.direct_comparisons,
+                        first_movie.selection_rank_position,
+                        first_movie.max_direct_comparisons,
+                        first_movie.comparison_step,
+                        first_movie.rank_step
+                    from candidate_movies first_movie
+                    where (
+                            first_movie.direct_comparisons <= :minimalDirectComparisons
+                            or first_movie.max_direct_comparisons - first_movie.direct_comparisons >= :comparisonBalanceThreshold
+                        )
+                        and exists (
+                            select 1
+                            from candidate_movies second_movie
+                            where second_movie.user_id = first_movie.user_id
+                                and second_movie.movie_id <> first_movie.movie_id
+                                and (
+                                    first_movie.direct_comparisons < :minimalDirectComparisons
+                                    or (
+                                        second_movie.direct_comparisons < first_movie.max_direct_comparisons
+                                        and second_movie.direct_comparisons
+                                            <= first_movie.direct_comparisons + (:comparisonBalanceThreshold - 1)
+                                    )
+                                )
+                                and not exists (
+                                    select 1
+                                    from user_movie_challenge_vote vote
+                                    where vote.user_id = first_movie.user_id
+                                        and vote.winner_id = first_movie.movie_id
+                                        and vote.loser_id = second_movie.movie_id
+                                )
+                                and not exists (
+                                    select 1
+                                    from user_movie_challenge_vote vote
+                                    where vote.user_id = first_movie.user_id
+                                        and vote.winner_id = second_movie.movie_id
+                                        and vote.loser_id = first_movie.movie_id
+                                )
+                        )
+                ),
+                selected_first_movie as (
+                    select user_id,
+                        movie_id,
+                        direct_comparisons,
+                        selection_rank_position,
+                        max_direct_comparisons,
+                        comparison_step,
+                        rank_step
+                    from eligible_first_movies
+                    order by direct_comparisons,
+                        movie_id
+                    limit 1
+                ),
+                selected_pair as (
                     select first_movie.user_id,
                         first_movie.movie_id as movie1_id,
                         second_movie.movie_id as movie2_id,
-                        first_movie.direct_comparisons as movie1_direct_comparisons,
+                        case
+                            when second_movie.direct_comparisons
+                                <= first_movie.direct_comparisons + first_movie.comparison_step then 0
+                            else 1
+                        end as movie2_comparison_target_exceeded,
                         abs(first_movie.direct_comparisons + first_movie.comparison_step
                             - second_movie.direct_comparisons) as comparison_distance,
+                        second_movie.direct_comparisons as movie2_direct_comparisons,
                         abs(first_movie.selection_rank_position - first_movie.rank_step
                             - second_movie.selection_rank_position) as rank_distance
-                    from candidate_movies first_movie
+                    from selected_first_movie first_movie
                     join candidate_movies second_movie
                         on second_movie.user_id = first_movie.user_id
                         and second_movie.movie_id <> first_movie.movie_id
                     where (
-                            first_movie.direct_comparisons <= :minimalDirectComparisons
-                            or first_movie.max_direct_comparisons - first_movie.direct_comparisons >= :comparisonBalanceThreshold
+                            first_movie.direct_comparisons < :minimalDirectComparisons
+                            or (
+                                second_movie.direct_comparisons < first_movie.max_direct_comparisons
+                                and second_movie.direct_comparisons
+                                    <= first_movie.direct_comparisons + (:comparisonBalanceThreshold - 1)
+                            )
                         )
                         and not exists (
                             select 1
@@ -95,16 +159,10 @@ public class MovieChallengeRepository {
                                 and vote.winner_id = second_movie.movie_id
                                 and vote.loser_id = first_movie.movie_id
                         )
-                ),
-                selected_pair as (
-                    select user_id,
-                        movie1_id,
-                        movie2_id
-                    from eligible_pairs
-                    order by movie1_direct_comparisons,
+                    order by movie2_comparison_target_exceeded,
                         comparison_distance,
+                        movie2_direct_comparisons,
                         rank_distance,
-                        movie1_id,
                         movie2_id
                     limit 1
                 )
