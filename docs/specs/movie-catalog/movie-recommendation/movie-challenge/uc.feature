@@ -79,7 +79,7 @@ Feature: movie-challenge
     When regular user "user" requests the next movie challenge
     Then no movie challenge is available
 
-  Scenario: The second movie stays less than five comparisons ahead after the first movie reaches the threshold
+  Scenario: The second movie distance cap is relaxed when the first movie is far behind the maximum
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"
     And movie "tt103" exists with title "Movie Three"
@@ -92,6 +92,22 @@ Feature: movie-challenge
     And movie "tt102" has rank 4 and 76 direct comparisons for "user"
     And movie "tt103" has rank 6 and 75 direct comparisons for "user"
     And movie "tt104" has rank 1 and 100 direct comparisons for "user"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge is movie "tt101" against movie "tt102"
+
+  Scenario: The second movie stays less than five comparisons ahead when the first movie is near balance
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie "tt104" is already recommended by "user"
+    And movie "tt101" has rank 5 and 70 direct comparisons for "user"
+    And movie "tt102" has rank 4 and 75 direct comparisons for "user"
+    And movie "tt103" has rank 6 and 74 direct comparisons for "user"
+    And movie "tt104" has rank 1 and 80 direct comparisons for "user"
     When regular user "user" requests the next movie challenge
     Then the movie challenge is movie "tt101" against movie "tt103"
 

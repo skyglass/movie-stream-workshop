@@ -20,6 +20,7 @@ public class MovieChallengeRepository {
 
     private static final int MINIMAL_DIRECT_COMPARISONS = 10;
     private static final int COMPARISON_BALANCE_THRESHOLD = 5;
+    private static final int MINIMAL_DISTANCE_FROM_MAXIMUM_DIRECT_COMPARISONS = 10;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -86,8 +87,12 @@ public class MovieChallengeRepository {
                                     first_movie.direct_comparisons < :minimalDirectComparisons
                                     or (
                                         second_movie.direct_comparisons < first_movie.max_direct_comparisons
-                                        and second_movie.direct_comparisons
-                                            <= first_movie.direct_comparisons + (:comparisonBalanceThreshold - 1)
+                                        and (
+                                            first_movie.max_direct_comparisons - first_movie.direct_comparisons
+                                                > :minimalDistanceFromMaximumDirectComparisons
+                                            or second_movie.direct_comparisons
+                                                <= first_movie.direct_comparisons + (:comparisonBalanceThreshold - 1)
+                                        )
                                     )
                                 )
                                 and not exists (
@@ -141,8 +146,12 @@ public class MovieChallengeRepository {
                             first_movie.direct_comparisons < :minimalDirectComparisons
                             or (
                                 second_movie.direct_comparisons < first_movie.max_direct_comparisons
-                                and second_movie.direct_comparisons
-                                    <= first_movie.direct_comparisons + (:comparisonBalanceThreshold - 1)
+                                and (
+                                    first_movie.max_direct_comparisons - first_movie.direct_comparisons
+                                        > :minimalDistanceFromMaximumDirectComparisons
+                                    or second_movie.direct_comparisons
+                                        <= first_movie.direct_comparisons + (:comparisonBalanceThreshold - 1)
+                                )
                             )
                         )
                         and not exists (
@@ -182,7 +191,8 @@ public class MovieChallengeRepository {
         Map<String, Object> params = Map.of(
                 "username", username,
                 "minimalDirectComparisons", MINIMAL_DIRECT_COMPARISONS,
-                "comparisonBalanceThreshold", COMPARISON_BALANCE_THRESHOLD);
+                "comparisonBalanceThreshold", COMPARISON_BALANCE_THRESHOLD,
+                "minimalDistanceFromMaximumDirectComparisons", MINIMAL_DISTANCE_FROM_MAXIMUM_DIRECT_COMPARISONS);
         return jdbcTemplate.query(sql, params, rs -> {
             if (!rs.next()) {
                 return Optional.empty();
