@@ -60,11 +60,24 @@ Feature: movie-challenge
     And movie "tt101" is already recommended by "user"
     And movie "tt102" is already recommended by "user"
     And movie "tt103" is already recommended by "user"
+    And movie "tt101" has rank 5 and 74 direct comparisons for "user"
+    And movie "tt102" has rank 1 and 80 direct comparisons for "user"
+    And movie "tt103" has rank 6 and 78 direct comparisons for "user"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge is movie "tt101" against movie "tt103"
+
+  Scenario: Comparison balance is reached when every movie is within five comparisons of the maximum
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
     And movie "tt101" has rank 5 and 75 direct comparisons for "user"
     And movie "tt102" has rank 1 and 80 direct comparisons for "user"
     And movie "tt103" has rank 6 and 76 direct comparisons for "user"
     When regular user "user" requests the next movie challenge
-    Then the movie challenge is movie "tt101" against movie "tt103"
+    Then no movie challenge is available
 
   Scenario: The second movie stays less than five comparisons ahead after the first movie reaches the threshold
     Given movie "tt101" exists with title "Movie One"

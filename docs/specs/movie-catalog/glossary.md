@@ -18,7 +18,7 @@
 | User movie rank | Per-user ranking projection rebuilt from direct challenge votes. |
 | Direct comparison count | Number of direct challenge votes where the movie was either winner or loser. |
 | Minimal direct comparisons | Movie Challenge first-movie threshold of `10` direct comparisons. A movie at or below this count remains eligible as the first movie. |
-| Comparison balance | A first movie above the minimal direct-comparison threshold remains eligible only while it is at least `5` direct comparisons behind the user's maximum direct-comparison count. |
+| Comparison balance | A first movie above the minimal direct-comparison threshold remains eligible only while it is more than `5` direct comparisons behind the user's maximum direct-comparison count. |
 | Comparison step | Rounded integer step that creates the preferred second-movie comparison target at `first_movie.direct_comparisons + max_direct_comparisons / 10`, with a minimum step of `1`. Candidates inside that target are considered before candidates that overshoot it. |
 | Second-movie balance window | Once the first movie has reached `10` direct comparisons, the second movie must be below the current maximum direct-comparison count and no more than `4` direct comparisons ahead of the first movie. |
 | Rank step | Rounded step used to choose a second movie near the first movie's rank position minus `max_rank_position / 10`, with a minimum step of `1`. |

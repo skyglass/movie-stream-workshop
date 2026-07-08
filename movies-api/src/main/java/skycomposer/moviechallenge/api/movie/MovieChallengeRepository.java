@@ -75,7 +75,7 @@ public class MovieChallengeRepository {
                     from candidate_movies first_movie
                     where (
                             first_movie.direct_comparisons <= :minimalDirectComparisons
-                            or first_movie.max_direct_comparisons - first_movie.direct_comparisons >= :comparisonBalanceThreshold
+                            or first_movie.max_direct_comparisons - first_movie.direct_comparisons > :comparisonBalanceThreshold
                         )
                         and exists (
                             select 1
