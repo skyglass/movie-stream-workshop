@@ -4,7 +4,11 @@ import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto.MovieChallengeMovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieRatingDto;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -14,78 +18,127 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class MovieChallengeRepository {
 
-    private static final int MINIMUM_SKIP_COMPARISONS = 8;
-    private static final int MINIMUM_SKIP_RANK_DISTANCE = 10;
-    private static final double MINIMUM_SKIP_CONFIDENCE = 0.80;
-    private static final int MIN_TARGET_DIRECT_COMPARISONS = 4;
-    private static final int MAX_TARGET_DIRECT_COMPARISONS = 10;
-    private static final int MIN_CLOSE_RANK_DISTANCE = 3;
-    private static final int MAX_CLOSE_RANK_DISTANCE = 12;
+    private static final int MINIMAL_DIRECT_COMPARISONS = 10;
+    private static final int COMPARISON_BALANCE_THRESHOLD = 5;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public Optional<MovieChallengeDto> findNextChallenge(String username) {
-        List<ChallengeCandidate> candidates = challengeCandidates(username);
-        if (candidates.size() < 2) {
-            return Optional.empty();
-        }
-
-        Map<String, Integer> candidateIndexes = candidateIndexes(candidates);
-        BitSet[] completedPairs = completedPairs(username, candidates.size(), candidateIndexes);
-        ChallengeThresholds thresholds = challengeThresholds(candidates.size());
-
-        int bestFirstIndex = -1;
-        int bestSecondIndex = -1;
-        int bestRankCategory = Integer.MAX_VALUE;
-        int bestMinComparisons = Integer.MAX_VALUE;
-        int bestMaxComparisons = Integer.MAX_VALUE;
-        int bestRankDistance = Integer.MAX_VALUE;
-        String bestFirstMovieId = null;
-        String bestSecondMovieId = null;
-
-        for (int firstIndex = 0; firstIndex < candidates.size() - 1; firstIndex++) {
-            ChallengeCandidate first = candidates.get(firstIndex);
-            for (int secondIndex = firstIndex + 1; secondIndex < candidates.size(); secondIndex++) {
-                if (completedPairs[firstIndex] != null && completedPairs[firstIndex].get(secondIndex)) {
-                    continue;
-                }
-
-                ChallengeCandidate second = candidates.get(secondIndex);
-                if (confidentlySeparated(first, second)) {
-                    continue;
-                }
-
-                boolean needsMoreEvidence = needsMoreEvidence(first, second, thresholds);
-                if (!needsMoreEvidence) {
-                    continue;
-                }
-
-                int rankCategory = rankCategory(first, second, thresholds);
-                int minComparisons = Math.min(first.directComparisons(), second.directComparisons());
-                int maxComparisons = Math.max(first.directComparisons(), second.directComparisons());
-                int rankDistance = rankDistance(first, second, thresholds);
-                if (betterPair(rankCategory, minComparisons, maxComparisons, rankDistance,
-                        first.movieId(), second.movieId(),
-                        bestRankCategory,
-                        bestMinComparisons, bestMaxComparisons, bestRankDistance,
-                        bestFirstMovieId, bestSecondMovieId)) {
-                    bestFirstIndex = firstIndex;
-                    bestSecondIndex = secondIndex;
-                    bestRankCategory = rankCategory;
-                    bestMinComparisons = minComparisons;
-                    bestMaxComparisons = maxComparisons;
-                    bestRankDistance = rankDistance;
-                    bestFirstMovieId = first.movieId();
-                    bestSecondMovieId = second.movieId();
-                }
+        String sql = """
+                with user_rank_stats as (
+                    select coalesce(max(rank_projection.direct_comparisons), 0) as max_direct_comparisons,
+                        coalesce(max(rank_projection.rank_position), 0) as max_rank_position
+                    from user_movie_rank rank_projection
+                    where rank_projection.user_id = :username
+                ),
+                selection_settings as (
+                    select max_direct_comparisons,
+                        max_rank_position,
+                        greatest(
+                            cast(floor(cast(max_direct_comparisons as numeric) / 10) as integer),
+                            1
+                        ) as comparison_step,
+                        greatest(
+                            cast(round(cast(max_rank_position as numeric) / 10) as integer),
+                            1
+                        ) as rank_step,
+                        greatest(
+                            cast(round(cast(max_rank_position as numeric) / 2) as integer),
+                            1
+                        ) as fallback_rank_position
+                    from user_rank_stats
+                ),
+                candidate_movies as (
+                    select recommendation.user_id,
+                        recommendation.movie_id,
+                        coalesce(rank_projection.direct_comparisons, 0) as direct_comparisons,
+                        coalesce(rank_projection.rank_position, settings.fallback_rank_position) as selection_rank_position,
+                        settings.max_direct_comparisons,
+                        settings.comparison_step,
+                        settings.rank_step
+                    from movie_recommendations recommendation
+                    cross join selection_settings settings
+                    left join user_movie_rank rank_projection
+                        on rank_projection.user_id = recommendation.user_id
+                        and rank_projection.movie_id = recommendation.movie_id
+                    where recommendation.user_id = :username
+                        and recommendation.positive = true
+                ),
+                eligible_pairs as (
+                    select first_movie.user_id,
+                        first_movie.movie_id as movie1_id,
+                        second_movie.movie_id as movie2_id,
+                        first_movie.direct_comparisons as movie1_direct_comparisons,
+                        abs(first_movie.direct_comparisons + first_movie.comparison_step
+                            - second_movie.direct_comparisons) as comparison_distance,
+                        abs(first_movie.selection_rank_position - first_movie.rank_step
+                            - second_movie.selection_rank_position) as rank_distance
+                    from candidate_movies first_movie
+                    join candidate_movies second_movie
+                        on second_movie.user_id = first_movie.user_id
+                        and second_movie.movie_id <> first_movie.movie_id
+                    where (
+                            first_movie.direct_comparisons <= :minimalDirectComparisons
+                            or first_movie.max_direct_comparisons - first_movie.direct_comparisons >= :comparisonBalanceThreshold
+                        )
+                        and not exists (
+                            select 1
+                            from user_movie_challenge_vote vote
+                            where vote.user_id = first_movie.user_id
+                                and vote.winner_id = first_movie.movie_id
+                                and vote.loser_id = second_movie.movie_id
+                        )
+                        and not exists (
+                            select 1
+                            from user_movie_challenge_vote vote
+                            where vote.user_id = first_movie.user_id
+                                and vote.winner_id = second_movie.movie_id
+                                and vote.loser_id = first_movie.movie_id
+                        )
+                ),
+                selected_pair as (
+                    select user_id,
+                        movie1_id,
+                        movie2_id
+                    from eligible_pairs
+                    order by movie1_direct_comparisons,
+                        comparison_distance,
+                        rank_distance,
+                        movie1_id,
+                        movie2_id
+                    limit 1
+                )
+                select selected_pair.user_id,
+                    selected_pair.movie1_id,
+                    movie1.title as movie1_title,
+                    movie1.poster as movie1_poster,
+                    selected_pair.movie2_id,
+                    movie2.title as movie2_title,
+                    movie2.poster as movie2_poster
+                from selected_pair
+                join movies movie1
+                    on movie1.imdb_id = selected_pair.movie1_id
+                join movies movie2
+                    on movie2.imdb_id = selected_pair.movie2_id
+                """;
+        Map<String, Object> params = Map.of(
+                "username", username,
+                "minimalDirectComparisons", MINIMAL_DIRECT_COMPARISONS,
+                "comparisonBalanceThreshold", COMPARISON_BALANCE_THRESHOLD);
+        return jdbcTemplate.query(sql, params, rs -> {
+            if (!rs.next()) {
+                return Optional.empty();
             }
-        }
-
-        if (bestFirstIndex < 0) {
-            return Optional.empty();
-        }
-
-        return Optional.of(toMovieChallenge(candidates.get(bestFirstIndex), candidates.get(bestSecondIndex)));
+            return Optional.of(new MovieChallengeDto(
+                    new MovieChallengeMovieDto(
+                            rs.getString("movie1_id"),
+                            rs.getString("movie1_title"),
+                            rs.getString("movie1_poster")),
+                    new MovieChallengeMovieDto(
+                            rs.getString("movie2_id"),
+                            rs.getString("movie2_title"),
+                            rs.getString("movie2_poster"))));
+        });
     }
 
     public boolean hasAvailableChallenge(String username) {
@@ -112,11 +165,16 @@ public class MovieChallengeRepository {
                     and not exists (
                         select 1
                         from user_movie_challenge_vote vote
-                        where user_id = :username
-                            and (
-                                (vote.winner_id = :winnerId and vote.loser_id = :loserId)
-                                or (vote.winner_id = :loserId and vote.loser_id = :winnerId)
-                            )
+                        where vote.user_id = :username
+                            and vote.winner_id = :winnerId
+                            and vote.loser_id = :loserId
+                    )
+                    and not exists (
+                        select 1
+                        from user_movie_challenge_vote vote
+                        where vote.user_id = :username
+                            and vote.winner_id = :loserId
+                            and vote.loser_id = :winnerId
                     )
                 then true else false end
                 """;
@@ -132,10 +190,15 @@ public class MovieChallengeRepository {
                         select 1
                         from user_movie_challenge_vote existing
                         where existing.user_id = :username
-                            and (
-                                (existing.winner_id = :winnerId and existing.loser_id = :loserId)
-                                or (existing.winner_id = :loserId and existing.loser_id = :winnerId)
-                            )
+                            and existing.winner_id = :winnerId
+                            and existing.loser_id = :loserId
+                    )
+                    and not exists (
+                        select 1
+                        from user_movie_challenge_vote existing
+                        where existing.user_id = :username
+                            and existing.winner_id = :loserId
+                            and existing.loser_id = :winnerId
                     )
                 """;
         jdbcTemplate.update(sql, params(username, winnerId, loserId));
@@ -274,221 +337,5 @@ public class MovieChallengeRepository {
 
     private Map<String, Object> params(String username, String winnerId, String loserId) {
         return Map.of("username", username, "winnerId", winnerId, "loserId", loserId);
-    }
-
-    private List<ChallengeCandidate> challengeCandidates(String username) {
-        String sql = """
-                select recommendation.movie_id,
-                    movie.title,
-                    movie.poster,
-                    rank.rank_position,
-                    rank.direct_comparisons,
-                    rank.confidence
-                from movie_recommendations recommendation
-                join movies movie
-                    on movie.imdb_id = recommendation.movie_id
-                left join user_movie_rank rank
-                    on rank.user_id = recommendation.user_id
-                    and rank.movie_id = recommendation.movie_id
-                where recommendation.user_id = :username
-                    and recommendation.positive = true
-                order by recommendation.movie_id asc
-                """;
-        return jdbcTemplate.query(sql, Map.of("username", username), (rs, rowNum) -> {
-            Integer rankPosition = (Integer) rs.getObject("rank_position");
-            Integer directComparisons = (Integer) rs.getObject("direct_comparisons");
-            Number confidence = (Number) rs.getObject("confidence");
-            return new ChallengeCandidate(
-                    rs.getString("movie_id"),
-                    rs.getString("title"),
-                    rs.getString("poster"),
-                    rankPosition,
-                    directComparisons == null ? 0 : directComparisons,
-                    confidence == null ? 0.0 : confidence.doubleValue());
-        });
-    }
-
-    private Map<String, Integer> candidateIndexes(List<ChallengeCandidate> candidates) {
-        Map<String, Integer> candidateIndexes = new HashMap<>(candidates.size());
-        for (int index = 0; index < candidates.size(); index++) {
-            candidateIndexes.put(candidates.get(index).movieId(), index);
-        }
-        return candidateIndexes;
-    }
-
-    private BitSet[] completedPairs(String username, int candidateCount, Map<String, Integer> candidateIndexes) {
-        String sql = """
-                select winner_id, loser_id
-                from user_movie_challenge_vote
-                where user_id = :username
-                """;
-        BitSet[] completedPairs = new BitSet[candidateCount];
-        jdbcTemplate.query(sql, Map.of("username", username), rs -> {
-            Integer winnerIndex = candidateIndexes.get(rs.getString("winner_id"));
-            Integer loserIndex = candidateIndexes.get(rs.getString("loser_id"));
-            if (winnerIndex != null && loserIndex != null) {
-                int firstIndex = Math.min(winnerIndex, loserIndex);
-                int secondIndex = Math.max(winnerIndex, loserIndex);
-                if (completedPairs[firstIndex] == null) {
-                    completedPairs[firstIndex] = new BitSet(candidateCount);
-                }
-                completedPairs[firstIndex].set(secondIndex);
-            }
-        });
-        return completedPairs;
-    }
-
-    private boolean confidentlySeparated(ChallengeCandidate first, ChallengeCandidate second) {
-        return first.rankPosition() != null
-                && second.rankPosition() != null
-                && first.directComparisons() >= MINIMUM_SKIP_COMPARISONS
-                && second.directComparisons() >= MINIMUM_SKIP_COMPARISONS
-                && first.confidence() >= MINIMUM_SKIP_CONFIDENCE
-                && second.confidence() >= MINIMUM_SKIP_CONFIDENCE
-                && Math.abs(first.rankPosition() - second.rankPosition()) >= MINIMUM_SKIP_RANK_DISTANCE;
-    }
-
-    /**
-     * Returns a category score for the pair.
-     *
-     * Lower scores result higher priority because they compare candidates from different categories:
-     * - a new movie with a ranked movie
-     * - a movie that needs more evidence with one that already has enough evidence
-     *
-     * Higher scores are assigned when both candidates belong to the same category
-     * (both new, both ranked, both needing more evidence, or both having enough evidence).
-     */
-    private int rankCategory(ChallengeCandidate first, ChallengeCandidate second,
-                             ChallengeThresholds thresholds) {
-        int score = 0;
-
-        boolean firstIsRanked = first.rankPosition() != null;
-        boolean secondIsRanked = second.rankPosition() != null;
-
-        // Give lower priority to comparisons where both movies are either ranked or new.
-        if (firstIsRanked && secondIsRanked) {
-            score++;
-        }
-        if (!firstIsRanked && !secondIsRanked) {
-            score++;
-        }
-
-        boolean firstNeedsMoreEvidence = needsMoreEvidence(first, thresholds);
-        boolean secondNeedsMoreEvidence = needsMoreEvidence(second, thresholds);
-
-        // Give lower priority to comparisons where both movies have the same
-        // evidence status.
-        if (firstNeedsMoreEvidence && secondNeedsMoreEvidence) {
-            score++;
-        }
-        if (!firstNeedsMoreEvidence && !secondNeedsMoreEvidence) {
-            score++;
-        }
-
-        return score;
-    }
-
-    private int rankDistance(ChallengeCandidate first, ChallengeCandidate second,
-                             ChallengeThresholds thresholds) {
-        if (first.rankPosition() == null || second.rankPosition() == null) {
-            return 0;
-        }
-
-        boolean firstNeedsMoreEvidence = needsMoreEvidence(first, thresholds);
-        boolean secondNeedsMoreEvidence = needsMoreEvidence(second, thresholds);
-
-        // If exactly one movie still needs more evidence, this comparison is valuable
-        // because it helps stabilize the uncertain movie's ranking.
-        // Mixed-confidence pairs are good candidates, but promoting all of them would dominate the ranking.
-        // Instead, deterministically promote approximately every fourth pair.
-        if (firstNeedsMoreEvidence != secondNeedsMoreEvidence) {
-            int hash = Math.abs(Objects.hash(first.movieId(), second.movieId()));
-            if (hash % 4 == 0) {
-                return 0;
-            }
-        }
-
-        return Math.abs(first.rankPosition() - second.rankPosition());
-    }
-
-    private boolean needsMoreEvidence(ChallengeCandidate first,
-                                   ChallengeCandidate second,
-                                   ChallengeThresholds thresholds) {
-        if (needsMoreEvidence(first, thresholds) || needsMoreEvidence(second, thresholds)) {
-            return true;
-        }
-        return false;
-    }
-
-    private boolean needsMoreEvidence(ChallengeCandidate candidate, ChallengeThresholds thresholds) {
-        return candidate.directComparisons() < thresholds.targetDirectComparisons();
-    }
-
-    private ChallengeThresholds challengeThresholds(int movieCount) {
-        return new ChallengeThresholds(
-                clamp(MIN_TARGET_DIRECT_COMPARISONS,
-                        MAX_TARGET_DIRECT_COMPARISONS,
-                        ceilLog2(movieCount) + 1),
-                clamp(MIN_CLOSE_RANK_DISTANCE,
-                        MAX_CLOSE_RANK_DISTANCE,
-                        (int) Math.ceil(Math.sqrt(movieCount) / 2.0)));
-    }
-
-    private int ceilLog2(int value) {
-        if (value <= 1) {
-            return 0;
-        }
-        return Integer.SIZE - Integer.numberOfLeadingZeros(value - 1);
-    }
-
-    private int clamp(int min, int max, int value) {
-        return Math.max(min, Math.min(max, value));
-    }
-
-    private boolean betterPair(int rankCategory,
-                               int minComparisons,
-                               int maxComparisons,
-                               int rankDistance,
-                               String firstMovieId,
-                               String secondMovieId,
-                               int bestRankCategory,
-                               int bestMinComparisons,
-                               int bestMaxComparisons,
-                               int bestRankDistance,
-                               String bestFirstMovieId,
-                               String bestSecondMovieId) {
-        if (rankCategory != bestRankCategory) {
-            return rankCategory < bestRankCategory;
-        }
-        if (minComparisons != bestMinComparisons) {
-            return minComparisons < bestMinComparisons;
-        }
-        if (maxComparisons != bestMaxComparisons) {
-            return maxComparisons < bestMaxComparisons;
-        }
-        if (rankDistance != bestRankDistance) {
-            return rankDistance < bestRankDistance;
-        }
-        if (bestFirstMovieId == null || !firstMovieId.equals(bestFirstMovieId)) {
-            return bestFirstMovieId == null || firstMovieId.compareTo(bestFirstMovieId) < 0;
-        }
-        return bestSecondMovieId == null || secondMovieId.compareTo(bestSecondMovieId) < 0;
-    }
-
-    private MovieChallengeDto toMovieChallenge(ChallengeCandidate first, ChallengeCandidate second) {
-        return new MovieChallengeDto(
-                new MovieChallengeMovieDto(first.movieId(), first.title(), first.poster()),
-                new MovieChallengeMovieDto(second.movieId(), second.title(), second.poster()));
-    }
-
-    private record ChallengeCandidate(String movieId,
-                                      String title,
-                                      String poster,
-                                      Integer rankPosition,
-                                      int directComparisons,
-                                      double confidence) {
-    }
-
-    private record ChallengeThresholds(int targetDirectComparisons, int closeRankDistance) {
     }
 }

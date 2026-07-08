@@ -6,8 +6,8 @@ recommendations, movie challenges, and admin movie maintenance. The `MOVIE` aggr
 `MOVIE_RECOMMENDATION` records the current user's positive or negative feedback for a movie. Movie challenge records are
 per-user projections over positively recommended movies: `USER_MOVIE_CHALLENGE_VOTE` stores only direct choices,
 `USER_MOVIE_RANK` rebuilds the current rank, positive ranking score, comparison count, and confidence from those choices, and
-`USER_MOVIE_RATING` maps rank positions to 0-10 ratings. The selector avoids direct duplicate pairs and skips only
-far-apart pairs with enough direct evidence and confidence, so weak inferred rankings can still be challenged.
+`USER_MOVIE_RATING` maps rank scores to 1-10 ratings. The selector excludes completed direct pairs in both directions,
+prioritizes the first movie by direct-comparison need, and then chooses the second movie by comparison and rank steps.
 
 ## Aggregate Boundary Diagram
 
@@ -21,7 +21,7 @@ flowchart TB
         MOVIE_RECOMMENDATION["MOVIE_RECOMMENDATION\nPositive or negative feedback"]
         USER_MOVIE_CHALLENGE_VOTE["USER_MOVIE_CHALLENGE_VOTE\nDirect challenge vote"]
         USER_MOVIE_RANK["USER_MOVIE_RANK\nRank projection"]
-        USER_MOVIE_RATING["USER_MOVIE_RATING\n0-10 rating view"]
+        USER_MOVIE_RATING["USER_MOVIE_RATING\n1-10 rating view"]
         COMMENT_TEXT["COMMENT_TEXT\nValue Object"]
         COMMENT_AUTHOR["COMMENT_AUTHOR\nUsername"]
         RECOMMENDING_USER["RECOMMENDING_USER\nUsername"]
@@ -117,7 +117,7 @@ erDiagram
 | score | Internal regularized ranking score | Decimal | Derived from USER_MOVIE_RANK, not user-facing |
 | direct_comparisons | Number of direct votes containing the movie | Integer | Derived from USER_MOVIE_RANK |
 | confidence | Challenge confidence | Decimal | Derived from USER_MOVIE_RANK |
-| rating | Rank mapped onto the 0-10 scale | Decimal | `10` for best, `0` for worst, evenly distributed between |
+| rating | Score mapped onto the 1-10 scale | Decimal | `10` for the highest score, `1` for the lowest score, evenly distributed between |
 
 ### MOVIE_CATALOG
 
@@ -129,7 +129,7 @@ Read model used by `view-movie-catalog`.
 | recommended | Whether each movie is positively recommended by the current user | Boolean | False for anonymous viewers |
 | disliked | Whether each movie is disliked by the current user | Boolean | False for anonymous viewers |
 | your_rank | Current authenticated user's rank for the movie | Integer / null | Null when the movie has no rank for the viewer; list UI shows it as `(#rank)` after rating |
-| your_rating | Current authenticated user's 0-10 rating for the movie, shown as `Your Rating` | Decimal / null | Null when the movie has no rating for the viewer; list UI renders `-` |
+| your_rating | Current authenticated user's 1-10 rating for the movie, shown as `Your Rating` | Decimal / null | Null when the movie has no rating for the viewer; list UI renders `-` |
 
 ### MOVIE_DETAILS
 
@@ -142,7 +142,7 @@ Read model used by `view-movie-details`.
 | recommended | Whether the selected movie is positively recommended by the current user | Boolean | False for anonymous viewers |
 | disliked | Whether the selected movie is disliked by the current user | Boolean | False for anonymous viewers |
 | your_rank | Current authenticated user's rank for the movie, shown separately on details | Integer / null | Null when the movie has no rank for the viewer; UI renders `-` |
-| your_rating | Current authenticated user's 0-10 rating for the movie, shown as `Your Rating` | Decimal / null | Null when the movie has no rating for the viewer; UI renders `-` |
+| your_rating | Current authenticated user's 1-10 rating for the movie, shown as `Your Rating` | Decimal / null | Null when the movie has no rating for the viewer; UI renders `-` |
 
 ### MOVIE_CHALLENGE
 
@@ -153,7 +153,7 @@ Read model used by `movie-challenge`.
 | movie1 | First recommended movie in the challenge pair | MOVIE metadata | Selected from recommended movies only |
 | movie2 | Second recommended movie in the challenge pair | MOVIE metadata | Different from movie1 |
 | direct_vote | Actual selected winner-loser relationship | USER_MOVIE_CHALLENGE_VOTE | Written when the user chooses a winner |
-| rank | Current rank projection | USER_MOVIE_RANK | Used to skip confident far-apart pairs and stop low-value far pairs once both movies reach the dynamic comparison target |
+| rank | Current rank projection | USER_MOVIE_RANK | Used for first-movie direct-comparison priority, comparison balance, comparison step, and rank step |
 
 ### FAVORITE_MOVIES
 
@@ -164,7 +164,7 @@ Read model used by `view-favorite-movies`.
 | movies | Positive recommendations for the current user | List<MOVIE> | Sorted by `USER_MOVIE_RATING.rank_position` when ranked, then title |
 | recommended | Whether each favorite movie is still positively recommended by the current user | Boolean | Enriched from MOVIE_RECOMMENDATION |
 | your_rank | Current user's rank for each listed movie | Integer / null | List UI shows it as `(#rank)` after rating |
-| your_rating | Current user's 0-10 rating for each listed movie, shown as `Your Rating` | Decimal / null | List UI renders `-` when absent |
+| your_rating | Current user's 1-10 rating for each listed movie, shown as `Your Rating` | Decimal / null | List UI renders `-` when absent |
 
 ### USERS_FAVORITE_MOVIES
 
@@ -175,7 +175,7 @@ Read model used by `view-users-favorite-movies`.
 | movies | Movies with community challenge ratings | List<MOVIE> | Sorted by average rating descending and voter count descending |
 | recommended | Whether each community favorite movie is positively recommended by the current user | Boolean | Enriched from MOVIE_RECOMMENDATION |
 | your_rank | Current viewer's own rank for each listed movie | Integer / null | List UI shows it as `(#rank)` after rating |
-| your_rating | Current viewer's own 0-10 rating for each listed movie, shown as `Your Rating` | Decimal / null | List UI renders `-` when absent |
+| your_rating | Current viewer's own 1-10 rating for each listed movie, shown as `Your Rating` | Decimal / null | List UI renders `-` when absent |
 
 ### USERS_RECOMMENDED_MOVIES
 
@@ -190,7 +190,7 @@ Read model used by `view-users-recommended-movies`.
 | recommended | Whether each listed movie is positively recommended by the current user | Boolean | False until the user clicks Like |
 | disliked | Whether each listed movie is disliked by the current user | Boolean | False until the user clicks Dislike; disliked movies are excluded on refresh |
 | your_rank | Current viewer's own rank for each listed movie | Integer / null | List UI shows it as `(#rank)` after rating |
-| your_rating | Current viewer's own 0-10 rating for each listed movie, shown as `Your Rating` | Decimal / null | List UI renders `-` when absent |
+| your_rating | Current viewer's own 1-10 rating for each listed movie, shown as `Your Rating` | Decimal / null | List UI renders `-` when absent |
 
 ## Aggregate Insight
 

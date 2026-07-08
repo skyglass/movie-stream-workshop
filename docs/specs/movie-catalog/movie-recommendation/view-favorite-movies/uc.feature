@@ -24,4 +24,4 @@ Feature: view-favorite-movies
     Then favorite movies contain 1 movies
     And favorite movies total count is 3
     And favorite movies contain movie "tt103"
-    And movie "tt103" has rank 3 and rating "0.00" for "user"
+    And movie "tt103" has rank 3 and rating "1.00" for "user"

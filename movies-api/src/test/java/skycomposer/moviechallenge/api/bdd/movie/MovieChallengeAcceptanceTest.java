@@ -31,6 +31,11 @@ public class MovieChallengeAcceptanceTest {
         fixture.recordWinnerLoser(username, winnerId, loserId);
     }
 
+    @Given("movie {string} has rank {int} and {int} direct comparison(s) for {string}")
+    public void movieHasRankAndDirectComparisonsFor(String imdbId, int rankPosition, int directComparisons, String username) {
+        fixture.setMovieRank(imdbId, username, rankPosition, directComparisons);
+    }
+
     @Given("user {string} has already ranked movies {string} from best to worst except pair {string} and {string}")
     public void userHasAlreadyRankedMoviesFromBestToWorstExceptPair(String username,
                                                                     String orderedMovieIds,
@@ -60,6 +65,11 @@ public class MovieChallengeAcceptanceTest {
     @Then("the movie challenge contains movies {string} and {string}")
     public void theMovieChallengeContainsMoviesAnd(String firstMovieId, String secondMovieId) {
         fixture.assertSelectedMovieChallengeContains(firstMovieId, secondMovieId);
+    }
+
+    @Then("the movie challenge is movie {string} against movie {string}")
+    public void theMovieChallengeIsMovieAgainstMovie(String firstMovieId, String secondMovieId) {
+        fixture.assertSelectedMovieChallengeIs(firstMovieId, secondMovieId);
     }
 
     @Then("the movie challenge does not contain movies {string} and {string}")

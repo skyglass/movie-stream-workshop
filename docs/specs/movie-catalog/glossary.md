@@ -17,11 +17,14 @@
 | Completed challenge pair | Recommended movie pair that already has a direct challenge vote from the user. |
 | User movie rank | Per-user ranking projection rebuilt from direct challenge votes. |
 | Direct comparison count | Number of direct challenge votes where the movie was either winner or loser. |
-| Enough comparisons | Dynamic Movie Challenge workload target: `clamp(4, 10, ceil(log2(movie_count)) + 1)` direct comparisons. New movies below this target can still be challenged against already well-compared movies. |
-| Challenge confidence | Calculated value from direct comparison count; high confidence lets the selector skip far-apart ranked pairs. |
-| Movie rating | Rating from 0 to 10 derived from the user's current rank positions. |
+| Minimal direct comparisons | Movie Challenge first-movie threshold of `10` direct comparisons. A movie at or below this count remains eligible as the first movie. |
+| Comparison balance | A first movie above the minimal direct-comparison threshold remains eligible only while it is at least `5` direct comparisons behind the user's maximum direct-comparison count. |
+| Comparison step | Integer step used to choose the second movie near the first movie's direct-comparison count plus `max_direct_comparisons / 10`, with a minimum step of `1`. |
+| Rank step | Rounded step used to choose a second movie near the first movie's rank position minus `max_rank_position / 10`, with a minimum step of `1`. |
+| Challenge confidence | Calculated value from direct comparison count and stored with the user movie rank. |
+| Movie rating | Rating from 1 to 10 derived from the user's current rank scores. |
 | Your Rank | Current viewer's own rank for a movie; list cards show it in parentheses after `Your Rating`. |
-| Your Rating | UI label for the current viewer's own 0-10 rating; list cards show `rating (#rank)` or `-`. |
+| Your Rating | UI label for the current viewer's own 1-10 rating; list cards show `rating (#rank)` or `-`. |
 | Favorite movie | Current user's positive recommendation, ordered by rank when challenge evidence exists. |
 | Users favorite movie | Community favorite movie ordered by average movie rating and voter count. |
 | Rating similarity | Similarity from shared calculated movie ratings between the current user and another user. |

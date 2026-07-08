@@ -231,6 +231,25 @@ public class MovieCatalogFixture {
         }
     }
 
+    public void setMovieRank(String imdbId, String username, int rankPosition, int directComparisons) {
+        ensureUser(username);
+        jdbcTemplate.update(
+                "delete from user_movie_rank where user_id = ? and movie_id = ?",
+                username,
+                imdbId);
+        jdbcTemplate.update(
+                """
+                insert into user_movie_rank (user_id, movie_id, rank_position, score, direct_comparisons, confidence)
+                values (?, ?, ?, ?, ?, ?)
+                """,
+                username,
+                imdbId,
+                rankPosition,
+                BigDecimal.valueOf(Math.max(1, 11 - rankPosition)),
+                directComparisons,
+                BigDecimal.valueOf(Math.min(1.0, directComparisons / 8.0)));
+    }
+
     public void assertMovieListOrdersTitleBefore(String firstTitle, String secondTitle) {
         List<String> titles = movieList.stream().map(MovieDto::title).toList();
         assertTrue(titles.indexOf(firstTitle) < titles.indexOf(secondTitle),
@@ -288,6 +307,12 @@ public class MovieCatalogFixture {
                 selectedMovieChallenge.movie1().imdbId(),
                 selectedMovieChallenge.movie2().imdbId());
         assertEquals(expected, actual);
+    }
+
+    public void assertSelectedMovieChallengeIs(String firstMovieId, String secondMovieId) {
+        assertNotNull(selectedMovieChallenge, "Expected a movie challenge to be available");
+        assertEquals(firstMovieId, selectedMovieChallenge.movie1().imdbId());
+        assertEquals(secondMovieId, selectedMovieChallenge.movie2().imdbId());
     }
 
     public void assertSelectedMovieChallengeDoesNotContain(String firstMovieId, String secondMovieId) {
