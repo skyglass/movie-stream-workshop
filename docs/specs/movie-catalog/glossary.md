@@ -17,11 +17,11 @@
 | Completed challenge pair | Recommended movie pair that already has a direct challenge vote from the user. |
 | User movie rank | Per-user ranking projection rebuilt from direct challenge votes. |
 | Direct comparison count | Number of direct challenge votes where the movie was either winner or loser. |
-| Minimal direct comparisons | Movie Challenge first-movie threshold calculated as `max(8, round(positive_recommendation_count * 15 / 355))`. A movie at or below this count remains eligible as the first movie. |
-| Comparison balance | A first movie above the minimal direct-comparison threshold remains eligible only while it is more than `5` direct comparisons behind the user's maximum direct-comparison count. |
-| Comparison step | Rounded integer step that creates the preferred second-movie comparison target at `first_movie.direct_comparisons + max_direct_comparisons / 10`, with a minimum step of `1`. Candidates inside that target are considered before candidates that overshoot it. |
-| Initial comparison phase | Selector phase when the spread between maximum and minimum direct comparisons is less than `3`; second-movie selection prioritizes rank distance in this phase but deprioritizes candidates already at the maximum direct-comparison count. |
-| Second-movie balance window | Once the first movie has reached the minimal direct-comparison threshold, the second movie must be below the current maximum direct-comparison count. If the first movie is within `10` direct comparisons of that maximum, the second movie must also be no more than `4` direct comparisons ahead of the first movie. |
+| Exploration floor | Small Movie Challenge coverage floor of `3` direct comparisons per movie. It gives every recommended movie initial evidence without forcing large per-movie vote counts. |
+| Bradley-Terry strength | Internal ranking value estimating how likely one movie is to beat another movie for the same user. |
+| Ranking uncertainty | Internal value estimating how much doubt remains around a movie's strength. |
+| Pair information | Selector signal for an uncompleted pair. It is highest when two movies are close enough to be informative and still uncertain. |
+| Refinement challenge | Movie Challenge offered after the exploration floor only when the pair is close in rank, close in score, and has enough pair information to improve the ranking. |
 | Movie rating | Rating from 1 to 10 derived from the user's current rank scores. |
 | Your Rank | Current viewer's own rank for a movie; list cards show it in parentheses after `Your Rating`. |
 | Your Rating | UI label for the current viewer's own 1-10 rating; list cards show `rating (#rank)` or `-`. |

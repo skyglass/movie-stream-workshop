@@ -123,6 +123,9 @@ erDiagram
 | rank_position | Current rank, where `1` is best | Integer | Positive, unique per user |
 | score | Internal regularized ranking score on a positive 1-10 scale | Decimal | Not Null, not user-facing |
 | direct_comparisons | Number of direct votes containing the movie | Integer | Not Null, non-negative |
+| mu | Internal Bradley-Terry strength estimate | Decimal | Not Null |
+| sigma | Internal Bradley-Terry uncertainty estimate | Decimal | Not Null, positive |
+| score_error_80 | Approximate 80% score error band derived from `sigma` | Decimal | Not Null, non-negative |
 
 ### USER_MOVIE_RATING
 
@@ -133,6 +136,9 @@ erDiagram
 | rank_position | Current rank, where `1` is best | Integer | Derived from USER_MOVIE_RANK |
 | score | Internal regularized ranking score | Decimal | Derived from USER_MOVIE_RANK, not user-facing |
 | direct_comparisons | Number of direct votes containing the movie | Integer | Derived from USER_MOVIE_RANK |
+| mu | Internal Bradley-Terry strength estimate | Decimal | Derived from USER_MOVIE_RANK |
+| sigma | Internal Bradley-Terry uncertainty estimate | Decimal | Derived from USER_MOVIE_RANK |
+| score_error_80 | Approximate 80% score error band derived from `sigma` | Decimal | Derived from USER_MOVIE_RANK |
 | rating | Score mapped onto the 1-10 scale | Decimal | `10` for the highest score, `1` for the lowest score, evenly distributed between |
 
 ### USER_SETTINGS

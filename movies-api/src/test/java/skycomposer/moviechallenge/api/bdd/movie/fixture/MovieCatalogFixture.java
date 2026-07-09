@@ -12,7 +12,6 @@ import skycomposer.moviechallenge.api.movie.model.MovieRecommendation;
 import skycomposer.moviechallenge.api.movie.model.MovieType;
 import java.math.BigDecimal;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.data.domain.PageRequest;
@@ -150,17 +149,6 @@ public class MovieCatalogFixture {
         movieRecommendationRepository.saveAndFlush(new MovieRecommendation(username, imdbId));
     }
 
-    public void recommendAndRankNumberedMovies(String username, int directComparisons) {
-        List<String> movieIds = jdbcTemplate.queryForList(
-                "select imdb_id from movies where imdb_id like 'tt-page-%'",
-                String.class);
-        movieIds.sort(Comparator.comparingInt(this::numberedMovieIndex));
-        for (int i = 0; i < movieIds.size(); i++) {
-            recommendMovie(movieIds.get(i), username);
-            setMovieRank(movieIds.get(i), username, i + 1, directComparisons);
-        }
-    }
-
     public void dislikeMovie(String imdbId, String username) {
         ensureUser(username);
         movieRecommendationRepository.saveAndFlush(new MovieRecommendation(username, imdbId, false));
@@ -251,14 +239,26 @@ public class MovieCatalogFixture {
                 imdbId);
         jdbcTemplate.update(
                 """
-                insert into user_movie_rank (user_id, movie_id, rank_position, score, direct_comparisons)
-                values (?, ?, ?, ?, ?)
+                insert into user_movie_rank (
+                    user_id,
+                    movie_id,
+                    rank_position,
+                    score,
+                    direct_comparisons,
+                    mu,
+                    sigma,
+                    score_error_80
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 username,
                 imdbId,
                 rankPosition,
                 BigDecimal.valueOf(Math.max(1, 11 - rankPosition)),
-                directComparisons);
+                directComparisons,
+                BigDecimal.valueOf(Math.max(1, 11 - rankPosition) - 5.5),
+                BigDecimal.valueOf(2.0 / Math.sqrt(Math.max(directComparisons, 1))),
+                BigDecimal.valueOf(Math.min(9, 5.77 / Math.sqrt(Math.max(directComparisons, 1)))));
     }
 
     public void assertMovieListOrdersTitleBefore(String firstTitle, String secondTitle) {
@@ -519,10 +519,6 @@ public class MovieCatalogFixture {
         return firstMovieId.compareTo(secondMovieId) < 0
                 ? new MoviePair(firstMovieId, secondMovieId)
                 : new MoviePair(secondMovieId, firstMovieId);
-    }
-
-    private int numberedMovieIndex(String imdbId) {
-        return Integer.parseInt(imdbId.substring("tt-page-".length()));
     }
 
     private record MoviePair(String movie1Id, String movie2Id) {
