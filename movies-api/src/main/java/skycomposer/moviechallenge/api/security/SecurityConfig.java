@@ -18,6 +18,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.web.firewall.HttpFirewall;
+import org.springframework.security.web.firewall.StrictHttpFirewall;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.List;
@@ -41,6 +43,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorizeHttpRequests -> authorizeHttpRequests
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movies").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/my-favorite-movies/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movies/*").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/movies/*/comments").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers(HttpMethod.POST, "/api/movies/recommendation").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
@@ -62,6 +65,13 @@ public class SecurityConfig {
                         jwt -> jwt.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthConverter)))
                 .sessionManagement(sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
+    }
+
+    @Bean
+    HttpFirewall allowUrlEncodedUsernameFirewall() {
+        StrictHttpFirewall firewall = new StrictHttpFirewall();
+        firewall.setAllowUrlEncodedPercent(true);
+        return firewall;
     }
 
     @Bean

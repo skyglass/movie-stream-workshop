@@ -15,6 +15,15 @@ Feature: view-favorite-movies
     When regular user "user" requests favorite movies
     Then favorite movies contain 0 movies
 
+  Scenario: Recommended movies without challenge votes are not favorite movies yet
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    When regular user "user" requests favorite movies
+    Then favorite movies contain 0 movies
+    And favorite movies total count is 0
+
   Scenario: Favorite movies pagination preserves winner ranking on later pages
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"

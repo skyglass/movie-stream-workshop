@@ -17,6 +17,7 @@ describe('MoviesApiService', () => {
     moviesApiPath: '/movies',
     movieChallengesPath: '/movie-challenges',
     favoriteMoviesPath: '/favorite-movies',
+    publicFavoriteMoviesPath: '/my-favorite-movies',
     usersFavoriteMoviesPath: '/users-favorite-movies',
     usersRecommendedMoviesPath: '/users-recommended-movies',
     moviesPerPage: 12,
@@ -166,5 +167,24 @@ describe('MoviesApiService', () => {
       totalResults: '25',
       Response: 'True'
     });
+  });
+
+  it('URL-encodes usernames when requesting public favorite movies', (done) => {
+    service.listPublicFavoriteMovies('sky composer', 2, 5).subscribe(page => {
+      expect(page.movies).toEqual([]);
+      expect(page.totalCount).toBe(0);
+      done();
+    });
+
+    const request = http.expectOne(`${appConfig.apiBaseUrl}${appConfig.publicFavoriteMoviesPath}/sky%20composer?page=2&pageSize=5`);
+    request.flush({ movies: [], totalCount: 0 });
+  });
+
+  it('builds the public favorite movies share URL from the configured UI base URL', () => {
+    expect(service.favoriteMoviesShareUrl({
+      myFavoriteMoviesPublic: true,
+      encodedUsername: 'sky%20composer',
+      sharePath: '/my-favorite-movies/sky%20composer'
+    })).toBe('https://ui.example.test/my-favorite-movies/sky%20composer');
   });
 });

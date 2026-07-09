@@ -12,6 +12,8 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.core.*;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.firewall.ServerWebExchangeFirewall;
+import org.springframework.security.web.server.firewall.StrictServerWebExchangeFirewall;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsWebFilter;
@@ -38,6 +40,7 @@ public class SecurityConfig {
                     .pathMatchers("/auth/token").permitAll()
                     .pathMatchers("/api/movies/ws", "/api/movies/ws/**").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/movies/movies").permitAll()
+                    .pathMatchers(HttpMethod.GET, "/api/movies/my-favorite-movies/**").permitAll()
                     .pathMatchers("/swagger-ui.html", "/swagger-ui/**", "/webjars/**").permitAll()
                     .pathMatchers("/v3/api-docs", "/v3/api-docs/**").permitAll()
                     .pathMatchers("/api/movies", "/api/movies/**").authenticated()
@@ -45,6 +48,13 @@ public class SecurityConfig {
               )
               .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {}))
               .build();
+    }
+
+    @Bean
+    ServerWebExchangeFirewall allowUrlEncodedUsernameFirewall() {
+        StrictServerWebExchangeFirewall firewall = new StrictServerWebExchangeFirewall();
+        firewall.setAllowUrlEncodedPercent(true);
+        return firewall;
     }
 
     @Bean

@@ -6,9 +6,11 @@ recommendations, movie challenges, and admin movie maintenance. The `MOVIE` aggr
 `MOVIE_RECOMMENDATION` records the current user's positive or negative feedback for a movie. Movie challenge records are
 per-user projections over positively recommended movies: `USER_MOVIE_CHALLENGE_VOTE` stores only direct choices,
 `USER_MOVIE_RANK` rebuilds the current rank, positive ranking score, comparison count, and confidence from those choices, and
-`USER_MOVIE_RATING` maps rank scores to 1-10 ratings. The selector excludes completed direct pairs in both directions,
-prioritizes the first movie by direct-comparison need, and then chooses the second movie from the comparison-step window
-before using rank distance.
+`USER_MOVIE_RATING` maps rank scores to 1-10 ratings. `USER_MOVIE_CHALLENGE` stores the per-user challenge
+participation count used to keep favorite movies limited to movies that participated in a challenge. `USER_SETTINGS`
+stores per-user switches for publishing a user's own favorite movies list. The selector excludes completed direct pairs
+in both directions, prioritizes the first movie by direct-comparison need, and then chooses the second movie from the
+comparison-step window before using rank distance.
 
 ## Aggregate Boundary Diagram
 
@@ -21,8 +23,10 @@ flowchart TB
         MOVIE_COMMENT["MOVIE_COMMENT\nChild Entity"]
         MOVIE_RECOMMENDATION["MOVIE_RECOMMENDATION\nPositive or negative feedback"]
         USER_MOVIE_CHALLENGE_VOTE["USER_MOVIE_CHALLENGE_VOTE\nDirect challenge vote"]
+        USER_MOVIE_CHALLENGE["USER_MOVIE_CHALLENGE\nChallenge participation count"]
         USER_MOVIE_RANK["USER_MOVIE_RANK\nRank projection"]
         USER_MOVIE_RATING["USER_MOVIE_RATING\n1-10 rating view"]
+        USER_SETTINGS["USER_SETTINGS\nPublic favorite movies flag"]
         COMMENT_TEXT["COMMENT_TEXT\nValue Object"]
         COMMENT_AUTHOR["COMMENT_AUTHOR\nUsername"]
         RECOMMENDING_USER["RECOMMENDING_USER\nUsername"]
@@ -35,8 +39,10 @@ flowchart TB
     MOVIE --> MOVIE_COMMENT
     MOVIE --> MOVIE_RECOMMENDATION
     MOVIE --> USER_MOVIE_CHALLENGE_VOTE
+    MOVIE --> USER_MOVIE_CHALLENGE
     MOVIE --> USER_MOVIE_RANK
     USER_MOVIE_RANK --> USER_MOVIE_RATING
+    USER_SETTINGS --> RECOMMENDING_USER
     MOVIE_COMMENT --> COMMENT_TEXT
     MOVIE_COMMENT --> COMMENT_AUTHOR
     MOVIE_RECOMMENDATION --> RECOMMENDING_USER
@@ -51,10 +57,13 @@ erDiagram
     MOVIES ||--o{ MOVIE_COMMENTS : receives
     MOVIES ||--o{ MOVIE_RECOMMENDATIONS : receives_feedback
     MOVIES ||--o{ USER_MOVIE_CHALLENGE_VOTE : wins_or_loses_directly
+    MOVIES ||--o{ USER_MOVIE_CHALLENGE : participates_in
     MOVIES ||--o{ USER_MOVIE_RANK : is_ranked
     USERS ||--o{ MOVIE_RECOMMENDATIONS : makes
     USERS ||--o{ USER_MOVIE_CHALLENGE_VOTE : votes
+    USERS ||--o{ USER_MOVIE_CHALLENGE : has_participation
     USERS ||--o{ USER_MOVIE_RANK : ranks
+    USERS ||--o| USER_SETTINGS : configures
 ```
 
 ### MOVIE
@@ -97,6 +106,14 @@ erDiagram
 | winner_id | Directly selected winning movie | String | Foreign Key to movies.imdb_id, Primary Key part |
 | loser_id | Directly defeated movie in the same challenge | String | Foreign Key to movies.imdb_id, Primary Key part, different from winner_id |
 
+### USER_MOVIE_CHALLENGE
+
+| Attribute | Description | Data Type | Validation Rules |
+|-----------|-------------|-----------|------------------|
+| user_id | Challenged username | String | Foreign Key to users.username, Primary Key part |
+| movie_id | Movie that participated in at least one direct challenge for the user | String | Foreign Key to movies.imdb_id, Primary Key part |
+| challenge_count | Number of direct challenges containing the movie for the user | Integer | Not Null, non-negative |
+
 ### USER_MOVIE_RANK
 
 | Attribute | Description | Data Type | Validation Rules |
@@ -119,6 +136,13 @@ erDiagram
 | direct_comparisons | Number of direct votes containing the movie | Integer | Derived from USER_MOVIE_RANK |
 | confidence | Challenge confidence | Decimal | Derived from USER_MOVIE_RANK |
 | rating | Score mapped onto the 1-10 scale | Decimal | `10` for the highest score, `1` for the lowest score, evenly distributed between |
+
+### USER_SETTINGS
+
+| Attribute | Description | Data Type | Validation Rules |
+|-----------|-------------|-----------|------------------|
+| username | User who owns the settings | String | Foreign Key to users.username, Primary Key |
+| is_my_favorite_movies_public | Whether anonymous viewers may open the user's shared favorite movies link | Boolean | Not Null, defaults to `false` |
 
 ### MOVIE_CATALOG
 
@@ -162,10 +186,21 @@ Read model used by `view-favorite-movies`.
 
 | Attribute | Description | Data Type | Validation Rules |
 |-----------|-------------|-----------|------------------|
-| movies | Positive recommendations for the current user | List<MOVIE> | Sorted by `USER_MOVIE_RATING.rank_position` when ranked, then title |
+| movies | Positive recommendations for the current user that have challenge participation and challenge-derived rank rows | List<MOVIE> | Excludes recommended movies without `USER_MOVIE_CHALLENGE` and `USER_MOVIE_RATING`; sorted by `USER_MOVIE_RATING.rank_position`, then title |
 | recommended | Whether each favorite movie is still positively recommended by the current user | Boolean | Enriched from MOVIE_RECOMMENDATION |
 | your_rank | Current user's rank for each listed movie | Integer / null | List UI shows it as `(#rank)` after rating |
 | your_rating | Current user's 1-10 rating for each listed movie, shown as `Your Rating` | Decimal / null | List UI renders `-` when absent |
+
+### SHARED_FAVORITE_MOVIES
+
+Read model used by `share-my-favorite-movies` for anonymous viewers.
+
+| Attribute | Description | Data Type | Validation Rules |
+|-----------|-------------|-----------|------------------|
+| encoded_username | Username path segment from the public link | URL-encoded String | Decoded before settings lookup |
+| movies | Positive recommendations for the shared user | List<MOVIE> | Returned only when `USER_SETTINGS.is_my_favorite_movies_public` is `true`; otherwise 404 |
+| rating | Shared user's 1-10 rating for each listed movie | Decimal / null | Same rating source as `FAVORITE_MOVIES` |
+| rank | Shared user's rank for each listed movie | Integer / null | Same rank source as `FAVORITE_MOVIES` |
 
 ### USERS_FAVORITE_MOVIES
 
@@ -196,7 +231,7 @@ Read model used by `view-users-recommended-movies`.
 ## Aggregate Insight
 
 `add-movie-to-catalog`, `add-movie-comment`, `recommend-movie`, `movie-challenge`, and `administer-movie-catalog` mutate
-the movie-catalog model. Catalog, detail, favorite, and users recommended views are read use cases over the same
+the movie-catalog model. Catalog, detail, favorite, shared favorite, and users recommended views are read use cases over the same
 aggregate and include recommendation state when the viewer is authenticated. Comment avatar enrichment crosses into
 `user-access` only as a read lookup by username. Catalog, detail, favorite, community favorite, and users recommended
 list views expose the viewer-specific `Your Rating` with rank in parentheses when both values exist; otherwise the UI

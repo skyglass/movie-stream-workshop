@@ -1,5 +1,38 @@
 <section class="movie-page">
-  @if (!auth.token) {
+  <header class="favorite-header">
+    <div>
+      <h1>{{ isPublicView ? publicUsername + "'s Favorite Movies" : 'My Favorite Movies' }}</h1>
+    </div>
+
+    @if (!isPublicView && auth.token) {
+      <div class="share-panel" aria-label="Favorite movies sharing">
+        @if (share?.myFavoriteMoviesPublic) {
+          <button type="button" class="make-private-link" [disabled]="shareLoading" (click)="makeFavoriteMoviesPrivate()">
+            Make Private
+          </button>
+        } @else {
+          <button type="button" class="share-button" [disabled]="shareLoading" (click)="shareFavoriteMovies()">
+            Share
+          </button>
+        }
+
+        @if (shareUrl) {
+          <div class="share-link-row">
+            <input type="text" [value]="shareUrl" readonly aria-label="Public favorite movies link" />
+            <button type="button" class="copy-button" (click)="copyShareUrl()">
+              {{ copiedShareUrl ? 'Copied' : 'Copy' }}
+            </button>
+          </div>
+        }
+
+        @if (shareErrorMessage) {
+          <div class="share-error">{{ shareErrorMessage }}</div>
+        }
+      </div>
+    }
+  </header>
+
+  @if (!isPublicView && !auth.token) {
     <div class="empty">Sign in to see favorite movies</div>
   } @else if (loading) {
     <div class="state">Loading favorite movies</div>
@@ -9,34 +42,64 @@
     <div class="movie-grid">
       @for (movie of movies; track movie.imdbId) {
         <article class="movie-card">
-          <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
-            <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-          </a>
+          @if (isPublicView) {
+            <div class="poster-link">
+              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+            </div>
+          } @else {
+            <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
+              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+            </a>
+          }
           <div class="recommend-button recommended">
             <span class="material-icons" aria-hidden="true">workspace_premium</span>
             Favorite
           </div>
-          <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
-            <div class="movie-title">{{ movie.title }}</div>
-            <dl>
-              <div>
-                <dt>Year:</dt>
-                <dd>{{ movie.year }}</dd>
-              </div>
-              <div>
-                <dt>Director:</dt>
-                <dd>{{ movie.director }}</dd>
-              </div>
-              <div>
-                <dt>Genre:</dt>
-                <dd>{{ movie.genre || 'N/A' }}</dd>
-              </div>
-              <div>
-                <dt>Your Rating:</dt>
-                <dd>{{ movie.rating != null && movie.rankPosition != null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-' }}</dd>
-              </div>
-            </dl>
-          </a>
+          @if (isPublicView) {
+            <div class="movie-link linkless">
+              <div class="movie-title">{{ movie.title }}</div>
+              <dl>
+                <div>
+                  <dt>Year:</dt>
+                  <dd>{{ movie.year }}</dd>
+                </div>
+                <div>
+                  <dt>Director:</dt>
+                  <dd>{{ movie.director }}</dd>
+                </div>
+                <div>
+                  <dt>Genre:</dt>
+                  <dd>{{ movie.genre || 'N/A' }}</dd>
+                </div>
+                <div>
+                  <dt>Your Rating:</dt>
+                  <dd>{{ movie.rating != null && movie.rankPosition != null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-' }}</dd>
+                </div>
+              </dl>
+            </div>
+          } @else {
+            <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
+              <div class="movie-title">{{ movie.title }}</div>
+              <dl>
+                <div>
+                  <dt>Year:</dt>
+                  <dd>{{ movie.year }}</dd>
+                </div>
+                <div>
+                  <dt>Director:</dt>
+                  <dd>{{ movie.director }}</dd>
+                </div>
+                <div>
+                  <dt>Genre:</dt>
+                  <dd>{{ movie.genre || 'N/A' }}</dd>
+                </div>
+                <div>
+                  <dt>Your Rating:</dt>
+                  <dd>{{ movie.rating != null && movie.rankPosition != null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-' }}</dd>
+                </div>
+              </dl>
+            </a>
+          }
         </article>
       }
     </div>
@@ -46,6 +109,8 @@
       [pageSize]="pageSize"
       (pageChange)="loadFavoriteMovies($event)" />
   } @else {
-    <div class="empty">Complete Movie Challenges to discover your favorite movies</div>
+    <div class="empty">
+      {{ isPublicView ? 'No favorite movies yet' : 'Start Movie Challenges to see your favorite movies!' }}
+    </div>
   }
 </section>

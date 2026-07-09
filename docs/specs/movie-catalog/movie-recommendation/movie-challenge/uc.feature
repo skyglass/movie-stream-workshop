@@ -172,7 +172,7 @@ Feature: movie-challenge
     When regular user "user" requests the next movie challenge
     Then the movie challenge is movie "tt101" against movie "tt103"
 
-  Scenario: Rank step breaks ties between second movies with the same comparison distance
+  Scenario: Rank distance breaks ties between second movies with the same comparison distance
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"
     And movie "tt103" exists with title "Movie Three"
@@ -184,6 +184,54 @@ Feature: movie-challenge
     And movie "tt102" has rank 8 and 3 direct comparisons for "user"
     And movie "tt103" has rank 12 and 3 direct comparisons for "user"
     And movie "tt120" has rank 20 and 3 direct comparisons for "user"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge is movie "tt101" against movie "tt102"
+
+  Scenario: Rank distance is prioritized while direct comparisons are tightly balanced
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie "tt104" is already recommended by "user"
+    And movie "tt101" has rank 10 and 4 direct comparisons for "user"
+    And movie "tt102" has rank 30 and 5 direct comparisons for "user"
+    And movie "tt103" has rank 11 and 4 direct comparisons for "user"
+    And movie "tt104" has rank 1 and 6 direct comparisons for "user"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge is movie "tt101" against movie "tt103"
+
+  Scenario: Rank distance is prioritized after the second movie reaches the dynamic comparison target and is still behind balance
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie "tt104" is already recommended by "user"
+    And movie "tt101" has rank 10 and 10 direct comparisons for "user"
+    And movie "tt102" has rank 50 and 12 direct comparisons for "user"
+    And movie "tt103" has rank 11 and 20 direct comparisons for "user"
+    And movie "tt104" has rank 1 and 40 direct comparisons for "user"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge is movie "tt101" against movie "tt103"
+
+  Scenario: The all-inclusive second-movie priority stops at the balance boundary
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt101" is already recommended by "user"
+    And movie "tt102" is already recommended by "user"
+    And movie "tt103" is already recommended by "user"
+    And movie "tt104" is already recommended by "user"
+    And movie "tt101" has rank 10 and 10 direct comparisons for "user"
+    And movie "tt102" has rank 50 and 12 direct comparisons for "user"
+    And movie "tt103" has rank 11 and 20 direct comparisons for "user"
+    And movie "tt104" has rank 1 and 25 direct comparisons for "user"
     When regular user "user" requests the next movie challenge
     Then the movie challenge is movie "tt101" against movie "tt102"
 

@@ -35,6 +35,12 @@ export interface MoviePage {
   totalCount: number;
 }
 
+export interface FavoriteMoviesShare {
+  myFavoriteMoviesPublic: boolean;
+  encodedUsername: string;
+  sharePath: string;
+}
+
 export interface MovieUser {
   username: string;
   email: string;
@@ -136,6 +142,7 @@ export class MoviesApiService {
   private readonly moviesBase: string;
   private readonly movieChallengesBase: string;
   private readonly favoriteMoviesBase: string;
+  private readonly publicFavoriteMoviesBase: string;
   private readonly usersFavoriteMoviesBase: string;
   private readonly usersRecommendedMoviesBase: string;
   private readonly userExtrasBase: string;
@@ -146,6 +153,7 @@ export class MoviesApiService {
     this.moviesBase = `${c.apiBaseUrl}${c.moviesApiPath}`;
     this.movieChallengesBase = `${c.apiBaseUrl}${c.movieChallengesPath}`;
     this.favoriteMoviesBase = `${c.apiBaseUrl}${c.favoriteMoviesPath}`;
+    this.publicFavoriteMoviesBase = `${c.apiBaseUrl}${c.publicFavoriteMoviesPath}`;
     this.usersFavoriteMoviesBase = `${c.apiBaseUrl}${c.usersFavoriteMoviesPath}`;
     this.usersRecommendedMoviesBase = `${c.apiBaseUrl}${c.usersRecommendedMoviesPath}`;
     this.userExtrasBase = `${c.apiBaseUrl}${c.userExtrasPath}`;
@@ -162,6 +170,28 @@ export class MoviesApiService {
 
   listFavoriteMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
     return this.http.get<MoviePage>(this.favoriteMoviesBase, { params: this.pageParams(page, pageSize) });
+  }
+
+  listPublicFavoriteMovies(username: string, page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
+    return this.http.get<MoviePage>(`${this.publicFavoriteMoviesBase}/${encodeURIComponent(username)}`, {
+      params: this.pageParams(page, pageSize)
+    });
+  }
+
+  getFavoriteMoviesShare(): Observable<FavoriteMoviesShare> {
+    return this.http.get<FavoriteMoviesShare>(`${this.favoriteMoviesBase}/share`);
+  }
+
+  shareFavoriteMovies(): Observable<FavoriteMoviesShare> {
+    return this.http.post<FavoriteMoviesShare>(`${this.favoriteMoviesBase}/share`, {});
+  }
+
+  makeFavoriteMoviesPrivate(): Observable<FavoriteMoviesShare> {
+    return this.http.delete<FavoriteMoviesShare>(`${this.favoriteMoviesBase}/share`);
+  }
+
+  favoriteMoviesShareUrl(share: FavoriteMoviesShare): string {
+    return `${this.trimTrailingSlash(this.cfg.config.uiBaseUrl)}${share.sharePath}`;
   }
 
   listUsersFavoriteMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
@@ -292,6 +322,10 @@ export class MoviesApiService {
       page: String(page),
       pageSize: String(pageSize)
     };
+  }
+
+  private trimTrailingSlash(value: string): string {
+    return value.replace(/\/+$/, '');
   }
 
   private positiveConfigNumber(value: number | string | undefined, name: string): number {

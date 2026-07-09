@@ -1,0 +1,24 @@
+@startuml
+title share-my-favorite-movies
+left to right direction
+
+actor "Authenticated User" as user
+actor "Anonymous Viewer" as viewer
+rectangle "movie-catalog" {
+    usecase "share-my-favorite-movies" as share
+    usecase "view public favorite movies" as publicView
+    entity "USER_SETTINGS" as settings
+    entity "MOVIE_RECOMMENDATION" as recommendation
+    entity "USER_MOVIE_RATING" as rating
+    entity "MOVIE" as movie
+}
+
+user --> share
+share --> settings : toggles public favorite movies flag
+viewer --> publicView
+publicView --> settings : checks public flag by decoded username
+publicView --> recommendation : selects positive recommendations
+publicView --> rating : orders ranked favorites by rank
+rating --> movie
+recommendation --> movie
+@enduml

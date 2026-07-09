@@ -35,17 +35,25 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 on recommendation.movie_id = m.imdb_id
                 and recommendation.user_id = :username
                 and recommendation.positive = true
-            left join user_movie_rating rating
+            join user_movie_rating rating
                 on rating.movie_id = m.imdb_id
                 and rating.user_id = recommendation.user_id
-            order by case when rating.rank_position is null then 1 else 0 end,
-                rating.rank_position asc,
+            join user_movie_challenge challenge
+                on challenge.movie_id = m.imdb_id
+                and challenge.user_id = recommendation.user_id
+            order by rating.rank_position asc,
                 rating.score desc,
                 m.title asc,
                 m.imdb_id asc
             """, countQuery = """
             select count(1)
             from movie_recommendations recommendation
+            join user_movie_rating rating
+                on rating.movie_id = recommendation.movie_id
+                and rating.user_id = recommendation.user_id
+            join user_movie_challenge challenge
+                on challenge.movie_id = recommendation.movie_id
+                and challenge.user_id = recommendation.user_id
             where recommendation.user_id = :username
                 and recommendation.positive = true
             """, nativeQuery = true)

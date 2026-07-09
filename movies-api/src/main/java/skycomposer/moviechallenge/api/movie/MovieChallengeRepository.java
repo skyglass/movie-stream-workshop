@@ -26,28 +26,30 @@ public class MovieChallengeRepository {
 
     public Optional<MovieChallengeDto> findNextChallenge(String username) {
         String sql = """
-                with user_rank_stats as (
-                    select coalesce(max(rank_projection.direct_comparisons), 0) as max_direct_comparisons,
+                with user_candidate_stats as (
+                    select coalesce(max(coalesce(rank_projection.direct_comparisons, 0)), 0) as max_direct_comparisons,
+                        coalesce(min(coalesce(rank_projection.direct_comparisons, 0)), 0) as min_direct_comparisons,
                         coalesce(max(rank_projection.rank_position), 0) as max_rank_position
-                    from user_movie_rank rank_projection
-                    where rank_projection.user_id = :username
+                    from movie_recommendations recommendation
+                    left join user_movie_rank rank_projection
+                        on rank_projection.user_id = recommendation.user_id
+                        and rank_projection.movie_id = recommendation.movie_id
+                    where recommendation.user_id = :username
+                        and recommendation.positive = true
                 ),
                 selection_settings as (
                     select max_direct_comparisons,
+                        min_direct_comparisons,
                         max_rank_position,
                         greatest(
                             cast(round(cast(max_direct_comparisons as numeric) / 10) as integer),
                             1
                         ) as comparison_step,
                         greatest(
-                            cast(round(cast(max_rank_position as numeric) / 10) as integer),
-                            1
-                        ) as rank_step,
-                        greatest(
                             cast(round(cast(max_rank_position as numeric) / 2) as integer),
                             1
                         ) as fallback_rank_position
-                    from user_rank_stats
+                    from user_candidate_stats
                 ),
                 candidate_movies as (
                     select recommendation.user_id,
@@ -55,8 +57,8 @@ public class MovieChallengeRepository {
                         coalesce(rank_projection.direct_comparisons, 0) as direct_comparisons,
                         coalesce(rank_projection.rank_position, settings.fallback_rank_position) as selection_rank_position,
                         settings.max_direct_comparisons,
-                        settings.comparison_step,
-                        settings.rank_step
+                        settings.min_direct_comparisons,
+                        settings.comparison_step
                     from movie_recommendations recommendation
                     cross join selection_settings settings
                     left join user_movie_rank rank_projection
@@ -71,8 +73,8 @@ public class MovieChallengeRepository {
                         first_movie.direct_comparisons,
                         first_movie.selection_rank_position,
                         first_movie.max_direct_comparisons,
-                        first_movie.comparison_step,
-                        first_movie.rank_step
+                        first_movie.min_direct_comparisons,
+                        first_movie.comparison_step
                     from candidate_movies first_movie
                     where (
                             first_movie.direct_comparisons <= :minimalDirectComparisons
@@ -117,8 +119,8 @@ public class MovieChallengeRepository {
                         direct_comparisons,
                         selection_rank_position,
                         max_direct_comparisons,
-                        comparison_step,
-                        rank_step
+                        min_direct_comparisons,
+                        comparison_step
                     from eligible_first_movies
                     order by direct_comparisons,
                         movie_id
@@ -129,15 +131,47 @@ public class MovieChallengeRepository {
                         first_movie.movie_id as movie1_id,
                         second_movie.movie_id as movie2_id,
                         case
-                            when second_movie.direct_comparisons
-                                <= first_movie.direct_comparisons + first_movie.comparison_step then 0
+                            when first_movie.max_direct_comparisons - first_movie.min_direct_comparisons < 3
+                                and second_movie.direct_comparisons = first_movie.max_direct_comparisons then 1
+                            when first_movie.max_direct_comparisons - first_movie.min_direct_comparisons < 3 then 0
+                            when second_movie.direct_comparisons >= first_movie.direct_comparisons + first_movie.comparison_step
+                                and second_movie.direct_comparisons
+                                    < first_movie.max_direct_comparisons - :comparisonBalanceThreshold then 0
+                            when second_movie.direct_comparisons <= first_movie.direct_comparisons + first_movie.comparison_step then 0
                             else 1
                         end as movie2_comparison_target_exceeded,
                         abs(first_movie.direct_comparisons + first_movie.comparison_step
                             - second_movie.direct_comparisons) as comparison_distance,
                         second_movie.direct_comparisons as movie2_direct_comparisons,
-                        abs(first_movie.selection_rank_position - first_movie.rank_step
-                            - second_movie.selection_rank_position) as rank_distance
+                        abs(first_movie.selection_rank_position - second_movie.selection_rank_position) as rank_distance,
+                        case
+                            when first_movie.max_direct_comparisons - first_movie.min_direct_comparisons < 3
+                                then abs(first_movie.selection_rank_position - second_movie.selection_rank_position)
+                            when second_movie.direct_comparisons >= first_movie.direct_comparisons + first_movie.comparison_step
+                                and second_movie.direct_comparisons
+                                    < first_movie.max_direct_comparisons - :comparisonBalanceThreshold
+                                then abs(first_movie.selection_rank_position - second_movie.selection_rank_position)
+                            else abs(first_movie.direct_comparisons + first_movie.comparison_step
+                                - second_movie.direct_comparisons)
+                        end as movie2_primary_distance,
+                        case
+                            when first_movie.max_direct_comparisons - first_movie.min_direct_comparisons < 3 then 0
+                            when second_movie.direct_comparisons >= first_movie.direct_comparisons + first_movie.comparison_step
+                                and second_movie.direct_comparisons
+                                    < first_movie.max_direct_comparisons - :comparisonBalanceThreshold then 0
+                            else second_movie.direct_comparisons
+                        end as movie2_direct_comparison_order,
+                        case
+                            when first_movie.max_direct_comparisons - first_movie.min_direct_comparisons < 3
+                                then abs(first_movie.direct_comparisons + first_movie.comparison_step
+                                    - second_movie.direct_comparisons)
+                            when second_movie.direct_comparisons >= first_movie.direct_comparisons + first_movie.comparison_step
+                                and second_movie.direct_comparisons
+                                    < first_movie.max_direct_comparisons - :comparisonBalanceThreshold
+                                then abs(first_movie.direct_comparisons + first_movie.comparison_step
+                                    - second_movie.direct_comparisons)
+                            else abs(first_movie.selection_rank_position - second_movie.selection_rank_position)
+                        end as movie2_secondary_distance
                     from selected_first_movie first_movie
                     join candidate_movies second_movie
                         on second_movie.user_id = first_movie.user_id
@@ -169,9 +203,9 @@ public class MovieChallengeRepository {
                                 and vote.loser_id = first_movie.movie_id
                         )
                     order by movie2_comparison_target_exceeded,
-                        comparison_distance,
-                        movie2_direct_comparisons,
-                        rank_distance,
+                        movie2_primary_distance,
+                        movie2_direct_comparison_order,
+                        movie2_secondary_distance,
                         movie2_id
                     limit 1
                 )
@@ -269,7 +303,32 @@ public class MovieChallengeRepository {
                             and existing.loser_id = :winnerId
                     )
                 """;
-        jdbcTemplate.update(sql, params(username, winnerId, loserId));
+        int inserted = jdbcTemplate.update(sql, params(username, winnerId, loserId));
+        if (inserted > 0) {
+            incrementChallengeCount(username, winnerId);
+            incrementChallengeCount(username, loserId);
+        }
+    }
+
+    private void incrementChallengeCount(String username, String movieId) {
+        int updated = jdbcTemplate.update("""
+                update user_movie_challenge
+                set challenge_count = challenge_count + 1
+                where user_id = :username
+                    and movie_id = :movieId
+                """, params(username, movieId));
+        if (updated == 0) {
+            jdbcTemplate.update("""
+                    insert into user_movie_challenge (user_id, movie_id, challenge_count)
+                    select :username, :movieId, 1
+                    where not exists (
+                        select 1
+                        from user_movie_challenge existing
+                        where existing.user_id = :username
+                            and existing.movie_id = :movieId
+                    )
+                    """, params(username, movieId));
+        }
     }
 
     public void rebuildUserMovieRanks(String username) {
@@ -405,5 +464,9 @@ public class MovieChallengeRepository {
 
     private Map<String, Object> params(String username, String winnerId, String loserId) {
         return Map.of("username", username, "winnerId", winnerId, "loserId", loserId);
+    }
+
+    private Map<String, Object> params(String username, String movieId) {
+        return Map.of("username", username, "movieId", movieId);
     }
 }

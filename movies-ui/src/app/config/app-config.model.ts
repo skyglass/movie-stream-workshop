@@ -8,6 +8,7 @@ export interface AppConfig {
   moviesApiPath: string;
   movieChallengesPath: string;
   favoriteMoviesPath: string;
+  publicFavoriteMoviesPath: string;
   usersFavoriteMoviesPath: string;
   usersRecommendedMoviesPath: string;
   moviesPerPage?: number | string;

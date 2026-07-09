@@ -1,9 +1,117 @@
 @import '../movies-home/movies-home.css';
 
+.favorite-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.favorite-header h1 {
+  margin: 0;
+  color: #203349;
+  font-size: 1.45rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.share-panel {
+  min-width: min(100%, 26rem);
+  display: grid;
+  justify-items: end;
+  gap: 0.45rem;
+}
+
+.share-button,
+.copy-button {
+  min-height: 2.35rem;
+  border-radius: 6px;
+  border: 1px solid #1b6fa8;
+  background: #1b6fa8;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.share-button:hover,
+.copy-button:hover {
+  background: #155c8d;
+}
+
+.share-button:disabled,
+.make-private-link:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.make-private-link {
+  min-height: 2.35rem;
+  border: 0;
+  background: transparent;
+  color: #1678c2;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.share-link-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.share-link-row input {
+  min-width: 0;
+  min-height: 2.35rem;
+  border: 1px solid #c9d2dc;
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+  color: #203349;
+  font: inherit;
+}
+
+.share-error {
+  max-width: 100%;
+  color: #a43636;
+  font-size: 0.88rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
 .recommend-button {
   cursor: default;
 }
 
 .recommend-button .material-icons {
   color: #268242;
+}
+
+.movie-link.linkless {
+  cursor: default;
+}
+
+@media (max-width: 760px) {
+  .favorite-header {
+    display: grid;
+  }
+
+  .share-panel {
+    justify-items: stretch;
+    min-width: 0;
+  }
+
+  .share-button,
+  .make-private-link {
+    justify-self: start;
+  }
+
+  .share-link-row {
+    grid-template-columns: 1fr;
+  }
 }

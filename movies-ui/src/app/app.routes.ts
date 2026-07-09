@@ -21,6 +21,7 @@ export const routes: Routes = [
   { path: 'movies/:imdbId', component: MovieDetailComponent, canActivate: [authGuard] },
   { path: 'wizard', component: MovieWizardComponent, canActivate: [adminGuard] },
   { path: 'favorites', component: FavoriteMoviesComponent, canActivate: [authGuard] },
+  { path: 'my-favorite-movies/:username', component: FavoriteMoviesComponent },
   { path: 'users-favorites', component: UsersFavoriteMoviesComponent, canActivate: [authGuard] },
   { path: 'users-recommended', component: UsersRecommendedMoviesComponent, canActivate: [authGuard] },
   { path: 'profile', component: ProfileComponent, canActivate: [authGuard] },

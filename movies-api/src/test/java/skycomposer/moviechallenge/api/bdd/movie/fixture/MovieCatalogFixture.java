@@ -422,6 +422,18 @@ public class MovieCatalogFixture {
         assertFalse(movieIsDislikedBy(imdbId, username));
     }
 
+    public void assertMyFavoriteMoviesPublic(String username, boolean expected) {
+        Boolean actual = jdbcTemplate.queryForObject(
+                """
+                select is_my_favorite_movies_public
+                from user_settings
+                where username = ?
+                """,
+                Boolean.class,
+                username);
+        assertEquals(expected, actual);
+    }
+
     public void assertLastErrorIsIllegalArgumentException() {
         assertTrue(lastError instanceof IllegalArgumentException);
     }
