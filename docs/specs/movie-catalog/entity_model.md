@@ -5,7 +5,7 @@ recommendations, movie challenges, and admin movie maintenance. The `MOVIE` aggr
 `MOVIE_COMMENT` is a child entity because comments cannot exist without a movie and are deleted with it.
 `MOVIE_RECOMMENDATION` records the current user's positive or negative feedback for a movie. Movie challenge records are
 per-user projections over positively recommended movies: `USER_MOVIE_CHALLENGE_VOTE` stores only direct choices,
-`USER_MOVIE_RANK` rebuilds the current rank, positive ranking score, comparison count, and confidence from those choices, and
+`USER_MOVIE_RANK` rebuilds the current rank, positive ranking score, and comparison count from those choices, and
 `USER_MOVIE_RATING` maps rank scores to 1-10 ratings. `USER_MOVIE_CHALLENGE` stores the per-user challenge
 participation count used to keep favorite movies limited to movies that participated in a challenge. `USER_SETTINGS`
 stores per-user switches for publishing a user's own favorite movies list. The selector excludes completed direct pairs
@@ -123,7 +123,6 @@ erDiagram
 | rank_position | Current rank, where `1` is best | Integer | Positive, unique per user |
 | score | Internal regularized ranking score on a positive 1-10 scale | Decimal | Not Null, not user-facing |
 | direct_comparisons | Number of direct votes containing the movie | Integer | Not Null, non-negative |
-| confidence | Confidence derived from direct comparisons | Decimal | Not Null, between `0` and `1` |
 
 ### USER_MOVIE_RATING
 
@@ -134,7 +133,6 @@ erDiagram
 | rank_position | Current rank, where `1` is best | Integer | Derived from USER_MOVIE_RANK |
 | score | Internal regularized ranking score | Decimal | Derived from USER_MOVIE_RANK, not user-facing |
 | direct_comparisons | Number of direct votes containing the movie | Integer | Derived from USER_MOVIE_RANK |
-| confidence | Challenge confidence | Decimal | Derived from USER_MOVIE_RANK |
 | rating | Score mapped onto the 1-10 scale | Decimal | `10` for the highest score, `1` for the lowest score, evenly distributed between |
 
 ### USER_SETTINGS
@@ -178,7 +176,7 @@ Read model used by `movie-challenge`.
 | movie1 | First recommended movie in the challenge pair | MOVIE metadata | Selected from recommended movies only |
 | movie2 | Second recommended movie in the challenge pair | MOVIE metadata | Different from movie1 |
 | direct_vote | Actual selected winner-loser relationship | USER_MOVIE_CHALLENGE_VOTE | Written when the user chooses a winner |
-| rank | Current rank projection | USER_MOVIE_RANK | Used for first-movie direct-comparison priority, comparison balance, comparison step, and rank step |
+| rank | Current rank projection | USER_MOVIE_RANK | Used for first-movie direct-comparison priority, comparison balance, comparison step, and rank distance |
 
 ### FAVORITE_MOVIES
 

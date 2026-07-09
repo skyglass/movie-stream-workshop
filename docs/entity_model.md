@@ -108,7 +108,6 @@ Represents the current per-user ranking projection rebuilt from direct challenge
 | rank_position | Current rank, where `1` is best | Integer | Positive, unique per user |
 | score | Internal regularized ranking score on a positive 1-10 scale | Decimal | Not Null, not user-facing |
 | direct_comparisons | Number of direct votes containing the movie | Integer | Not Null, non-negative |
-| confidence | Confidence derived from direct comparisons | Decimal | Not Null, between `0` and `1` |
 
 ### USER_MOVIE_RATING
 

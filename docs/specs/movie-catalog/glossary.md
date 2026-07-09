@@ -17,12 +17,11 @@
 | Completed challenge pair | Recommended movie pair that already has a direct challenge vote from the user. |
 | User movie rank | Per-user ranking projection rebuilt from direct challenge votes. |
 | Direct comparison count | Number of direct challenge votes where the movie was either winner or loser. |
-| Minimal direct comparisons | Movie Challenge first-movie threshold of `10` direct comparisons. A movie at or below this count remains eligible as the first movie. |
+| Minimal direct comparisons | Movie Challenge first-movie threshold calculated as `max(8, round(positive_recommendation_count * 15 / 355))`. A movie at or below this count remains eligible as the first movie. |
 | Comparison balance | A first movie above the minimal direct-comparison threshold remains eligible only while it is more than `5` direct comparisons behind the user's maximum direct-comparison count. |
 | Comparison step | Rounded integer step that creates the preferred second-movie comparison target at `first_movie.direct_comparisons + max_direct_comparisons / 10`, with a minimum step of `1`. Candidates inside that target are considered before candidates that overshoot it. |
 | Initial comparison phase | Selector phase when the spread between maximum and minimum direct comparisons is less than `3`; second-movie selection prioritizes rank distance in this phase but deprioritizes candidates already at the maximum direct-comparison count. |
-| Second-movie balance window | Once the first movie has reached `10` direct comparisons, the second movie must be below the current maximum direct-comparison count. If the first movie is within `10` direct comparisons of that maximum, the second movie must also be no more than `4` direct comparisons ahead of the first movie. |
-| Challenge confidence | Calculated value from direct comparison count and stored with the user movie rank. |
+| Second-movie balance window | Once the first movie has reached the minimal direct-comparison threshold, the second movie must be below the current maximum direct-comparison count. If the first movie is within `10` direct comparisons of that maximum, the second movie must also be no more than `4` direct comparisons ahead of the first movie. |
 | Movie rating | Rating from 1 to 10 derived from the user's current rank scores. |
 | Your Rank | Current viewer's own rank for a movie; list cards show it in parentheses after `Your Rating`. |
 | Your Rating | UI label for the current viewer's own 1-10 rating; list cards show `rating (#rank)` or `-`. |
