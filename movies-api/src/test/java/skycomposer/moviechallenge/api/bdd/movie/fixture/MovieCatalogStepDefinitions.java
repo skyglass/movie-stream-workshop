@@ -38,6 +38,11 @@ public class MovieCatalogStepDefinitions {
         fixture.recommendMovie(imdbId, username);
     }
 
+    @Given("all numbered movies are already recommended by {string} with {int} direct comparisons")
+    public void allNumberedMoviesAreAlreadyRecommendedByWithDirectComparisons(String username, int directComparisons) {
+        fixture.recommendAndRankNumberedMovies(username, directComparisons);
+    }
+
     @Given("movie {string} is already disliked by {string}")
     public void movieIsAlreadyDislikedBy(String imdbId, String username) {
         fixture.dislikeMovie(imdbId, username);

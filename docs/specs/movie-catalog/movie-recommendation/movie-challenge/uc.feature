@@ -40,6 +40,12 @@ Feature: movie-challenge
     When regular user "user" requests the next movie challenge
     Then the movie challenge is movie "tt102" against movie "tt103"
 
+  Scenario: Small recommendation sets use the minimum direct-comparison threshold
+    Given the movie catalog contains 8 titled movies
+    And all numbered movies are already recommended by "user" with 9 direct comparisons
+    When regular user "user" requests the next movie challenge
+    Then no movie challenge is available
+
   Scenario: A first movie above the direct-comparison threshold is still offered while it is behind the comparison balance
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"
