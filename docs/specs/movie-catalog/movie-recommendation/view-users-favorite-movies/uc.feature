@@ -23,3 +23,14 @@ Feature: view-users-favorite-movies
     When regular user "user" requests page 3 of users favorite movies with 2 movies per page
     Then users favorite movies contain 0 movies
     And users favorite movies total count is 3
+
+  Scenario: Users favorite movies can be filtered by movie metadata
+    Given movie "tt101" exists with title "Community Signal", director "Popular Director", writer "Popular Writer", year "1999", genre "Drama", country "US", and type "movie"
+    And movie "tt102" exists with title "Movie Two", director "Other Director", writer "Other Writer", year "2000", genre "Drama", country "US", and type "movie"
+    And user "user" has already ranked movies "tt101,tt102" from best to worst
+    And user "admin" has already ranked movies "tt101,tt102" from best to worst
+    When regular user "user" requests users favorite movies filtered by "community"
+    Then users favorite movies contain 1 movies
+    And users favorite movies total count is 1
+    And users favorite movies contain movie "tt101"
+    And users favorite movies do not contain movie "tt102"

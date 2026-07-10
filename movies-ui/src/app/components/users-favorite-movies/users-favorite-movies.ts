@@ -24,6 +24,9 @@ export class UsersFavoriteMoviesComponent implements OnInit, OnDestroy {
   currentPage = 1;
   totalCount = 0;
   readonly pageSize = this.moviesApi.moviePageSize;
+  filterText = '';
+  activeFilter = '';
+  private filterTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit(): void {
     if (this.auth.token) {
@@ -36,18 +39,21 @@ export class UsersFavoriteMoviesComponent implements OnInit, OnDestroy {
         this.movies = [];
         this.totalCount = 0;
         this.currentPage = 1;
+        this.filterText = '';
+        this.activeFilter = '';
       }
     });
   }
 
   ngOnDestroy(): void {
     this.authSub?.unsubscribe();
+    this.clearFilterTimer();
   }
 
   loadUsersFavoriteMovies(page = this.currentPage): void {
     this.loading = true;
     this.errorMessage = '';
-    this.moviesApi.listUsersFavoriteMovies(page, this.pageSize).subscribe({
+    this.moviesApi.listUsersFavoriteMovies(page, this.pageSize, this.activeFilter).subscribe({
       next: moviePage => {
         this.movies = moviePage.movies;
         this.totalCount = moviePage.totalCount;
@@ -61,7 +67,50 @@ export class UsersFavoriteMoviesComponent implements OnInit, OnDestroy {
     });
   }
 
+  onFilterInput(event: Event): void {
+    this.filterText = (event.target as HTMLInputElement).value;
+    this.clearFilterTimer();
+
+    const filter = this.filterText.trim();
+    if (!filter) {
+      if (this.activeFilter) {
+        this.activeFilter = '';
+        this.loadUsersFavoriteMovies(1);
+      }
+      return;
+    }
+
+    if (filter.length <= 3) {
+      return;
+    }
+
+    this.filterTimer = setTimeout(() => {
+      const nextFilter = this.filterText.trim();
+      if (nextFilter.length > 3 && nextFilter !== this.activeFilter) {
+        this.activeFilter = nextFilter;
+        this.loadUsersFavoriteMovies(1);
+      }
+    }, 300);
+  }
+
+  clearFilter(): void {
+    this.clearFilterTimer();
+    const shouldReload = !!this.activeFilter || !!this.filterText;
+    this.filterText = '';
+    this.activeFilter = '';
+    if (shouldReload) {
+      this.loadUsersFavoriteMovies(1);
+    }
+  }
+
   poster(movie: Movie): string {
     return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';
+  }
+
+  private clearFilterTimer(): void {
+    if (this.filterTimer) {
+      clearTimeout(this.filterTimer);
+      this.filterTimer = undefined;
+    }
   }
 }

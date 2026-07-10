@@ -17,6 +17,8 @@
 | Completed challenge pair | Recommended movie pair that already has a direct challenge vote from the user. |
 | User movie rank | Per-user ranking projection rebuilt from direct challenge votes. |
 | Direct comparison count | Number of direct challenge votes where the movie was either winner or loser. |
+| Rank history | Direct challenge opponents split into movies that beat the current movie and movies beaten by the current movie. |
+| Replay | Reset one recommended movie's direct challenge history and recommend it again for future challenges. |
 | Exploration floor | Small Movie Challenge coverage floor of `3` direct comparisons per movie. It gives every recommended movie initial evidence without forcing large per-movie vote counts. |
 | Bradley-Terry strength | Internal ranking value estimating how likely one movie is to beat another movie for the same user. |
 | Ranking uncertainty | Internal value estimating how much doubt remains around a movie's strength. |

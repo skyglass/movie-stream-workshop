@@ -93,6 +93,21 @@ public class RecommendMovieAcceptanceTest {
         fixture.selectedMovie(recommendMovie.unrecommendMovie(username, imdbId));
     }
 
+    @When("regular user {string} replays movie {string}")
+    public void regularUserReplaysMovie(String username, String imdbId) {
+        fixture.selectedMovie(recommendMovie.replayMovie(username, imdbId));
+    }
+
+    @When("regular user {string} replays movie {string} through the movie API")
+    public void regularUserReplaysMovieThroughTheMovieApi(String username, String imdbId) throws Exception {
+        fixture.authenticateRegularUser(username);
+        MvcResult result = mockMvc.perform(post("/api/movies/{imdbId}/recommendation/replay", imdbId)
+                        .with(fixture.jwtForCurrentUser()))
+                .andReturn();
+        fixture.lastResponse(result);
+        fixture.selectedMovie(objectMapper.readValue(result.getResponse().getContentAsString(), MovieDto.class));
+    }
+
     @When("regular user {string} dislikes movie {string}")
     public void regularUserDislikesMovie(String username, String imdbId) {
         fixture.selectedMovie(recommendMovie.dislikeMovie(username, imdbId));
@@ -111,6 +126,21 @@ public class RecommendMovieAcceptanceTest {
     @Then("movie {string} is not disliked by {string}")
     public void movieIsNotDislikedBy(String imdbId, String username) {
         fixture.assertMovieNotDislikedBy(imdbId, username);
+    }
+
+    @Then("movie {string} has no rank and rating for {string}")
+    public void movieHasNoRankAndRatingFor(String imdbId, String username) {
+        fixture.assertMovieHasNoRankAndRating(imdbId, username);
+    }
+
+    @Then("movie {string} has no direct challenge votes for {string}")
+    public void movieHasNoDirectChallengeVotesFor(String imdbId, String username) {
+        fixture.assertMovieHasNoDirectChallengeVotes(imdbId, username);
+    }
+
+    @Then("movie {string} has no challenge count for {string}")
+    public void movieHasNoChallengeCountFor(String imdbId, String username) {
+        fixture.assertMovieHasNoChallengeCount(imdbId, username);
     }
 
     @Then("the recommendation response marks movie {string} as not recommended")

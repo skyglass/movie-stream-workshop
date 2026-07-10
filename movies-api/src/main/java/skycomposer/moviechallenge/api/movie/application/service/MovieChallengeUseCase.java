@@ -2,11 +2,15 @@ package skycomposer.moviechallenge.api.movie.application.service;
 
 import skycomposer.moviechallenge.api.movie.MovieChallengeRepository;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto;
+import skycomposer.moviechallenge.api.movie.dto.SelectMovieChallengeRequest;
+import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengePageDto;
 import skycomposer.moviechallenge.api.movie.exception.MovieChallengeUnavailableException;
 import skycomposer.moviechallenge.api.userextra.UserExtraService;
 import skycomposer.moviechallenge.api.userextra.model.UserExtra;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +33,17 @@ public class MovieChallengeUseCase {
         return movieChallengeRepository.findNextChallenge(username);
     }
 
+    @Transactional(readOnly = true)
+    public SuggestedMovieChallengePageDto suggestedChallenges(Jwt jwt, Pageable pageable) {
+        UserExtra userExtra = userExtraService.syncFromJwt(jwt);
+        return suggestedChallenges(userExtra.getUsername(), pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public SuggestedMovieChallengePageDto suggestedChallenges(String username, Pageable pageable) {
+        return movieChallengeRepository.findSuggestedChallenges(username, pageable);
+    }
+
     @Transactional
     public void selectMovie(Jwt jwt, String movie1Id, String movie2Id, String selectedMovieId) {
         UserExtra userExtra = userExtraService.syncFromJwt(jwt);
@@ -37,6 +52,30 @@ public class MovieChallengeUseCase {
 
     @Transactional
     public void selectMovie(String username, String movie1Id, String movie2Id, String selectedMovieId) {
+        selectMovieWithoutRankRebuild(username, movie1Id, movie2Id, selectedMovieId);
+        movieChallengeRepository.rebuildUserMovieRanks(username);
+    }
+
+    @Transactional
+    public void selectMovies(Jwt jwt, List<SelectMovieChallengeRequest> selections) {
+        UserExtra userExtra = userExtraService.syncFromJwt(jwt);
+        selectMovies(userExtra.getUsername(), selections);
+    }
+
+    @Transactional
+    public void selectMovies(String username, List<SelectMovieChallengeRequest> selections) {
+        selections.forEach(selection -> selectMovieWithoutRankRebuild(
+                username,
+                selection.movie1Id(),
+                selection.movie2Id(),
+                selection.selectedMovieId()));
+        movieChallengeRepository.rebuildUserMovieRanks(username);
+    }
+
+    private void selectMovieWithoutRankRebuild(String username,
+                                               String movie1Id,
+                                               String movie2Id,
+                                               String selectedMovieId) {
         if (!selectedMovieId.equals(movie1Id) && !selectedMovieId.equals(movie2Id)) {
             throw new IllegalArgumentException("Selected movie must be one movie from the challenge pair");
         }
@@ -47,6 +86,5 @@ public class MovieChallengeUseCase {
         }
 
         movieChallengeRepository.insertDirectWinnerLoser(username, selectedMovieId, loserId);
-        movieChallengeRepository.rebuildUserMovieRanks(username);
     }
 }

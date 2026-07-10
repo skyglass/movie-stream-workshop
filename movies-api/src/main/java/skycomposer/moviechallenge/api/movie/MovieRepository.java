@@ -16,6 +16,11 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
             from movies m
             left join user_movie_rating rating
                 on rating.movie_id = m.imdb_id
+            where (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
             group by m.imdb_id, m.title, m.director, m.writer, m.release_year, m.poster, m.genre, m.country, m.type
             order by coalesce(avg(rating.rating), 0) desc,
                 count(distinct rating.user_id) desc,
@@ -24,9 +29,14 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 m.imdb_id asc
             """, countQuery = """
             select count(1)
-            from movies
+            from movies m
+            where (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
             """, nativeQuery = true)
-    Page<Movie> findAllByUsersFavoritePopularity(Pageable pageable);
+    Page<Movie> findAllByUsersFavoritePopularity(@Param("filter") String filter, Pageable pageable);
 
     @Query(value = """
             select m.*
@@ -41,6 +51,11 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
             join user_movie_challenge challenge
                 on challenge.movie_id = m.imdb_id
                 and challenge.user_id = recommendation.user_id
+            where (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
             order by rating.rank_position asc,
                 rating.score desc,
                 m.title asc,
@@ -48,6 +63,8 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
             """, countQuery = """
             select count(1)
             from movie_recommendations recommendation
+            join movies m
+                on m.imdb_id = recommendation.movie_id
             join user_movie_rating rating
                 on rating.movie_id = recommendation.movie_id
                 and rating.user_id = recommendation.user_id
@@ -56,14 +73,26 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 and challenge.user_id = recommendation.user_id
             where recommendation.user_id = :username
                 and recommendation.positive = true
+                and (:filter is null
+                    or trim(:filter) = ''
+                    or lower(m.title) like concat('%', lower(:filter), '%')
+                    or lower(m.director) like concat('%', lower(:filter), '%')
+                    or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
             """, nativeQuery = true)
-    Page<Movie> findFavoriteMoviesByUsername(@Param("username") String username, Pageable pageable);
+    Page<Movie> findFavoriteMoviesByUsername(@Param("username") String username,
+                                             @Param("filter") String filter,
+                                             Pageable pageable);
 
     @Query(value = """
             select m.*
             from movies m
             join user_movie_rating rating
                 on rating.movie_id = m.imdb_id
+            where (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
             group by m.imdb_id, m.title, m.director, m.writer, m.release_year, m.poster, m.genre, m.country, m.type
             order by avg(rating.rating) desc,
                 count(distinct rating.user_id) desc,
@@ -72,12 +101,19 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
             """, countQuery = """
             select count(1)
             from (
-                select movie_id
-                from user_movie_rating
-                group by movie_id
+                select rating.movie_id
+                from user_movie_rating rating
+                join movies m
+                    on m.imdb_id = rating.movie_id
+                where (:filter is null
+                    or trim(:filter) = ''
+                    or lower(m.title) like concat('%', lower(:filter), '%')
+                    or lower(m.director) like concat('%', lower(:filter), '%')
+                    or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                group by rating.movie_id
             ) users_favorite_movies
             """, nativeQuery = true)
-    Page<Movie> findUsersFavoriteMovies(Pageable pageable);
+    Page<Movie> findUsersFavoriteMovies(@Param("filter") String filter, Pageable pageable);
 
     @Query(value = """
             with rating_similarity as (
@@ -161,6 +197,11 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
             from recommended_movies
             join movies m
                 on m.imdb_id = recommended_movies.movie_id
+            where (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
             order by recommended_movies.recommended_score desc,
                 recommended_movies.similarity_weight desc,
                 recommended_movies.similar_user_count desc,
@@ -242,6 +283,16 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
             )
             select count(1)
             from recommended_movies
+            join movies m
+                on m.imdb_id = recommended_movies.movie_id
+            where (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%')
+            )
             """, nativeQuery = true)
-    Page<Movie> findUsersRecommendedMoviesByUsername(@Param("username") String username, Pageable pageable);
+    Page<Movie> findUsersRecommendedMoviesByUsername(@Param("username") String username,
+                                                     @Param("filter") String filter,
+                                                     Pageable pageable);
 }

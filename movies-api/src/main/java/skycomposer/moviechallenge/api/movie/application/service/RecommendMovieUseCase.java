@@ -57,6 +57,18 @@ public class RecommendMovieUseCase {
     }
 
     @Transactional
+    public MovieDto replayMovie(Jwt jwt, String imdbId) {
+        UserExtra userExtra = userExtraService.syncFromJwt(jwt);
+        return replayExistingMovie(userExtra.getUsername(), imdbId);
+    }
+
+    @Transactional
+    public MovieDto replayMovie(String username, String imdbId) {
+        syncUser(username);
+        return replayExistingMovie(username, imdbId);
+    }
+
+    @Transactional
     public MovieDto dislikeMovie(Jwt jwt, String imdbId) {
         UserExtra userExtra = userExtraService.syncFromJwt(jwt);
         return dislikeExistingMovie(userExtra.getUsername(), imdbId);
@@ -75,9 +87,23 @@ public class RecommendMovieUseCase {
     }
 
     private MovieDto unrecommendExistingMovie(String username, String imdbId) {
+        Movie movie = unrecommendAndClearChallengeHistory(username, imdbId);
+        return toMovieDto(username, movie, false, false);
+    }
+
+    private MovieDto replayExistingMovie(String username, String imdbId) {
+        Movie movie = unrecommendAndClearChallengeHistory(username, imdbId);
+        movieRecommendationService.recommend(username, imdbId);
+        return toMovieDto(username, movie, true, false);
+    }
+
+    private Movie unrecommendAndClearChallengeHistory(String username, String imdbId) {
         Movie movie = movieService.validateAndGetMovie(imdbId);
         movieRecommendationService.unrecommend(username, imdbId);
-        return toMovieDto(username, movie, false, false);
+        movieChallengeRepository.deleteDirectVotesInvolvingMovie(username, imdbId);
+        movieChallengeRepository.rebuildUserMovieChallengeCounts(username);
+        movieChallengeRepository.rebuildUserMovieRanks(username);
+        return movie;
     }
 
     private MovieDto dislikeExistingMovie(String username, String imdbId) {

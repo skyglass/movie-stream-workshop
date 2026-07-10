@@ -23,8 +23,13 @@ public class MovieService {
 
     @Transactional(readOnly = true)
     public Page<Movie> getMovies(Pageable pageable) {
+        return getMovies(pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getMovies(Pageable pageable, String filter) {
         Pageable pageRequest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
-        return movieRepository.findAllByUsersFavoritePopularity(pageRequest);
+        return movieRepository.findAllByUsersFavoritePopularity(normalizedFilter(filter), pageRequest);
     }
 
     @Transactional
@@ -35,17 +40,32 @@ public class MovieService {
 
     @Transactional(readOnly = true)
     public Page<Movie> getFavoriteMovies(String username, Pageable pageable) {
-        return movieRepository.findFavoriteMoviesByUsername(username, pageable);
+        return getFavoriteMovies(username, pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getFavoriteMovies(String username, Pageable pageable, String filter) {
+        return movieRepository.findFavoriteMoviesByUsername(username, normalizedFilter(filter), pageable);
     }
 
     @Transactional(readOnly = true)
     public Page<Movie> getUsersFavoriteMovies(Pageable pageable) {
-        return movieRepository.findUsersFavoriteMovies(pageable);
+        return getUsersFavoriteMovies(pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getUsersFavoriteMovies(Pageable pageable, String filter) {
+        return movieRepository.findUsersFavoriteMovies(normalizedFilter(filter), pageable);
     }
 
     @Transactional(readOnly = true)
     public Page<Movie> getUsersRecommendedMovies(String username, Pageable pageable) {
-        return movieRepository.findUsersRecommendedMoviesByUsername(username, pageable);
+        return getUsersRecommendedMovies(username, pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getUsersRecommendedMovies(String username, Pageable pageable, String filter) {
+        return movieRepository.findUsersRecommendedMoviesByUsername(username, normalizedFilter(filter), pageable);
     }
 
     @Transactional
@@ -83,5 +103,9 @@ public class MovieService {
 
     private String trimToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String normalizedFilter(String filter) {
+        return filter == null || filter.isBlank() ? null : filter.trim();
     }
 }

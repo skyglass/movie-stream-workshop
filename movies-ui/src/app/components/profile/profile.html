@@ -39,6 +39,27 @@
         </div>
       </form>
 
+      <section class="settings-section" aria-label="Favorite movies privacy">
+        <label class="settings-checkbox">
+          <input
+            type="checkbox"
+            [checked]="favoriteMoviesPrivate"
+            [disabled]="privacyLoading || privacySaving"
+            (change)="setFavoriteMoviesPrivate($event)" />
+          <span>Make Your Favorite Movies Private</span>
+        </label>
+
+        @if (privacyLoading) {
+          <div class="settings-note">Loading favorite movies privacy</div>
+        }
+        @if (privacySavedMessage) {
+          <div class="settings-note success-text">{{ privacySavedMessage }}</div>
+        }
+        @if (privacyErrorMessage) {
+          <div class="settings-note error-text">{{ privacyErrorMessage }}</div>
+        }
+      </section>
+
       @if (savedMessage) {
         <div class="state success">{{ savedMessage }}</div>
       }

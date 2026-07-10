@@ -26,7 +26,8 @@ public class UsersRecommendedMoviesController {
     @GetMapping
     public MoviePageDto getUsersRecommendedMovies(@AuthenticationPrincipal Jwt jwt,
                                                   @RequestParam(required = false) Integer page,
-                                                  @RequestParam(required = false) Integer pageSize) {
-        return viewUsersRecommendedMovies.viewUsersRecommendedMovies(jwt, moviePaging.pageable(page, pageSize));
+                                                  @RequestParam(required = false) Integer pageSize,
+                                                  @RequestParam(required = false) String filter) {
+        return viewUsersRecommendedMovies.viewUsersRecommendedMovies(jwt, moviePaging.pageable(page, pageSize), filter);
     }
 }

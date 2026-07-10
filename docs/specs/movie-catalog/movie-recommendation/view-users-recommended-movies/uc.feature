@@ -57,3 +57,16 @@ Feature: view-users-recommended-movies
     Then users recommended movies contain 1 movies
     And users recommended movies total count is 4
     And users recommended movies contain movie "tt104"
+
+  Scenario: Users recommended movies can be filtered by movie metadata
+    Given movie "tt101" exists with title "Recommended Signal"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt201" exists with title "Pair One"
+    And movie "tt202" exists with title "Pair Two"
+    And user "user" has already ranked movies "tt201,tt202" from best to worst
+    And user "alice" has already ranked movies "tt101,tt102,tt201,tt202" from best to worst
+    When regular user "user" requests users recommended movies filtered by "recommended"
+    Then users recommended movies contain 1 movies
+    And users recommended movies total count is 1
+    And users recommended movies contain movie "tt101"
+    And users recommended movies do not contain "tt102"

@@ -64,6 +64,15 @@
             <dd>{{ movie.country || 'N/A' }}</dd>
           </div>
         </dl>
+        <button
+          type="button"
+          class="replay-button"
+          title="Replay movie challenges"
+          [disabled]="replaySaving || recommendationSaving"
+          (click)="replayMovie()">
+          <span class="material-icons" aria-hidden="true">replay</span>
+          {{ replaySaving ? 'Replaying' : 'Replay' }}
+        </button>
       </article>
 
       <div class="detail-main">
@@ -96,6 +105,83 @@
               <div class="empty">No comments yet</div>
             }
           </div>
+        </section>
+
+        <section class="rank-history-panel" aria-labelledby="rank-history-title">
+          <h2 id="rank-history-title">Rank History</h2>
+          @if (rankHistoryLoading) {
+            <div class="state">Loading rank history</div>
+          } @else if (rankHistoryErrorMessage) {
+            <div class="state error">{{ rankHistoryErrorMessage }}</div>
+          } @else if (rankHistory) {
+            <section class="rank-history-group" aria-labelledby="higher-ranks-title">
+              <h3 id="higher-ranks-title">Higher Ranks</h3>
+              @if (rankHistory.higherRanks.length > 0) {
+                <div class="rank-history-grid">
+                  @for (rankedMovie of rankHistory.higherRanks; track rankedMovie.imdbId) {
+                    <article class="rank-history-card">
+                      <a class="rank-poster-link" [routerLink]="['/movies', rankedMovie.imdbId]">
+                        <img [src]="poster(rankedMovie)" [alt]="rankedMovie.title + ' poster'" />
+                      </a>
+                      <a class="rank-movie-link" [routerLink]="['/movies', rankedMovie.imdbId]">
+                        <div class="rank-movie-title">{{ rankedMovie.title }}</div>
+                        <dl>
+                          <div>
+                            <dt>Year:</dt>
+                            <dd>{{ rankedMovie.year }}</dd>
+                          </div>
+                          <div>
+                            <dt>Director:</dt>
+                            <dd>{{ rankedMovie.director }}</dd>
+                          </div>
+                          <div>
+                            <dt>Your Rank:</dt>
+                            <dd>{{ rankLabel(rankedMovie) }}</dd>
+                          </div>
+                        </dl>
+                      </a>
+                    </article>
+                  }
+                </div>
+              } @else {
+                <div class="empty">No higher ranked movies yet</div>
+              }
+            </section>
+
+            <section class="rank-history-group" aria-labelledby="lower-ranks-title">
+              <h3 id="lower-ranks-title">Lower Ranks</h3>
+              @if (rankHistory.lowerRanks.length > 0) {
+                <div class="rank-history-grid">
+                  @for (rankedMovie of rankHistory.lowerRanks; track rankedMovie.imdbId) {
+                    <article class="rank-history-card">
+                      <a class="rank-poster-link" [routerLink]="['/movies', rankedMovie.imdbId]">
+                        <img [src]="poster(rankedMovie)" [alt]="rankedMovie.title + ' poster'" />
+                      </a>
+                      <a class="rank-movie-link" [routerLink]="['/movies', rankedMovie.imdbId]">
+                        <div class="rank-movie-title">{{ rankedMovie.title }}</div>
+                        <dl>
+                          <div>
+                            <dt>Year:</dt>
+                            <dd>{{ rankedMovie.year }}</dd>
+                          </div>
+                          <div>
+                            <dt>Director:</dt>
+                            <dd>{{ rankedMovie.director }}</dd>
+                          </div>
+                          <div>
+                            <dt>Your Rank:</dt>
+                            <dd>{{ rankLabel(rankedMovie) }}</dd>
+                          </div>
+                        </dl>
+                      </a>
+                    </article>
+                  }
+                </div>
+              } @else {
+                <div class="empty">No lower ranked movies yet</div>
+              }
+            </section>
+          }
         </section>
       </div>
     </div>

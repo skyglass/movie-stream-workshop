@@ -51,11 +51,16 @@ public class ShareMyFavoriteMoviesUseCase {
 
     @Transactional(readOnly = true)
     public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, Pageable pageable) {
+        return viewSharedFavoriteMovies(encodedUsername, pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, Pageable pageable, String filter) {
         String username = decodeUsername(encodedUsername);
         if (!userSettingsRepository.existsByUsernameAndMyFavoriteMoviesPublicTrue(username)) {
             throw new SharedFavoriteMoviesNotFoundException(encodedUsername);
         }
-        return viewFavoriteMovies.viewFavoriteMovies(username, pageable);
+        return viewFavoriteMovies.viewFavoriteMovies(username, pageable, filter);
     }
 
     private UserSettings getOrCreateSettings(String username) {

@@ -34,3 +34,13 @@ Feature: view-favorite-movies
     And favorite movies total count is 3
     And favorite movies contain movie "tt103"
     And movie "tt103" has rank 3 and rating "1.00" for "user"
+
+  Scenario: Favorite movies can be filtered by movie metadata
+    Given movie "tt101" exists with title "Matrix Signal", director "Lana Wachowski", writer "Lilly Wachowski", year "1999", genre "Action", country "US", and type "movie"
+    And movie "tt102" exists with title "Movie Two", director "Other Director", writer "Other Writer", year "2000", genre "Drama", country "US", and type "movie"
+    And user "user" has already ranked movies "tt101,tt102" from best to worst
+    When regular user "user" requests favorite movies filtered by "matrix"
+    Then favorite movies contain 1 movies
+    And favorite movies total count is 1
+    And favorite movies contain movie "tt101"
+    And favorite movies do not contain movie "tt102"

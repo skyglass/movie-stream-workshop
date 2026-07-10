@@ -4,17 +4,21 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import {
+  MovieChallengeSelection,
   MoviesApiService,
   OmdbMovieSearchCriteria,
   OmdbMovieSearchResult,
   OmdbSearchType,
-  RecommendMovieFromSearchRequest
+  RecommendMovieFromSearchRequest,
+  SuggestedMovieChallenge,
+  SuggestedMovieChallengeMovie
 } from '../../services/movies-api';
+import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 
 @Component({
   standalone: true,
   selector: 'app-movie-search',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, MoviePageNavigatorComponent],
   templateUrl: './movie-search.html',
   styleUrl: './movie-search.css'
 })
@@ -26,6 +30,9 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
   private searchSub?: Subscription;
   private selectionSub?: Subscription;
   private recommendSub?: Subscription;
+  private authSub?: Subscription;
+  private suggestedSub?: Subscription;
+  private suggestedSubmitSub?: Subscription;
 
   readonly searchTypes: { value: OmdbSearchType; label: string }[] = [
     { value: 'movie', label: 'Movie' },
@@ -49,10 +56,27 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
   successMessage = '';
   currentPage = 1;
   hasNext = false;
+  suggestedChallenges: SuggestedMovieChallenge[] = [];
+  suggestedLoading = false;
+  suggestedSaving = false;
+  suggestedErrorMessage = '';
+  suggestedCurrentPage = 1;
+  suggestedTotalCount = 0;
+  selectedSuggestedMovieIds: Record<string, string> = {};
+  visibleProbabilityHelpKey = '';
+  readonly suggestedPageSize = this.moviesApi.moviePageSize;
+  readonly probabilityHelpText = 'Win chance beased on previous comparisons';
   private lastSearchKey = '';
 
   ngOnInit(): void {
     this.valueSub = this.searchForm.valueChanges.subscribe(() => this.clearResults());
+    this.authSub = this.auth.isAuthenticated$.subscribe(authenticated => {
+      if (authenticated) {
+        this.loadSuggestedChallenges(1);
+      } else {
+        this.resetSuggestedChallenges();
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -60,6 +84,9 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
     this.searchSub?.unsubscribe();
     this.selectionSub?.unsubscribe();
     this.recommendSub?.unsubscribe();
+    this.authSub?.unsubscribe();
+    this.suggestedSub?.unsubscribe();
+    this.suggestedSubmitSub?.unsubscribe();
   }
 
   search(): void {
@@ -137,6 +164,7 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
         this.recommending = false;
         this.recommendationSaved = true;
         this.resetSearchWizard(`Movie "${title}" is recommended!`);
+        this.loadSuggestedChallenges(1);
       },
       error: err => {
         this.recommending = false;
@@ -145,12 +173,101 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
     });
   }
 
-  poster(movie: OmdbMovieSearchResult): string {
+  poster(movie: { poster: string }): string {
     return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';
   }
 
   searchDisabled(): boolean {
     return this.searchForm.invalid || this.loading;
+  }
+
+  loadSuggestedChallenges(page = this.suggestedCurrentPage): void {
+    if (!this.auth.token) return;
+
+    this.suggestedSub?.unsubscribe();
+    this.suggestedLoading = true;
+    this.suggestedErrorMessage = '';
+    this.visibleProbabilityHelpKey = '';
+    this.suggestedSub = this.moviesApi.listSuggestedMovieChallenges(page, this.suggestedPageSize).subscribe({
+      next: challengePage => {
+        this.suggestedChallenges = challengePage.challenges;
+        this.suggestedTotalCount = challengePage.totalCount;
+        this.suggestedCurrentPage = page;
+        this.selectedSuggestedMovieIds = {};
+        this.suggestedLoading = false;
+      },
+      error: err => {
+        this.suggestedChallenges = [];
+        this.suggestedTotalCount = 0;
+        this.suggestedErrorMessage = err?.error?.message ?? err?.message ?? 'Could not load suggested challenges';
+        this.selectedSuggestedMovieIds = {};
+        this.suggestedLoading = false;
+      }
+    });
+  }
+
+  selectSuggestedMovie(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): void {
+    if (this.suggestedSaving) return;
+
+    const key = this.challengeKey(challenge);
+    if (this.selectedSuggestedMovieIds[key] === movie.imdbId) {
+      delete this.selectedSuggestedMovieIds[key];
+    } else {
+      this.selectedSuggestedMovieIds[key] = movie.imdbId;
+    }
+    this.suggestedErrorMessage = '';
+  }
+
+  isSuggestedMovieSelected(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): boolean {
+    return this.selectedSuggestedMovieIds[this.challengeKey(challenge)] === movie.imdbId;
+  }
+
+  isSuggestedMovieLoser(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): boolean {
+    const selectedMovieId = this.selectedSuggestedMovieIds[this.challengeKey(challenge)];
+    return !!selectedMovieId && selectedMovieId !== movie.imdbId;
+  }
+
+  hasSuggestedSelections(): boolean {
+    return Object.keys(this.selectedSuggestedMovieIds).length > 0;
+  }
+
+  selectedSuggestedCount(): number {
+    return Object.keys(this.selectedSuggestedMovieIds).length;
+  }
+
+  submitSuggestedSelections(): void {
+    if (!this.hasSuggestedSelections() || this.suggestedSaving) return;
+
+    this.suggestedSaving = true;
+    this.suggestedErrorMessage = '';
+    this.suggestedSubmitSub?.unsubscribe();
+    this.suggestedSubmitSub = this.moviesApi.submitMovieChallengeSelections(this.selectedSuggestedRequests()).subscribe({
+      next: () => {
+        this.suggestedSaving = false;
+        this.selectedSuggestedMovieIds = {};
+        this.loadSuggestedChallenges(this.suggestedCurrentPage);
+      },
+      error: err => {
+        this.suggestedSaving = false;
+        this.suggestedErrorMessage = err?.error?.message ?? err?.message ?? 'Could not submit suggested challenges';
+      }
+    });
+  }
+
+  discardSuggestedSelections(): void {
+    if (this.suggestedSaving) return;
+
+    this.selectedSuggestedMovieIds = {};
+    this.loadSuggestedChallenges(this.suggestedCurrentPage);
+  }
+
+  toggleProbabilityHelp(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): void {
+    const key = `${this.challengeKey(challenge)}:${movie.imdbId}`;
+    this.visibleProbabilityHelpKey = this.visibleProbabilityHelpKey === key ? '' : key;
+  }
+
+  probabilityHelpVisible(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): boolean {
+    return this.visibleProbabilityHelpKey === `${this.challengeKey(challenge)}:${movie.imdbId}`;
   }
 
   private runSearch(criteria: OmdbMovieSearchCriteria, page: number): void {
@@ -255,5 +372,32 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
       type: 'movie',
       exactTitleMatch: false
     }, { emitEvent: false });
+  }
+
+  private selectedSuggestedRequests(): MovieChallengeSelection[] {
+    return this.suggestedChallenges
+      .map(challenge => ({
+        movie1Id: challenge.movie1.imdbId,
+        movie2Id: challenge.movie2.imdbId,
+        selectedMovieId: this.selectedSuggestedMovieIds[this.challengeKey(challenge)]
+      }))
+      .filter(selection => !!selection.selectedMovieId);
+  }
+
+  private challengeKey(challenge: SuggestedMovieChallenge): string {
+    return `${challenge.movie1.imdbId}:${challenge.movie2.imdbId}`;
+  }
+
+  private resetSuggestedChallenges(): void {
+    this.suggestedSub?.unsubscribe();
+    this.suggestedSubmitSub?.unsubscribe();
+    this.suggestedChallenges = [];
+    this.suggestedLoading = false;
+    this.suggestedSaving = false;
+    this.suggestedErrorMessage = '';
+    this.suggestedCurrentPage = 1;
+    this.suggestedTotalCount = 0;
+    this.selectedSuggestedMovieIds = {};
+    this.visibleProbabilityHelpKey = '';
   }
 }

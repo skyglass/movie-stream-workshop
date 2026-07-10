@@ -25,6 +25,11 @@ public class ViewFavoriteMoviesAcceptanceTest {
         fixture.moviePage(viewFavoriteMovies.viewFavoriteMovies(username, fixture.moviePage(page, pageSize)));
     }
 
+    @When("regular user {string} requests favorite movies filtered by {string}")
+    public void regularUserRequestsFavoriteMoviesFilteredBy(String username, String filter) {
+        fixture.moviePage(viewFavoriteMovies.viewFavoriteMovies(username, fixture.firstMoviePage(), filter));
+    }
+
     @Then("favorite movies show {string} before {string}")
     public void favoriteMoviesShowBefore(String firstImdbId, String secondImdbId) {
         fixture.assertMovieListOrdersImdbIdBefore(firstImdbId, secondImdbId);
@@ -43,5 +48,10 @@ public class ViewFavoriteMoviesAcceptanceTest {
     @Then("favorite movies contain movie {string}")
     public void favoriteMoviesContainMovie(String imdbId) {
         fixture.assertMovieListContainsImdbId(imdbId);
+    }
+
+    @Then("favorite movies do not contain movie {string}")
+    public void favoriteMoviesDoNotContainMovie(String imdbId) {
+        fixture.assertMovieListDoesNotContainImdbId(imdbId);
     }
 }

@@ -4,6 +4,7 @@ import skycomposer.moviechallenge.api.movie.MovieChallengeRepository;
 import skycomposer.moviechallenge.api.movie.MovieService;
 import skycomposer.moviechallenge.api.movie.MovieRecommendationService;
 import skycomposer.moviechallenge.api.movie.dto.MovieDto;
+import skycomposer.moviechallenge.api.movie.dto.MovieRankHistoryDto;
 import skycomposer.moviechallenge.api.movie.mapper.MovieDtoMapper;
 import skycomposer.moviechallenge.api.movie.model.Movie;
 import lombok.RequiredArgsConstructor;
@@ -32,5 +33,11 @@ public class ViewMovieDetailsUseCase {
                 movieRecommendationService.isRecommended(username, imdbId),
                 movieRecommendationService.isDisliked(username, imdbId),
                 movieChallengeRepository.movieRating(username, imdbId).orElse(null));
+    }
+
+    @Transactional(readOnly = true)
+    public MovieRankHistoryDto viewRankHistory(String imdbId, String username) {
+        movieService.validateAndGetMovie(imdbId);
+        return movieChallengeRepository.findRankHistory(username, imdbId);
     }
 }

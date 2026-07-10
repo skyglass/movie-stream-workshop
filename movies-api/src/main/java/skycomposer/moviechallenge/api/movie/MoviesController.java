@@ -12,6 +12,7 @@ import skycomposer.moviechallenge.api.movie.application.service.ViewMovieDetails
 import skycomposer.moviechallenge.api.movie.dto.CreateMovieRequest;
 import skycomposer.moviechallenge.api.movie.dto.MovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
+import skycomposer.moviechallenge.api.movie.dto.MovieRankHistoryDto;
 import skycomposer.moviechallenge.api.movie.dto.RecommendMovieRequest;
 import skycomposer.moviechallenge.api.userextra.dto.UpdateMovieRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -52,16 +53,25 @@ public class MoviesController {
     @GetMapping
     public MoviePageDto getMovies(@AuthenticationPrincipal Jwt jwt,
                                   @RequestParam(required = false) Integer page,
-                                  @RequestParam(required = false) Integer pageSize) {
+                                  @RequestParam(required = false) Integer pageSize,
+                                  @RequestParam(required = false) String filter) {
         String username = username(jwt);
         var pageable = moviePaging.pageable(page, pageSize);
-        return username == null ? viewMovieCatalog.viewCatalog(pageable) : viewMovieCatalog.viewCatalog(username, pageable);
+        return username == null
+                ? viewMovieCatalog.viewCatalog(pageable, filter)
+                : viewMovieCatalog.viewCatalog(username, pageable, filter);
     }
 
     @GetMapping("/{imdbId}")
     public MovieDto getMovie(@PathVariable String imdbId, @AuthenticationPrincipal Jwt jwt) {
         String username = username(jwt);
         return username == null ? viewMovieDetails.viewMovie(imdbId) : viewMovieDetails.viewMovie(imdbId, username);
+    }
+
+    @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
+    @GetMapping("/{imdbId}/rank-history")
+    public MovieRankHistoryDto getMovieRankHistory(@PathVariable String imdbId, @AuthenticationPrincipal Jwt jwt) {
+        return viewMovieDetails.viewRankHistory(imdbId, username(jwt));
     }
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
@@ -109,6 +119,12 @@ public class MoviesController {
     @DeleteMapping("/{imdbId}/recommendation")
     public MovieDto unrecommendMovie(@PathVariable String imdbId, @AuthenticationPrincipal Jwt jwt) {
         return recommendMovie.unrecommendMovie(jwt, imdbId);
+    }
+
+    @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
+    @PostMapping("/{imdbId}/recommendation/replay")
+    public MovieDto replayMovie(@PathVariable String imdbId, @AuthenticationPrincipal Jwt jwt) {
+        return recommendMovie.replayMovie(jwt, imdbId);
     }
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})

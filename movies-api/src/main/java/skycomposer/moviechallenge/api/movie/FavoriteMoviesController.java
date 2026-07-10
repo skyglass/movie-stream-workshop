@@ -31,8 +31,9 @@ public class FavoriteMoviesController {
     @GetMapping
     public MoviePageDto getFavoriteMovies(@AuthenticationPrincipal Jwt jwt,
                                           @RequestParam(required = false) Integer page,
-                                          @RequestParam(required = false) Integer pageSize) {
-        return viewFavoriteMovies.viewFavoriteMovies(jwt, moviePaging.pageable(page, pageSize));
+                                          @RequestParam(required = false) Integer pageSize,
+                                          @RequestParam(required = false) String filter) {
+        return viewFavoriteMovies.viewFavoriteMovies(jwt, moviePaging.pageable(page, pageSize), filter);
     }
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})

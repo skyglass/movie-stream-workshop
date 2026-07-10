@@ -172,6 +172,8 @@ Read model used by `view-movie-details`.
 | disliked | Whether the selected movie is disliked by the current user | Boolean | False for anonymous viewers |
 | your_rank | Current authenticated user's rank for the movie, shown separately on details | Integer / null | Null when the movie has no rank for the viewer; UI renders `-` |
 | your_rating | Current authenticated user's 1-10 rating for the movie, shown as `Your Rating` | Decimal / null | Null when the movie has no rating for the viewer; UI renders `-` |
+| higher_rank_history | Direct challenge winners over the selected movie | List<MOVIE + USER_MOVIE_RATING> | Source is `USER_MOVIE_CHALLENGE_VOTE.loser_id = movie`; sorted by `rank_position` ascending |
+| lower_rank_history | Direct challenge losers against the selected movie | List<MOVIE + USER_MOVIE_RATING> | Source is `USER_MOVIE_CHALLENGE_VOTE.winner_id = movie`; sorted by `rank_position` ascending |
 
 ### MOVIE_CHALLENGE
 
@@ -183,6 +185,10 @@ Read model used by `movie-challenge`.
 | movie2 | Second recommended movie in the challenge pair | MOVIE metadata | Different from movie1 |
 | direct_vote | Actual selected winner-loser relationship | USER_MOVIE_CHALLENGE_VOTE | Written when the user chooses a winner |
 | rank | Current rank projection | USER_MOVIE_RANK | Used for first-movie direct-comparison priority, comparison balance, comparison step, and rank distance |
+
+`recommend-movie` can also remove `USER_MOVIE_CHALLENGE_VOTE` rows for one movie when the user unrecommends or replays
+that movie. After removal, `USER_MOVIE_CHALLENGE` counts and `USER_MOVIE_RANK` are rebuilt from the remaining direct
+votes for that user.
 
 ### FAVORITE_MOVIES
 

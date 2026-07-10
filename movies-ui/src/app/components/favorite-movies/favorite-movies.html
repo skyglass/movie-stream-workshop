@@ -1,36 +1,104 @@
 <section class="movie-page">
-  <header class="favorite-header">
-    <div>
-      <h1>{{ isPublicView ? publicUsername + "'s Favorite Movies" : 'My Favorite Movies' }}</h1>
-    </div>
-
-    @if (!isPublicView && auth.token) {
-      <div class="share-panel" aria-label="Favorite movies sharing">
-        @if (share?.myFavoriteMoviesPublic) {
-          <button type="button" class="make-private-link" [disabled]="shareLoading" (click)="makeFavoriteMoviesPrivate()">
-            Make Private
-          </button>
-        } @else {
-          <button type="button" class="share-button" [disabled]="shareLoading" (click)="shareFavoriteMovies()">
-            Share
-          </button>
-        }
-
-        @if (shareUrl) {
-          <div class="share-link-row">
-            <input type="text" [value]="shareUrl" readonly aria-label="Public favorite movies link" />
-            <button type="button" class="copy-button" (click)="copyShareUrl()">
-              {{ copiedShareUrl ? 'Copied' : 'Copy' }}
-            </button>
+  @if (isPublicView) {
+    <section class="intro-section" aria-labelledby="public-favorites-title">
+      <div class="intro-copy">
+        <p class="eyebrow">Shared favorites</p>
+        <h1 id="public-favorites-title">{{ publicUsername }}'s Favorite Movies</h1>
+        @if (!auth.token) {
+          <div class="intro-actions">
+            <button type="button" class="primary-action" (click)="auth.register()">Create account</button>
           </div>
         }
-
-        @if (shareErrorMessage) {
-          <div class="share-error">{{ shareErrorMessage }}</div>
-        }
       </div>
-    }
-  </header>
+
+      <div class="intro-highlights" aria-label="Movie Challenge features">
+        <article>
+          <span class="material-icons" aria-hidden="true">collections_bookmark</span>
+          <h2>Movie Search</h2>
+          <p>Find films by title, year and type.</p>
+        </article>
+        <article>
+          <span class="material-icons" aria-hidden="true">movie</span>
+          <h2>Movie Challenge</h2>
+          <p>Compare movies in 1-1 challenges to rank them from highest to lowest.</p>
+        </article>
+        <article>
+          <span class="material-icons" aria-hidden="true">favorite</span>
+          <h2>Favorite movies</h2>
+          <p>Build a personal favorite movies list based on the Movie Challenge votes.</p>
+        </article>
+        <article>
+          <span class="material-icons" aria-hidden="true">recommend</span>
+          <h2>Community recommendations</h2>
+          <p>Discover movies recommended by people who vote like you.</p>
+        </article>
+      </div>
+    </section>
+  } @else {
+    <header class="favorite-header">
+      <div>
+        <h1>My Favorite Movies</h1>
+      </div>
+
+      @if (auth.token) {
+        <div class="favorite-tools">
+          <div class="filter-row favorite-filter">
+            <label class="filter-control">
+              <span>Filter</span>
+              <input
+                type="text"
+                [value]="filterText"
+                (input)="onFilterInput($event)"
+                aria-label="Filter favorite movies" />
+            </label>
+            @if (filterText) {
+              <button type="button" class="clear-filter-button" (click)="clearFilter()">Clear</button>
+            }
+          </div>
+
+          <div class="share-panel" aria-label="Favorite movies sharing">
+            @if (share?.myFavoriteMoviesPublic && !shareDetailsVisible) {
+              <button type="button" class="share-button" [disabled]="shareLoading" (click)="shareFavoriteMovies()">
+                Share
+              </button>
+            }
+
+            @if (shareDetailsVisible && shareUrl) {
+              <div class="share-link-row">
+                <input type="text" [value]="shareUrl" readonly aria-label="Public favorite movies link" />
+                <button type="button" class="copy-button" (click)="copyShareUrl()">
+                  {{ copiedShareUrl ? 'Copied' : 'Copy' }}
+                </button>
+                <button type="button" class="close-share-button" (click)="closeShareDetails()">
+                  Close
+                </button>
+              </div>
+            }
+
+            @if (shareErrorMessage) {
+              <div class="share-error">{{ shareErrorMessage }}</div>
+            }
+          </div>
+        </div>
+      }
+    </header>
+  }
+
+  @if (isPublicView) {
+    <div class="filter-row">
+      <label class="filter-control">
+        <span>Filter</span>
+        <input
+          type="text"
+          [value]="filterText"
+          (input)="onFilterInput($event)"
+          aria-label="Filter shared favorite movies" />
+      </label>
+      @if (filterText) {
+        <button type="button" class="clear-filter-button" (click)="clearFilter()">Clear</button>
+      }
+    </div>
+  }
 
   @if (!isPublicView && !auth.token) {
     <div class="empty">Sign in to see favorite movies</div>
@@ -51,10 +119,12 @@
               <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
             </a>
           }
-          <div class="recommend-button recommended">
-            <span class="material-icons" aria-hidden="true">workspace_premium</span>
-            Favorite
-          </div>
+          @if (!isPublicView) {
+            <div class="recommend-button recommended">
+              <span class="material-icons" aria-hidden="true">workspace_premium</span>
+              Favorite
+            </div>
+          }
           @if (isPublicView) {
             <div class="movie-link linkless">
               <div class="movie-title">{{ movie.title }}</div>
@@ -70,10 +140,6 @@
                 <div>
                   <dt>Genre:</dt>
                   <dd>{{ movie.genre || 'N/A' }}</dd>
-                </div>
-                <div>
-                  <dt>Your Rating:</dt>
-                  <dd>{{ movie.rating != null && movie.rankPosition != null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-' }}</dd>
                 </div>
               </dl>
             </div>

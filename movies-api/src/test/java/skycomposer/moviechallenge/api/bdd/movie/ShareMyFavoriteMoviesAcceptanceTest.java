@@ -59,6 +59,18 @@ public class ShareMyFavoriteMoviesAcceptanceTest {
         }
     }
 
+    @When("anonymous viewer requests shared favorite movies for encoded username {string} filtered by {string}")
+    public void anonymousViewerRequestsSharedFavoriteMoviesForEncodedUsernameFilteredBy(String encodedUsername,
+                                                                                       String filter) throws Exception {
+        var result = mockMvc.perform(get(URI.create("/api/my-favorite-movies/" + encodedUsername))
+                        .param("filter", filter))
+                .andReturn();
+        fixture.lastResponse(result);
+        if (result.getResponse().getStatus() < 400) {
+            fixture.moviePage(objectMapper.readValue(result.getResponse().getContentAsString(), MoviePageDto.class));
+        }
+    }
+
     @Then("favorite movies sharing for {string} is public")
     public void favoriteMoviesSharingForIsPublic(String username) {
         fixture.assertMyFavoriteMoviesPublic(username, true);

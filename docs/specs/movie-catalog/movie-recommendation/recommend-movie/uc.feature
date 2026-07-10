@@ -26,6 +26,38 @@ Feature: recommend-movie
     Then movie "tt0083658" is not recommended by "user"
     And the recommendation response marks movie "tt0083658" as not recommended
 
+  Scenario: Unrecommend removes the movie from challenge history and rebuilds ranks
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt101" has already beaten movie "tt102" for "user"
+    And movie "tt101" has already beaten movie "tt103" for "user"
+    And movie "tt102" has already beaten movie "tt103" for "user"
+    When regular user "user" unrecommends movie "tt102"
+    Then movie "tt102" is not recommended by "user"
+    And movie "tt102" has no direct challenge votes for "user"
+    And movie "tt102" has no rank and rating for "user"
+    And movie "tt102" has no challenge count for "user"
+    And movie "tt101" has rank 1 and rating "10.00" for "user"
+    And movie "tt103" has rank 2 and rating "1.00" for "user"
+    And movie "tt101" is recorded as winner over "tt103" for "user"
+
+  Scenario: Replay clears the movie challenge history and recommends the movie again
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt101" has already beaten movie "tt102" for "user"
+    And movie "tt102" has already beaten movie "tt103" for "user"
+    When regular user "user" replays movie "tt102" through the movie API
+    Then the movie API response status is 200
+    And movie "tt102" is recommended by "user"
+    And the recommendation response marks movie "tt102" as recommended
+    And movie "tt102" has no direct challenge votes for "user"
+    And movie "tt102" has no rank and rating for "user"
+    And movie "tt102" has no challenge count for "user"
+    When regular user "user" requests the next movie challenge
+    Then the movie challenge contains movies "tt101" and "tt102"
+
   Scenario: Regular user can dislike a users recommended movie
     Given movie "tt0083658" exists with title "Blade Runner"
     When regular user "user" dislikes movie "tt0083658"

@@ -3,9 +3,16 @@ package skycomposer.moviechallenge.api.movie;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto.MovieChallengeMovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieRatingDto;
+import skycomposer.moviechallenge.api.movie.dto.MovieRankHistoryDto;
+import skycomposer.moviechallenge.api.movie.dto.MovieRankHistoryDto.RankHistoryMovieDto;
+import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengeDto;
+import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengeDto.SuggestedMovieChallengeMovieDto;
+import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengePageDto;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -15,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -26,7 +34,6 @@ public class MovieChallengeRepository {
     private static final int CLOSE_RANK_WINDOW_MINIMUM = 3;
     private static final int CLOSE_RANK_WINDOW_RECOMMENDATION_DIVISOR = 33;
     private static final double CLOSE_SCORE_DISTANCE = 1.0;
-    private static final double DEFAULT_BRADLEY_TERRY_SIGMA = 2.0;
     private static final double MINIMAL_REFINEMENT_PAIR_INFORMATION = 0.30;
     private static final int BRADLEY_TERRY_ITERATIONS = 50;
     private static final double BRADLEY_TERRY_PRIOR_PRECISION = 1.0;
@@ -40,170 +47,381 @@ public class MovieChallengeRepository {
         return explorationChallenge.or(() -> findRefinementChallenge(username));
     }
 
-    private Optional<MovieChallengeDto> findExplorationChallenge(String username) {
+    public SuggestedMovieChallengePageDto findSuggestedChallenges(String username, Pageable pageable) {
+        Map<String, Object> explorationParams = explorationParams(username);
+        long explorationCount = countChallenges(explorationChallengeBaseSql(), explorationParams);
+        if (explorationCount > 0) {
+            return querySuggestedChallenges(
+                    pagedSql(explorationChallengeBaseSql(), explorationChallengeOrderSql()),
+                    pageParams(explorationParams, pageable),
+                    explorationCount);
+        }
+
+        Map<String, Object> refinementParams = refinementParams(username);
+        long refinementCount = countChallenges(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST), refinementParams);
+        return querySuggestedChallenges(
+                pagedSql(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST), refinementChallengeOrderSql()),
+                pageParams(refinementParams, pageable),
+                refinementCount);
+    }
+
+    public MovieRankHistoryDto findRankHistory(String username, String movieId) {
+        return new MovieRankHistoryDto(
+                rankHistoryMovies(username, movieId, "loser_id", "winner_id"),
+                rankHistoryMovies(username, movieId, "winner_id", "loser_id"));
+    }
+
+    private List<RankHistoryMovieDto> rankHistoryMovies(String username,
+                                                        String movieId,
+                                                        String currentMovieColumn,
+                                                        String historyMovieColumn) {
         String sql = """
+                select history_movie.imdb_id,
+                    history_movie.title,
+                    history_movie.poster,
+                    history_movie.release_year,
+                    history_movie.director,
+                    rating.rank_position,
+                    rating.rating
+                from user_movie_challenge_vote vote
+                join movies history_movie
+                    on history_movie.imdb_id = vote.%s
+                join user_movie_rating rating
+                    on rating.user_id = vote.user_id
+                    and rating.movie_id = history_movie.imdb_id
+                where vote.user_id = :username
+                    and vote.%s = :movieId
+                order by rating.rank_position asc,
+                    lower(history_movie.title) asc,
+                    history_movie.imdb_id asc
+                """.formatted(historyMovieColumn, currentMovieColumn);
+        return jdbcTemplate.query(sql, Map.of("username", username, "movieId", movieId), (rs, rowNum) ->
+                new RankHistoryMovieDto(
+                        rs.getString("imdb_id"),
+                        rs.getString("title"),
+                        rs.getString("poster"),
+                        rs.getString("release_year"),
+                        rs.getString("director"),
+                        nullableInteger(rs, "rank_position"),
+                        rs.getBigDecimal("rating")));
+    }
+
+    private Optional<MovieChallengeDto> findExplorationChallenge(String username) {
+        return queryChallenge(
+                singleSql(explorationChallengeBaseSql(), explorationChallengeOrderSql()),
+                explorationParams(username));
+    }
+
+    private String explorationChallengeBaseSql() {
+        return """
+                with recommended_movie as (
+                    select recommendation.user_id,
+                        recommendation.movie_id,
+                        coalesce(movie_rank.direct_comparisons, 0) as direct_comparisons,
+                        coalesce(movie_rank.rank_position, 0) as sort_rank_position,
+                        movie_rank.rank_position,
+                        movie_rank.mu
+                    from movie_recommendations recommendation
+                    left join user_movie_rank movie_rank
+                        on movie_rank.user_id = recommendation.user_id
+                        and movie_rank.movie_id = recommendation.movie_id
+                    where recommendation.user_id = :username
+                        and recommendation.positive = true
+                ),
+                selected_pair as (
+                    select candidate_movie.user_id,
+                        case
+                            when candidate_movie.direct_comparisons
+                                < partner_movie.direct_comparisons then candidate_movie.movie_id
+                            when partner_movie.direct_comparisons
+                                < candidate_movie.direct_comparisons then partner_movie.movie_id
+                            when candidate_movie.sort_rank_position
+                                <= partner_movie.sort_rank_position then candidate_movie.movie_id
+                            else partner_movie.movie_id
+                        end as movie1_id,
+                        case
+                            when candidate_movie.direct_comparisons
+                                < partner_movie.direct_comparisons then partner_movie.movie_id
+                            when partner_movie.direct_comparisons
+                                < candidate_movie.direct_comparisons then candidate_movie.movie_id
+                            when candidate_movie.sort_rank_position
+                                <= partner_movie.sort_rank_position then partner_movie.movie_id
+                            else candidate_movie.movie_id
+                        end as movie2_id,
+                        case
+                            when candidate_movie.direct_comparisons
+                                < partner_movie.direct_comparisons then candidate_movie.rank_position
+                            when partner_movie.direct_comparisons
+                                < candidate_movie.direct_comparisons then partner_movie.rank_position
+                            when candidate_movie.sort_rank_position
+                                <= partner_movie.sort_rank_position then candidate_movie.rank_position
+                            else partner_movie.rank_position
+                        end as movie1_rank_position,
+                        case
+                            when candidate_movie.direct_comparisons
+                                < partner_movie.direct_comparisons then partner_movie.rank_position
+                            when partner_movie.direct_comparisons
+                                < candidate_movie.direct_comparisons then candidate_movie.rank_position
+                            when candidate_movie.sort_rank_position
+                                <= partner_movie.sort_rank_position then partner_movie.rank_position
+                            else candidate_movie.rank_position
+                        end as movie2_rank_position,
+                        case
+                            when candidate_movie.direct_comparisons
+                                < partner_movie.direct_comparisons then candidate_movie.mu
+                            when partner_movie.direct_comparisons
+                                < candidate_movie.direct_comparisons then partner_movie.mu
+                            when candidate_movie.sort_rank_position
+                                <= partner_movie.sort_rank_position then candidate_movie.mu
+                            else partner_movie.mu
+                        end as movie1_mu,
+                        case
+                            when candidate_movie.direct_comparisons
+                                < partner_movie.direct_comparisons then partner_movie.mu
+                            when partner_movie.direct_comparisons
+                                < candidate_movie.direct_comparisons then candidate_movie.mu
+                            when candidate_movie.sort_rank_position
+                                <= partner_movie.sort_rank_position then partner_movie.mu
+                            else candidate_movie.mu
+                        end as movie2_mu,
+                        least(candidate_movie.direct_comparisons, partner_movie.direct_comparisons)
+                            as lower_direct_comparisons,
+                        greatest(candidate_movie.direct_comparisons, partner_movie.direct_comparisons)
+                            as higher_direct_comparisons,
+                        abs(candidate_movie.sort_rank_position - partner_movie.sort_rank_position) as rank_distance
+                    from recommended_movie candidate_movie
+                    join recommended_movie partner_movie
+                        on partner_movie.user_id = candidate_movie.user_id
+                        and partner_movie.movie_id <> candidate_movie.movie_id
+                    where candidate_movie.direct_comparisons < :explorationDirectComparisons
+                        and (
+                            candidate_movie.movie_id < partner_movie.movie_id
+                            or partner_movie.direct_comparisons >= :explorationDirectComparisons
+                        )
+                        and not exists (
+                            select 1
+                            from user_movie_challenge_vote vote
+                            where vote.user_id = candidate_movie.user_id
+                                and vote.winner_id = candidate_movie.movie_id
+                                and vote.loser_id = partner_movie.movie_id
+                        )
+                        and not exists (
+                            select 1
+                            from user_movie_challenge_vote vote
+                            where vote.user_id = candidate_movie.user_id
+                                and vote.winner_id = partner_movie.movie_id
+                                and vote.loser_id = candidate_movie.movie_id
+                        )
+                )
                 select selected_pair.user_id,
                     selected_pair.movie1_id,
                     movie1.title as movie1_title,
                     movie1.poster as movie1_poster,
+                    movie1.release_year as movie1_year,
+                    movie1.director as movie1_director,
+                    selected_pair.movie1_rank_position,
+                    selected_pair.movie1_mu,
                     selected_pair.movie2_id,
                     movie2.title as movie2_title,
-                    movie2.poster as movie2_poster
-                from (
-                    select first_movie.user_id,
-                        case
-                            when coalesce(first_rank.direct_comparisons, 0)
-                                < coalesce(second_rank.direct_comparisons, 0) then first_movie.movie_id
-                            when coalesce(second_rank.direct_comparisons, 0)
-                                < coalesce(first_rank.direct_comparisons, 0) then second_movie.movie_id
-                            when coalesce(first_rank.rank_position, 0)
-                                <= coalesce(second_rank.rank_position, 0) then first_movie.movie_id
-                            else second_movie.movie_id
-                        end as movie1_id,
-                        case
-                            when coalesce(first_rank.direct_comparisons, 0)
-                                < coalesce(second_rank.direct_comparisons, 0) then second_movie.movie_id
-                            when coalesce(second_rank.direct_comparisons, 0)
-                                < coalesce(first_rank.direct_comparisons, 0) then first_movie.movie_id
-                            when coalesce(first_rank.rank_position, 0)
-                                <= coalesce(second_rank.rank_position, 0) then second_movie.movie_id
-                            else first_movie.movie_id
-                        end as movie2_id,
-                        least(coalesce(first_rank.direct_comparisons, 0),
-                            coalesce(second_rank.direct_comparisons, 0)) as lower_direct_comparisons,
-                        greatest(coalesce(first_rank.direct_comparisons, 0),
-                            coalesce(second_rank.direct_comparisons, 0)) as higher_direct_comparisons,
-                        abs(coalesce(first_rank.rank_position, 0) - coalesce(second_rank.rank_position, 0)) as rank_distance
-                    from movie_recommendations first_movie
-                    join movie_recommendations second_movie
-                        on second_movie.user_id = first_movie.user_id
-                        and second_movie.movie_id > first_movie.movie_id
-                        and second_movie.positive = true
-                    left join user_movie_rank first_rank
-                        on first_rank.user_id = first_movie.user_id
-                        and first_rank.movie_id = first_movie.movie_id
-                    left join user_movie_rank second_rank
-                        on second_rank.user_id = second_movie.user_id
-                        and second_rank.movie_id = second_movie.movie_id
-                    left join user_movie_challenge_vote direct_vote
-                        on direct_vote.user_id = first_movie.user_id
-                        and direct_vote.winner_id = first_movie.movie_id
-                        and direct_vote.loser_id = second_movie.movie_id
-                    left join user_movie_challenge_vote reverse_vote
-                        on reverse_vote.user_id = first_movie.user_id
-                        and reverse_vote.winner_id = second_movie.movie_id
-                        and reverse_vote.loser_id = first_movie.movie_id
-                    where first_movie.user_id = :username
-                        and first_movie.positive = true
-                        and direct_vote.user_id is null
-                        and reverse_vote.user_id is null
-                ) selected_pair
+                    movie2.poster as movie2_poster,
+                    movie2.release_year as movie2_year,
+                    movie2.director as movie2_director,
+                    selected_pair.movie2_rank_position,
+                    selected_pair.movie2_mu,
+                    selected_pair.lower_direct_comparisons,
+                    selected_pair.higher_direct_comparisons,
+                    selected_pair.rank_distance
+                from selected_pair
                 join movies movie1
                     on movie1.imdb_id = selected_pair.movie1_id
                 join movies movie2
                     on movie2.imdb_id = selected_pair.movie2_id
                 where selected_pair.lower_direct_comparisons < :explorationDirectComparisons
-                    order by lower_direct_comparisons,
-                        rank_distance,
-                        higher_direct_comparisons,
-                        movie1_id,
-                        movie2_id
-                    limit 1
                 """;
-        return queryChallenge(sql, Map.of(
+    }
+
+    private String explorationChallengeOrderSql() {
+        return """
+                order by lower_direct_comparisons,
+                    rank_distance,
+                    higher_direct_comparisons,
+                    movie1_id,
+                    movie2_id
+                """;
+    }
+
+    private Map<String, Object> explorationParams(String username) {
+        return Map.of(
                 "username", username,
-                "explorationDirectComparisons", EXPLORATION_DIRECT_COMPARISONS));
+                "explorationDirectComparisons", EXPLORATION_DIRECT_COMPARISONS);
     }
 
     private Optional<MovieChallengeDto> findRefinementChallenge(String username) {
-        String sql = """
+        return queryChallenge(
+                singleSql(refinementChallengeBaseSql(ChallengeFilterMode.NEXT_CHALLENGE), refinementChallengeOrderSql()),
+                refinementParams(username));
+    }
+
+    private String refinementChallengeBaseSql(ChallengeFilterMode filterMode) {
+        String closeRankJoinFilter = filterMode.applyRefinementStopFilters()
+                ? "and second_rank.rank_position <= first_rank.rank_position + :closeRankWindow"
+                : "";
+        String stopFilters = filterMode.applyRefinementStopFilters()
+                ? """
+                    and selected_pair.rank_distance <= :closeRankWindow
+                    and selected_pair.score_distance <= :closeScoreDistance
+                    and selected_pair.pair_information >= :minimalRefinementPairInformation
+                """
+                : "";
+        return """
+                with ranked_recommendation as (
+                    select movie_rank.user_id,
+                        movie_rank.movie_id,
+                        movie_rank.rank_position,
+                        movie_rank.score,
+                        movie_rank.direct_comparisons,
+                        movie_rank.mu,
+                        movie_rank.sigma
+                    from user_movie_rank movie_rank
+                    join movie_recommendations recommendation
+                        on recommendation.user_id = movie_rank.user_id
+                        and recommendation.movie_id = movie_rank.movie_id
+                        and recommendation.positive = true
+                    where movie_rank.user_id = :username
+                ),
+                selected_pair as (
+                    select first_rank.user_id,
+                        case
+                            when first_rank.direct_comparisons
+                                < second_rank.direct_comparisons then first_rank.movie_id
+                            when second_rank.direct_comparisons
+                                < first_rank.direct_comparisons then second_rank.movie_id
+                            when first_rank.rank_position
+                                <= second_rank.rank_position then first_rank.movie_id
+                            else second_rank.movie_id
+                        end as movie1_id,
+                        case
+                            when first_rank.direct_comparisons
+                                < second_rank.direct_comparisons then second_rank.movie_id
+                            when second_rank.direct_comparisons
+                                < first_rank.direct_comparisons then first_rank.movie_id
+                            when first_rank.rank_position
+                                <= second_rank.rank_position then second_rank.movie_id
+                            else first_rank.movie_id
+                        end as movie2_id,
+                        case
+                            when first_rank.direct_comparisons
+                                < second_rank.direct_comparisons then first_rank.rank_position
+                            when second_rank.direct_comparisons
+                                < first_rank.direct_comparisons then second_rank.rank_position
+                            when first_rank.rank_position
+                                <= second_rank.rank_position then first_rank.rank_position
+                            else second_rank.rank_position
+                        end as movie1_rank_position,
+                        case
+                            when first_rank.direct_comparisons
+                                < second_rank.direct_comparisons then second_rank.rank_position
+                            when second_rank.direct_comparisons
+                                < first_rank.direct_comparisons then first_rank.rank_position
+                            when first_rank.rank_position
+                                <= second_rank.rank_position then second_rank.rank_position
+                            else first_rank.rank_position
+                        end as movie2_rank_position,
+                        case
+                            when first_rank.direct_comparisons
+                                < second_rank.direct_comparisons then first_rank.mu
+                            when second_rank.direct_comparisons
+                                < first_rank.direct_comparisons then second_rank.mu
+                            when first_rank.rank_position
+                                <= second_rank.rank_position then first_rank.mu
+                            else second_rank.mu
+                        end as movie1_mu,
+                        case
+                            when first_rank.direct_comparisons
+                                < second_rank.direct_comparisons then second_rank.mu
+                            when second_rank.direct_comparisons
+                                < first_rank.direct_comparisons then first_rank.mu
+                            when first_rank.rank_position
+                                <= second_rank.rank_position then second_rank.mu
+                            else first_rank.mu
+                        end as movie2_mu,
+                        least(first_rank.direct_comparisons, second_rank.direct_comparisons)
+                            as lower_direct_comparisons,
+                        greatest(first_rank.direct_comparisons, second_rank.direct_comparisons)
+                            as higher_direct_comparisons,
+                        second_rank.rank_position - first_rank.rank_position as rank_distance,
+                        abs(first_rank.score - second_rank.score) as score_distance,
+                        (first_rank.sigma + second_rank.sigma)
+                            / (cast(4 as numeric(12, 6))
+                                + abs(first_rank.mu - second_rank.mu)) as pair_information
+                    from ranked_recommendation first_rank
+                    join ranked_recommendation second_rank
+                        on second_rank.user_id = first_rank.user_id
+                        and second_rank.rank_position > first_rank.rank_position
+                        %s
+                    where not exists (
+                            select 1
+                            from user_movie_challenge_vote vote
+                            where vote.user_id = first_rank.user_id
+                                and vote.winner_id = first_rank.movie_id
+                                and vote.loser_id = second_rank.movie_id
+                        )
+                        and not exists (
+                            select 1
+                            from user_movie_challenge_vote vote
+                            where vote.user_id = first_rank.user_id
+                                and vote.winner_id = second_rank.movie_id
+                                and vote.loser_id = first_rank.movie_id
+                        )
+                )
                 select selected_pair.user_id,
                     selected_pair.movie1_id,
                     movie1.title as movie1_title,
                     movie1.poster as movie1_poster,
+                    movie1.release_year as movie1_year,
+                    movie1.director as movie1_director,
+                    selected_pair.movie1_rank_position,
+                    selected_pair.movie1_mu,
                     selected_pair.movie2_id,
                     movie2.title as movie2_title,
-                    movie2.poster as movie2_poster
-                from (
-                    select first_movie.user_id,
-                        case
-                            when coalesce(first_rank.direct_comparisons, 0)
-                                < coalesce(second_rank.direct_comparisons, 0) then first_movie.movie_id
-                            when coalesce(second_rank.direct_comparisons, 0)
-                                < coalesce(first_rank.direct_comparisons, 0) then second_movie.movie_id
-                            when coalesce(first_rank.rank_position, 0)
-                                <= coalesce(second_rank.rank_position, 0) then first_movie.movie_id
-                            else second_movie.movie_id
-                        end as movie1_id,
-                        case
-                            when coalesce(first_rank.direct_comparisons, 0)
-                                < coalesce(second_rank.direct_comparisons, 0) then second_movie.movie_id
-                            when coalesce(second_rank.direct_comparisons, 0)
-                                < coalesce(first_rank.direct_comparisons, 0) then first_movie.movie_id
-                            when coalesce(first_rank.rank_position, 0)
-                                <= coalesce(second_rank.rank_position, 0) then second_movie.movie_id
-                            else first_movie.movie_id
-                        end as movie2_id,
-                        least(coalesce(first_rank.direct_comparisons, 0),
-                            coalesce(second_rank.direct_comparisons, 0)) as lower_direct_comparisons,
-                        greatest(coalesce(first_rank.direct_comparisons, 0),
-                            coalesce(second_rank.direct_comparisons, 0)) as higher_direct_comparisons,
-                        abs(coalesce(first_rank.rank_position, 0) - coalesce(second_rank.rank_position, 0)) as rank_distance,
-                        abs(coalesce(first_rank.score, cast(5.5 as numeric(12, 6)))
-                            - coalesce(second_rank.score, cast(5.5 as numeric(12, 6)))) as score_distance,
-                        (coalesce(first_rank.sigma, :defaultBradleyTerrySigma)
-                            + coalesce(second_rank.sigma, :defaultBradleyTerrySigma))
-                            / (cast(4 as numeric(12, 6))
-                                + abs(coalesce(first_rank.mu, cast(0 as numeric(12, 6)))
-                                    - coalesce(second_rank.mu, cast(0 as numeric(12, 6))))) as pair_information
-                    from movie_recommendations first_movie
-                    join movie_recommendations second_movie
-                        on second_movie.user_id = first_movie.user_id
-                        and second_movie.movie_id > first_movie.movie_id
-                        and second_movie.positive = true
-                    left join user_movie_rank first_rank
-                        on first_rank.user_id = first_movie.user_id
-                        and first_rank.movie_id = first_movie.movie_id
-                    left join user_movie_rank second_rank
-                        on second_rank.user_id = second_movie.user_id
-                        and second_rank.movie_id = second_movie.movie_id
-                    left join user_movie_challenge_vote direct_vote
-                        on direct_vote.user_id = first_movie.user_id
-                        and direct_vote.winner_id = first_movie.movie_id
-                        and direct_vote.loser_id = second_movie.movie_id
-                    left join user_movie_challenge_vote reverse_vote
-                        on reverse_vote.user_id = first_movie.user_id
-                        and reverse_vote.winner_id = second_movie.movie_id
-                        and reverse_vote.loser_id = first_movie.movie_id
-                    where first_movie.user_id = :username
-                        and first_movie.positive = true
-                        and direct_vote.user_id is null
-                        and reverse_vote.user_id is null
-                ) selected_pair
+                    movie2.poster as movie2_poster,
+                    movie2.release_year as movie2_year,
+                    movie2.director as movie2_director,
+                    selected_pair.movie2_rank_position,
+                    selected_pair.movie2_mu,
+                    selected_pair.lower_direct_comparisons,
+                    selected_pair.higher_direct_comparisons,
+                    selected_pair.rank_distance,
+                    selected_pair.score_distance,
+                    selected_pair.pair_information
+                from selected_pair
                 join movies movie1
                     on movie1.imdb_id = selected_pair.movie1_id
                 join movies movie2
                     on movie2.imdb_id = selected_pair.movie2_id
                 where selected_pair.lower_direct_comparisons >= :explorationDirectComparisons
-                    and selected_pair.rank_distance <= :closeRankWindow
-                    and selected_pair.score_distance <= :closeScoreDistance
-                    and selected_pair.pair_information >= :minimalRefinementPairInformation
-                order by selected_pair.pair_information desc,
-                    selected_pair.rank_distance,
-                    selected_pair.higher_direct_comparisons,
-                    selected_pair.lower_direct_comparisons,
-                    selected_pair.movie1_id,
-                    selected_pair.movie2_id
-                limit 1
+                    %s
+                """.formatted(closeRankJoinFilter, stopFilters);
+    }
+
+    private String refinementChallengeOrderSql() {
+        return """
+                order by pair_information desc,
+                    rank_distance,
+                    higher_direct_comparisons,
+                    lower_direct_comparisons,
+                    movie1_id,
+                    movie2_id
                 """;
-        Map<String, Object> params = Map.of(
+    }
+
+    private Map<String, Object> refinementParams(String username) {
+        return Map.of(
                 "username", username,
                 "explorationDirectComparisons", EXPLORATION_DIRECT_COMPARISONS,
                 "closeRankWindow", closeRankWindow(username),
                 "closeScoreDistance", CLOSE_SCORE_DISTANCE,
-                "defaultBradleyTerrySigma", DEFAULT_BRADLEY_TERRY_SIGMA,
                 "minimalRefinementPairInformation", MINIMAL_REFINEMENT_PAIR_INFORMATION);
-        return queryChallenge(sql, params);
     }
 
     private int closeRankWindow(String username) {
@@ -216,6 +434,21 @@ public class MovieChallengeRepository {
         int roundedWindow = Math.round((float) Optional.ofNullable(recommendationCount).orElse(0)
                 / CLOSE_RANK_WINDOW_RECOMMENDATION_DIVISOR);
         return Math.max(CLOSE_RANK_WINDOW_MINIMUM, roundedWindow);
+    }
+
+    private enum ChallengeFilterMode {
+        NEXT_CHALLENGE(true),
+        SUGGESTED_LIST(false);
+
+        private final boolean refinementStopFilters;
+
+        ChallengeFilterMode(boolean refinementStopFilters) {
+            this.refinementStopFilters = refinementStopFilters;
+        }
+
+        private boolean applyRefinementStopFilters() {
+            return refinementStopFilters;
+        }
     }
 
     private Optional<MovieChallengeDto> queryChallenge(String sql, Map<String, Object> params) {
@@ -233,6 +466,71 @@ public class MovieChallengeRepository {
                             rs.getString("movie2_title"),
                             rs.getString("movie2_poster"))));
         });
+    }
+
+    private SuggestedMovieChallengePageDto querySuggestedChallenges(String sql,
+                                                                    Map<String, Object> params,
+                                                                    long totalCount) {
+        List<SuggestedMovieChallengeDto> challenges = jdbcTemplate.query(sql, params, (rs, rowNum) -> {
+            BigDecimal movie1Mu = rs.getBigDecimal("movie1_mu");
+            BigDecimal movie2Mu = rs.getBigDecimal("movie2_mu");
+            int movie1WinProbability = winProbabilityPercent(movie1Mu, movie2Mu);
+            int movie2WinProbability = movie1Mu == null || movie2Mu == null ? 50 : 100 - movie1WinProbability;
+            return new SuggestedMovieChallengeDto(
+                    new SuggestedMovieChallengeMovieDto(
+                            rs.getString("movie1_id"),
+                            rs.getString("movie1_title"),
+                            rs.getString("movie1_poster"),
+                            rs.getString("movie1_year"),
+                            rs.getString("movie1_director"),
+                            movie1WinProbability,
+                            nullableInteger(rs, "movie1_rank_position")),
+                    new SuggestedMovieChallengeMovieDto(
+                            rs.getString("movie2_id"),
+                            rs.getString("movie2_title"),
+                            rs.getString("movie2_poster"),
+                            rs.getString("movie2_year"),
+                            rs.getString("movie2_director"),
+                            movie2WinProbability,
+                            nullableInteger(rs, "movie2_rank_position")));
+        });
+        return new SuggestedMovieChallengePageDto(challenges, totalCount);
+    }
+
+    private long countChallenges(String baseSql, Map<String, Object> params) {
+        Long count = jdbcTemplate.queryForObject(
+                "select count(1) from (" + baseSql + ") suggested_challenge",
+                params,
+                Long.class);
+        return Optional.ofNullable(count).orElse(0L);
+    }
+
+    private Map<String, Object> pageParams(Map<String, Object> params, Pageable pageable) {
+        Map<String, Object> pageParams = new HashMap<>(params);
+        pageParams.put("limit", pageable.getPageSize());
+        pageParams.put("offset", pageable.getOffset());
+        return pageParams;
+    }
+
+    private String singleSql(String baseSql, String orderSql) {
+        return baseSql + "\n" + orderSql + "\nlimit 1";
+    }
+
+    private String pagedSql(String baseSql, String orderSql) {
+        return baseSql + "\n" + orderSql + "\nlimit :limit offset :offset";
+    }
+
+    private int winProbabilityPercent(BigDecimal movieMu, BigDecimal opponentMu) {
+        if (movieMu == null || opponentMu == null) {
+            return 50;
+        }
+        int percent = (int) Math.round(winProbability(movieMu.doubleValue(), opponentMu.doubleValue()) * 100);
+        return Math.max(0, Math.min(100, percent));
+    }
+
+    private Integer nullableInteger(ResultSet rs, String columnName) throws SQLException {
+        int value = rs.getInt(columnName);
+        return rs.wasNull() ? null : value;
     }
 
     public boolean hasAvailableChallenge(String username) {
@@ -300,6 +598,35 @@ public class MovieChallengeRepository {
             incrementChallengeCount(username, winnerId);
             incrementChallengeCount(username, loserId);
         }
+    }
+
+    public void deleteDirectVotesInvolvingMovie(String username, String movieId) {
+        jdbcTemplate.update("""
+                delete from user_movie_challenge_vote
+                where user_id = :username
+                    and (winner_id = :movieId or loser_id = :movieId)
+                """, params(username, movieId));
+    }
+
+    public void rebuildUserMovieChallengeCounts(String username) {
+        jdbcTemplate.update("""
+                delete from user_movie_challenge
+                where user_id = :username
+                """, Map.of("username", username));
+        jdbcTemplate.update("""
+                insert into user_movie_challenge (user_id, movie_id, challenge_count)
+                select user_id, movie_id, count(1) as challenge_count
+                from (
+                    select user_id, winner_id as movie_id
+                    from user_movie_challenge_vote
+                    where user_id = :username
+                    union all
+                    select user_id, loser_id as movie_id
+                    from user_movie_challenge_vote
+                    where user_id = :username
+                ) direct_challenge
+                group by user_id, movie_id
+                """, Map.of("username", username));
     }
 
     private void incrementChallengeCount(String username, String movieId) {

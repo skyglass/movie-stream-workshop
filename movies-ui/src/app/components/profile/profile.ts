@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { AuthService } from '../../services/auth';
-import { MovieUser, MoviesApiService } from '../../services/movies-api';
+import { FavoriteMoviesShare, MovieUser, MoviesApiService } from '../../services/movies-api';
 
 @Component({
   standalone: true,
@@ -32,8 +32,13 @@ export class ProfileComponent implements OnInit {
   loading = false;
   saving = false;
   imageLoading = false;
+  privacyLoading = false;
+  privacySaving = false;
   errorMessage = '';
   savedMessage = '';
+  privacyErrorMessage = '';
+  privacySavedMessage = '';
+  favoriteMoviesShare: FavoriteMoviesShare | null = null;
 
   readonly avatarForm = this.fb.group({
     avatar: ['', Validators.required]
@@ -41,6 +46,7 @@ export class ProfileComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadProfile();
+    this.loadFavoriteMoviesPrivacy();
   }
 
   loadProfile(): void {
@@ -59,6 +65,23 @@ export class ProfileComponent implements OnInit {
       error: err => {
         this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not load profile';
         this.loading = false;
+      }
+    });
+  }
+
+  loadFavoriteMoviesPrivacy(): void {
+    this.privacyLoading = true;
+    this.privacyErrorMessage = '';
+    this.privacySavedMessage = '';
+
+    this.moviesApi.getFavoriteMoviesShare().subscribe({
+      next: share => {
+        this.favoriteMoviesShare = share;
+        this.privacyLoading = false;
+      },
+      error: err => {
+        this.privacyErrorMessage = err?.error?.message ?? err?.message ?? 'Could not load favorite movies privacy';
+        this.privacyLoading = false;
       }
     });
   }
@@ -97,6 +120,37 @@ export class ProfileComponent implements OnInit {
       error: err => {
         this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not update avatar';
         this.saving = false;
+      }
+    });
+  }
+
+  get favoriteMoviesPrivate(): boolean {
+    return this.favoriteMoviesShare ? !this.favoriteMoviesShare.myFavoriteMoviesPublic : true;
+  }
+
+  setFavoriteMoviesPrivate(event: Event): void {
+    if (this.privacySaving || this.privacyLoading) return;
+
+    const checkbox = event.target as HTMLInputElement;
+    const makePrivate = checkbox.checked;
+    this.privacySaving = true;
+    this.privacyErrorMessage = '';
+    this.privacySavedMessage = '';
+
+    const request = makePrivate
+      ? this.moviesApi.makeFavoriteMoviesPrivate()
+      : this.moviesApi.shareFavoriteMovies();
+
+    request.subscribe({
+      next: share => {
+        this.favoriteMoviesShare = share;
+        this.privacySaving = false;
+        this.privacySavedMessage = 'Favorite movies privacy updated';
+      },
+      error: err => {
+        checkbox.checked = this.favoriteMoviesPrivate;
+        this.privacyErrorMessage = err?.error?.message ?? err?.message ?? 'Could not update favorite movies privacy';
+        this.privacySaving = false;
       }
     });
   }

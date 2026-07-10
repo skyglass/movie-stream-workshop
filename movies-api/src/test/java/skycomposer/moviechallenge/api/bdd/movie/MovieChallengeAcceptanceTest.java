@@ -2,9 +2,13 @@ package skycomposer.moviechallenge.api.bdd.movie;
 
 import skycomposer.moviechallenge.api.bdd.movie.fixture.MovieCatalogFixture;
 import skycomposer.moviechallenge.api.movie.application.service.MovieChallengeUseCase;
+import skycomposer.moviechallenge.api.movie.dto.SelectMovieChallengeRequest;
+import io.cucumber.datatable.DataTable;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import java.util.List;
+import java.util.Map;
 
 public class MovieChallengeAcceptanceTest {
 
@@ -54,12 +58,25 @@ public class MovieChallengeAcceptanceTest {
         fixture.selectedMovieChallenge(movieChallenge.nextChallenge(username).orElse(null));
     }
 
+    @When("regular user {string} requests suggested movie challenges page {int} with size {int}")
+    public void regularUserRequestsSuggestedMovieChallengesPageWithSize(String username, int page, int pageSize) {
+        fixture.suggestedMovieChallengePage(movieChallenge.suggestedChallenges(username, fixture.moviePage(page, pageSize)));
+    }
+
     @When("regular user {string} selects movie {string} from movie challenge pair {string} and {string}")
     public void regularUserSelectsMovieFromMovieChallengePair(String username,
                                                               String selectedMovieId,
                                                               String firstMovieId,
                                                               String secondMovieId) {
         movieChallenge.selectMovie(username, firstMovieId, secondMovieId, selectedMovieId);
+    }
+
+    @When("regular user {string} submits movie challenge selections")
+    public void regularUserSubmitsMovieChallengeSelections(String username, DataTable dataTable) {
+        List<SelectMovieChallengeRequest> selections = dataTable.asMaps().stream()
+                .map(this::selectMovieChallengeRequest)
+                .toList();
+        movieChallenge.selectMovies(username, selections);
     }
 
     @Then("the movie challenge contains movies {string} and {string}")
@@ -80,6 +97,33 @@ public class MovieChallengeAcceptanceTest {
     @Then("no movie challenge is available")
     public void noMovieChallengeIsAvailable() {
         fixture.assertNoMovieChallengeAvailable();
+    }
+
+    @Then("the suggested movie challenge list contains {int} challenge(s)")
+    public void theSuggestedMovieChallengeListContainsChallenges(int count) {
+        fixture.assertSuggestedMovieChallengeListSizeIs(count);
+    }
+
+    @Then("the suggested movie challenge total count is {int}")
+    public void theSuggestedMovieChallengeTotalCountIs(int count) {
+        fixture.assertSuggestedMovieChallengeTotalCountIs(count);
+    }
+
+    @Then("suggested movie challenge {int} is movie {string} against movie {string}")
+    public void suggestedMovieChallengeIsMovieAgainstMovie(int number, String firstMovieId, String secondMovieId) {
+        fixture.assertSuggestedMovieChallengeIs(number, firstMovieId, secondMovieId);
+    }
+
+    @Then("suggested movie challenge {int} movie {string} has win chance {int} percent and rank {int}")
+    public void suggestedMovieChallengeMovieHasWinChanceAndRank(int number,
+                                                                String movieId,
+                                                                int winProbabilityPercent,
+                                                                int rankPosition) {
+        fixture.assertSuggestedMovieChallengeMovieProbabilityAndRank(
+                number,
+                movieId,
+                winProbabilityPercent,
+                rankPosition);
     }
 
     @Then("movie {string} has {int} direct win(s) by {string}")
@@ -115,5 +159,12 @@ public class MovieChallengeAcceptanceTest {
     @Then("movie {string} is ranked over {string} for {string}")
     public void movieIsRankedOverFor(String winnerId, String loserId, String username) {
         fixture.assertTransitiveWinnerLoserExists(username, winnerId, loserId);
+    }
+
+    private SelectMovieChallengeRequest selectMovieChallengeRequest(Map<String, String> row) {
+        return new SelectMovieChallengeRequest(
+                row.get("movie1Id"),
+                row.get("movie2Id"),
+                row.get("selectedMovieId"));
     }
 }

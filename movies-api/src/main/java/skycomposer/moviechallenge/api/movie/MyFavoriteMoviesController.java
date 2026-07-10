@@ -23,10 +23,12 @@ public class MyFavoriteMoviesController {
     @GetMapping("/**")
     public MoviePageDto getSharedFavoriteMovies(HttpServletRequest request,
                                                 @RequestParam(required = false) Integer page,
-                                                @RequestParam(required = false) Integer pageSize) {
+                                                @RequestParam(required = false) Integer pageSize,
+                                                @RequestParam(required = false) String filter) {
         return shareMyFavoriteMovies.viewSharedFavoriteMovies(
                 encodedUsername(request),
-                moviePaging.pageable(page, pageSize));
+                moviePaging.pageable(page, pageSize),
+                filter);
     }
 
     private String encodedUsername(HttpServletRequest request) {

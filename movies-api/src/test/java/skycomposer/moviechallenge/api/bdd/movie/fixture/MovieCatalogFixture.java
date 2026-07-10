@@ -6,6 +6,9 @@ import skycomposer.moviechallenge.api.movie.MovieRecommendationRepository;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
+import skycomposer.moviechallenge.api.movie.dto.MovieRankHistoryDto;
+import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengeDto;
+import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengePageDto;
 import skycomposer.moviechallenge.api.movie.model.Movie;
 import skycomposer.moviechallenge.api.movie.model.MovieComment;
 import skycomposer.moviechallenge.api.movie.model.MovieRecommendation;
@@ -14,6 +17,7 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -37,7 +41,10 @@ public class MovieCatalogFixture {
     private List<MovieDto> movieList;
     private long movieListTotalCount;
     private MovieDto selectedMovie;
+    private MovieRankHistoryDto selectedMovieRankHistory;
     private MovieChallengeDto selectedMovieChallenge;
+    private List<SuggestedMovieChallengeDto> suggestedMovieChallenges;
+    private long suggestedMovieChallengeTotalCount;
     private RuntimeException lastError;
     private MvcResult lastResponse;
     private String currentUsername;
@@ -62,7 +69,10 @@ public class MovieCatalogFixture {
         movieList = null;
         movieListTotalCount = 0;
         selectedMovie = null;
+        selectedMovieRankHistory = null;
         selectedMovieChallenge = null;
+        suggestedMovieChallenges = null;
+        suggestedMovieChallengeTotalCount = 0;
         lastError = null;
         lastResponse = null;
         currentUsername = null;
@@ -261,6 +271,38 @@ public class MovieCatalogFixture {
                 BigDecimal.valueOf(Math.min(9, 5.77 / Math.sqrt(Math.max(directComparisons, 1)))));
     }
 
+    public void setMovieRanks(String username, List<Map<String, String>> rankRows) {
+        ensureUser(username);
+        jdbcTemplate.update("delete from user_movie_rank where user_id = ?", username);
+        for (Map<String, String> row : rankRows) {
+            String imdbId = row.get("imdbId");
+            int rankPosition = Integer.parseInt(row.get("rank"));
+            int directComparisons = Integer.parseInt(row.getOrDefault("directComparisons", "1"));
+            jdbcTemplate.update(
+                    """
+                    insert into user_movie_rank (
+                        user_id,
+                        movie_id,
+                        rank_position,
+                        score,
+                        direct_comparisons,
+                        mu,
+                        sigma,
+                        score_error_80
+                    )
+                    values (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    username,
+                    imdbId,
+                    rankPosition,
+                    BigDecimal.valueOf(Math.max(1, 11 - rankPosition)),
+                    directComparisons,
+                    BigDecimal.valueOf(Math.max(1, 11 - rankPosition) - 5.5),
+                    BigDecimal.valueOf(2.0 / Math.sqrt(Math.max(directComparisons, 1))),
+                    BigDecimal.valueOf(Math.min(9, 5.77 / Math.sqrt(Math.max(directComparisons, 1)))));
+        }
+    }
+
     public void assertMovieListOrdersTitleBefore(String firstTitle, String secondTitle) {
         List<String> titles = movieList.stream().map(MovieDto::title).toList();
         assertTrue(titles.indexOf(firstTitle) < titles.indexOf(secondTitle),
@@ -339,6 +381,60 @@ public class MovieCatalogFixture {
         assertNull(selectedMovieChallenge);
     }
 
+    public void assertSuggestedMovieChallengeListSizeIs(int count) {
+        assertNotNull(suggestedMovieChallenges, "Expected suggested movie challenges to be loaded");
+        assertEquals(count, suggestedMovieChallenges.size());
+    }
+
+    public void assertSuggestedMovieChallengeTotalCountIs(long count) {
+        assertEquals(count, suggestedMovieChallengeTotalCount);
+    }
+
+    public void assertSuggestedMovieChallengeIs(int number, String firstMovieId, String secondMovieId) {
+        SuggestedMovieChallengeDto challenge = suggestedMovieChallenge(number);
+        assertEquals(firstMovieId, challenge.movie1().imdbId());
+        assertEquals(secondMovieId, challenge.movie2().imdbId());
+    }
+
+    public void assertSuggestedMovieChallengeMovieProbabilityAndRank(int number,
+                                                                     String movieId,
+                                                                     int winProbabilityPercent,
+                                                                     int rankPosition) {
+        SuggestedMovieChallengeDto challenge = suggestedMovieChallenge(number);
+        SuggestedMovieChallengeDto.SuggestedMovieChallengeMovieDto movie = List.of(challenge.movie1(), challenge.movie2())
+                .stream()
+                .filter(candidate -> candidate.imdbId().equals(movieId))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(winProbabilityPercent, movie.winProbabilityPercent());
+        assertEquals(rankPosition, movie.rankPosition());
+    }
+
+    public void assertHigherRankHistoryMatches(List<Map<String, String>> expectedRows) {
+        assertNotNull(selectedMovieRankHistory, "Expected movie rank history to be loaded");
+        assertRankHistoryMatches(selectedMovieRankHistory.higherRanks(), expectedRows);
+    }
+
+    public void assertLowerRankHistoryMatches(List<Map<String, String>> expectedRows) {
+        assertNotNull(selectedMovieRankHistory, "Expected movie rank history to be loaded");
+        assertRankHistoryMatches(selectedMovieRankHistory.lowerRanks(), expectedRows);
+    }
+
+    private void assertRankHistoryMatches(List<MovieRankHistoryDto.RankHistoryMovieDto> actualMovies,
+                                          List<Map<String, String>> expectedRows) {
+        assertEquals(expectedRows.size(), actualMovies.size());
+        for (int index = 0; index < expectedRows.size(); index++) {
+            Map<String, String> expected = expectedRows.get(index);
+            MovieRankHistoryDto.RankHistoryMovieDto actual = actualMovies.get(index);
+            assertEquals(expected.get("imdbId"), actual.imdbId());
+            assertEquals(expected.get("title"), actual.title());
+            assertEquals(expected.get("year"), actual.year());
+            assertEquals(expected.get("director"), actual.director());
+            assertEquals(Integer.parseInt(expected.get("rank")), actual.rankPosition());
+            assertEquals(0, new BigDecimal(expected.get("rating")).compareTo(actual.rating()));
+        }
+    }
+
     public void assertMovieVoteCount(String imdbId, String username, int expectedCount) {
         assertEquals(expectedCount, movieChallengeRepository.voteCount(username, imdbId));
     }
@@ -351,6 +447,39 @@ public class MovieCatalogFixture {
         var movieRating = movieChallengeRepository.movieRating(username, imdbId).orElseThrow();
         assertEquals(rankPosition, movieRating.rankPosition());
         assertEquals(0, new BigDecimal(rating).compareTo(movieRating.rating()));
+    }
+
+    public void assertMovieHasNoRankAndRating(String imdbId, String username) {
+        assertTrue(movieChallengeRepository.movieRating(username, imdbId).isEmpty());
+    }
+
+    public void assertMovieHasNoDirectChallengeVotes(String imdbId, String username) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                select count(1)
+                from user_movie_challenge_vote
+                where user_id = ?
+                    and (winner_id = ? or loser_id = ?)
+                """,
+                Integer.class,
+                username,
+                imdbId,
+                imdbId);
+        assertEquals(0, count);
+    }
+
+    public void assertMovieHasNoChallengeCount(String imdbId, String username) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                select count(1)
+                from user_movie_challenge
+                where user_id = ?
+                    and movie_id = ?
+                """,
+                Integer.class,
+                username,
+                imdbId);
+        assertEquals(0, count);
     }
 
     public void assertMoviePairChallengeExists(String username, String firstMovieId, String secondMovieId) {
@@ -503,8 +632,17 @@ public class MovieCatalogFixture {
         this.selectedMovie = selectedMovie;
     }
 
+    public void selectedMovieRankHistory(MovieRankHistoryDto selectedMovieRankHistory) {
+        this.selectedMovieRankHistory = selectedMovieRankHistory;
+    }
+
     public void selectedMovieChallenge(MovieChallengeDto selectedMovieChallenge) {
         this.selectedMovieChallenge = selectedMovieChallenge;
+    }
+
+    public void suggestedMovieChallengePage(SuggestedMovieChallengePageDto suggestedMovieChallengePage) {
+        this.suggestedMovieChallenges = suggestedMovieChallengePage.challenges();
+        this.suggestedMovieChallengeTotalCount = suggestedMovieChallengePage.totalCount();
     }
 
     public void lastError(RuntimeException lastError) {
@@ -519,6 +657,11 @@ public class MovieCatalogFixture {
         return firstMovieId.compareTo(secondMovieId) < 0
                 ? new MoviePair(firstMovieId, secondMovieId)
                 : new MoviePair(secondMovieId, firstMovieId);
+    }
+
+    private SuggestedMovieChallengeDto suggestedMovieChallenge(int number) {
+        assertNotNull(suggestedMovieChallenges, "Expected suggested movie challenges to be loaded");
+        return suggestedMovieChallenges.get(number - 1);
     }
 
     private record MoviePair(String movie1Id, String movie2Id) {

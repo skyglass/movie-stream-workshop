@@ -29,14 +29,24 @@ public class ViewFavoriteMoviesUseCase {
 
     @Transactional
     public MoviePageDto viewFavoriteMovies(Jwt jwt, Pageable pageable) {
+        return viewFavoriteMovies(jwt, pageable, null);
+    }
+
+    @Transactional
+    public MoviePageDto viewFavoriteMovies(Jwt jwt, Pageable pageable, String filter) {
         UserExtra userExtra = userExtraService.syncFromJwt(jwt);
-        return viewFavoriteMovies(userExtra.getUsername(), pageable);
+        return viewFavoriteMovies(userExtra.getUsername(), pageable, filter);
     }
 
     @Transactional(readOnly = true)
     public MoviePageDto viewFavoriteMovies(String username, Pageable pageable) {
+        return viewFavoriteMovies(username, pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewFavoriteMovies(String username, Pageable pageable, String filter) {
         Set<String> recommendedMovieIds = movieRecommendationService.recommendedMovieIds(username);
-        var movies = movieService.getFavoriteMovies(username, pageable);
+        var movies = movieService.getFavoriteMovies(username, pageable, filter);
         Map<String, MovieRatingDto> ratings = movieChallengeRepository.movieRatings(
                 username,
                 movies.getContent().stream().map(Movie::getImdbId).toList());

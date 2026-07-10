@@ -46,11 +46,11 @@ but controllers delegate use-case behavior to services named after the use case.
 | Use-case id | REST endpoint | Application service | Primary model |
 |-------------|---------------|---------------------|---------------|
 | `view-movie-catalog` | `GET /api/movies` | `ViewMovieCatalogUseCase` | `MOVIE` read model |
-| `view-movie-details` | `GET /api/movies/{imdbId}` | `ViewMovieDetailsUseCase` | `MOVIE` aggregate |
+| `view-movie-details` | `GET /api/movies/{imdbId}`, `GET /api/movies/{imdbId}/rank-history` | `ViewMovieDetailsUseCase` | `MOVIE`, `USER_MOVIE_CHALLENGE_VOTE`, `USER_MOVIE_RATING` read models |
 | `add-movie-to-catalog` | `POST /api/movies` | `AddMovieToCatalogUseCase` | `MOVIE` aggregate |
 | `add-movie-comment` | `POST /api/movies/{imdbId}/comments` | `AddMovieCommentUseCase` | `MOVIE_COMMENT` child entity |
-| `recommend-movie` | `POST/DELETE /api/movies/{imdbId}/recommendation`, `POST /api/movies/{imdbId}/recommendation/dislike`, `POST /api/movies/recommendation` | `RecommendMovieUseCase` | `MOVIE_RECOMMENDATION` |
-| `movie-challenge` | `GET /api/movie-challenges/next`, `POST /api/movie-challenges/votes` | `MovieChallengeUseCase` | `USER_MOVIE_CHALLENGE_VOTE`, `USER_MOVIE_RANK` |
+| `recommend-movie` | `POST/DELETE /api/movies/{imdbId}/recommendation`, `POST /api/movies/{imdbId}/recommendation/replay`, `POST /api/movies/{imdbId}/recommendation/dislike`, `POST /api/movies/recommendation` | `RecommendMovieUseCase` | `MOVIE_RECOMMENDATION`, `USER_MOVIE_CHALLENGE_VOTE`, `USER_MOVIE_RANK` |
+| `movie-challenge` | `GET /api/movie-challenges/next`, `GET /api/movie-challenges/suggested`, `POST /api/movie-challenges/votes`, `POST /api/movie-challenges/votes/batch` | `MovieChallengeUseCase` | `USER_MOVIE_CHALLENGE_VOTE`, `USER_MOVIE_RANK` |
 | `view-favorite-movies` | `GET /api/favorite-movies` | `ViewFavoriteMoviesUseCase` | `USER_MOVIE_RATING` read model |
 | `share-my-favorite-movies` | `GET/POST/DELETE /api/favorite-movies/share`, `GET /api/my-favorite-movies/{encodedUsername}` | `ShareMyFavoriteMoviesUseCase` | `USER_SETTINGS`, `USER_MOVIE_RATING` read model |
 | `view-users-favorite-movies` | `GET /api/users-favorite-movies` | `ViewUsersFavoriteMoviesUseCase` | `USER_MOVIE_RATING` aggregate read model |

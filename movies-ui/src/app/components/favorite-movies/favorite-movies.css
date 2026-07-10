@@ -16,6 +16,18 @@
   letter-spacing: 0;
 }
 
+.favorite-tools {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.favorite-filter {
+  margin: 0;
+}
+
 .share-panel {
   min-width: min(100%, 26rem);
   display: grid;
@@ -24,7 +36,8 @@
 }
 
 .share-button,
-.copy-button {
+.copy-button,
+.close-share-button {
   min-height: 2.35rem;
   border-radius: 6px;
   border: 1px solid #1b6fa8;
@@ -41,28 +54,27 @@
   background: #155c8d;
 }
 
-.share-button:disabled,
-.make-private-link:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
+.close-share-button {
+  border-color: #c9d2dc;
+  background: #ffffff;
+  color: #203349;
 }
 
-.make-private-link {
-  min-height: 2.35rem;
-  border: 0;
-  background: transparent;
-  color: #1678c2;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 800;
-  padding: 0;
-  text-decoration: underline;
+.close-share-button:hover {
+  border-color: #1b6fa8;
+  color: #1b6fa8;
+  background: #ffffff;
+}
+
+.share-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .share-link-row {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.5rem;
 }
 
@@ -101,17 +113,24 @@
     display: grid;
   }
 
+  .favorite-tools {
+    justify-content: stretch;
+  }
+
+  .favorite-filter {
+    flex: 1 1 100%;
+  }
+
   .share-panel {
     justify-items: stretch;
     min-width: 0;
   }
 
-  .share-button,
-  .make-private-link {
+  .share-button {
     justify-self: start;
   }
 
   .share-link-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto auto;
   }
 }

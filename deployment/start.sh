@@ -236,6 +236,7 @@ render_app_config() {
   "moviesApiPath": "/api/movies/movies",
   "movieChallengesPath": "/api/movies/movie-challenges",
   "favoriteMoviesPath": "/api/movies/favorite-movies",
+  "publicFavoriteMoviesPath": "/api/movies/my-favorite-movies",
   "usersFavoriteMoviesPath": "/api/movies/users-favorite-movies",
   "usersRecommendedMoviesPath": "/api/movies/users-recommended-movies",
   "moviesPerPage": "$MOVIES_PER_PAGE",

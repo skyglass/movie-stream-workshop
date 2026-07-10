@@ -26,7 +26,12 @@ public class ViewMovieCatalogUseCase {
 
     @Transactional(readOnly = true)
     public MoviePageDto viewCatalog(Pageable pageable) {
-        var movies = movieService.getMovies(pageable);
+        return viewCatalog(pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewCatalog(Pageable pageable, String filter) {
+        var movies = movieService.getMovies(pageable, filter);
         return new MoviePageDto(
                 movies.getContent().stream()
                         .map(movieMapper::toMovieDto)
@@ -36,9 +41,14 @@ public class ViewMovieCatalogUseCase {
 
     @Transactional(readOnly = true)
     public MoviePageDto viewCatalog(String username, Pageable pageable) {
+        return viewCatalog(username, pageable, null);
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewCatalog(String username, Pageable pageable, String filter) {
         Set<String> recommendedMovieIds = movieRecommendationService.recommendedMovieIds(username);
         Set<String> dislikedMovieIds = movieRecommendationService.dislikedMovieIds(username);
-        var movies = movieService.getMovies(pageable);
+        var movies = movieService.getMovies(pageable, filter);
         Map<String, MovieRatingDto> ratings = movieChallengeRepository.movieRatings(
                 username,
                 movies.getContent().stream().map(Movie::getImdbId).toList());

@@ -35,6 +35,21 @@ export interface MoviePage {
   totalCount: number;
 }
 
+export interface MovieRankHistoryMovie {
+  imdbId: string;
+  title: string;
+  poster: string;
+  year: string;
+  director: string;
+  rankPosition: number | null;
+  rating: number | null;
+}
+
+export interface MovieRankHistory {
+  higherRanks: MovieRankHistoryMovie[];
+  lowerRanks: MovieRankHistoryMovie[];
+}
+
 export interface FavoriteMoviesShare {
   myFavoriteMoviesPublic: boolean;
   encodedUsername: string;
@@ -56,6 +71,32 @@ export interface MovieChallengeMovie {
 export interface MovieChallenge {
   movie1: MovieChallengeMovie;
   movie2: MovieChallengeMovie;
+}
+
+export interface SuggestedMovieChallengeMovie {
+  imdbId: string;
+  title: string;
+  poster: string;
+  year: string;
+  director: string;
+  winProbabilityPercent: number;
+  rankPosition: number | null;
+}
+
+export interface SuggestedMovieChallenge {
+  movie1: SuggestedMovieChallengeMovie;
+  movie2: SuggestedMovieChallengeMovie;
+}
+
+export interface SuggestedMovieChallengePage {
+  challenges: SuggestedMovieChallenge[];
+  totalCount: number;
+}
+
+export interface MovieChallengeSelection {
+  movie1Id: string;
+  movie2Id: string;
+  selectedMovieId: string;
 }
 
 export interface OmdbMovie {
@@ -164,17 +205,17 @@ export class MoviesApiService {
     return this.positiveConfigNumber(this.cfg.config.moviesPerPage, 'moviesPerPage');
   }
 
-  listMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
-    return this.http.get<MoviePage>(this.moviesBase, { params: this.pageParams(page, pageSize) });
+  listMovies(page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.moviesBase, { params: this.pageParams(page, pageSize, filter) });
   }
 
-  listFavoriteMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
-    return this.http.get<MoviePage>(this.favoriteMoviesBase, { params: this.pageParams(page, pageSize) });
+  listFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.favoriteMoviesBase, { params: this.pageParams(page, pageSize, filter) });
   }
 
-  listPublicFavoriteMovies(username: string, page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
+  listPublicFavoriteMovies(username: string, page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {
     return this.http.get<MoviePage>(`${this.publicFavoriteMoviesBase}/${encodeURIComponent(username)}`, {
-      params: this.pageParams(page, pageSize)
+      params: this.pageParams(page, pageSize, filter)
     });
   }
 
@@ -194,16 +235,20 @@ export class MoviesApiService {
     return `${this.trimTrailingSlash(this.cfg.config.uiBaseUrl)}${share.sharePath}`;
   }
 
-  listUsersFavoriteMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
-    return this.http.get<MoviePage>(this.usersFavoriteMoviesBase, { params: this.pageParams(page, pageSize) });
+  listUsersFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.usersFavoriteMoviesBase, { params: this.pageParams(page, pageSize, filter) });
   }
 
-  listUsersRecommendedMovies(page = 1, pageSize = this.moviePageSize): Observable<MoviePage> {
-    return this.http.get<MoviePage>(this.usersRecommendedMoviesBase, { params: this.pageParams(page, pageSize) });
+  listUsersRecommendedMovies(page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.usersRecommendedMoviesBase, { params: this.pageParams(page, pageSize, filter) });
   }
 
   getMovie(imdbId: string): Observable<Movie> {
     return this.http.get<Movie>(`${this.moviesBase}/${imdbId}`);
+  }
+
+  getMovieRankHistory(imdbId: string): Observable<MovieRankHistory> {
+    return this.http.get<MovieRankHistory>(`${this.moviesBase}/${imdbId}/rank-history`);
   }
 
   createMovie(movie: Partial<Movie>): Observable<Movie> {
@@ -234,6 +279,10 @@ export class MoviesApiService {
     return this.http.delete<Movie>(`${this.moviesBase}/${imdbId}/recommendation`);
   }
 
+  replayMovie(imdbId: string): Observable<Movie> {
+    return this.http.post<Movie>(`${this.moviesBase}/${imdbId}/recommendation/replay`, {});
+  }
+
   dislikeMovie(imdbId: string): Observable<Movie> {
     return this.http.post<Movie>(`${this.moviesBase}/${imdbId}/recommendation/dislike`, {});
   }
@@ -246,6 +295,16 @@ export class MoviesApiService {
 
   selectMovieChallengeWinner(movie1Id: string, movie2Id: string, selectedMovieId: string): Observable<void> {
     return this.http.post<void>(`${this.movieChallengesBase}/votes`, { movie1Id, movie2Id, selectedMovieId });
+  }
+
+  listSuggestedMovieChallenges(page = 1, pageSize = this.moviePageSize): Observable<SuggestedMovieChallengePage> {
+    return this.http.get<SuggestedMovieChallengePage>(`${this.movieChallengesBase}/suggested`, {
+      params: this.pageParams(page, pageSize)
+    });
+  }
+
+  submitMovieChallengeSelections(selections: MovieChallengeSelection[]): Observable<void> {
+    return this.http.post<void>(`${this.movieChallengesBase}/votes/batch`, { selections });
   }
 
   syncMe(): Observable<MovieUser> {
@@ -317,11 +376,16 @@ export class MoviesApiService {
     );
   }
 
-  private pageParams(page: number, pageSize: number): Record<string, string> {
-    return {
+  private pageParams(page: number, pageSize: number, filter = ''): Record<string, string> {
+    const params: Record<string, string> = {
       page: String(page),
       pageSize: String(pageSize)
     };
+    const trimmedFilter = filter.trim();
+    if (trimmedFilter) {
+      params['filter'] = trimmedFilter;
+    }
+    return params;
   }
 
   private trimTrailingSlash(value: string): string {

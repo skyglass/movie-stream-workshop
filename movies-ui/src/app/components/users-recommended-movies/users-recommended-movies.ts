@@ -25,6 +25,9 @@ export class UsersRecommendedMoviesComponent implements OnInit, OnDestroy {
   totalCount = 0;
   readonly pageSize = this.moviesApi.moviePageSize;
   recommendationBusy: Record<string, boolean> = {};
+  filterText = '';
+  activeFilter = '';
+  private filterTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit(): void {
     if (this.auth.token) {
@@ -37,18 +40,21 @@ export class UsersRecommendedMoviesComponent implements OnInit, OnDestroy {
         this.movies = [];
         this.totalCount = 0;
         this.currentPage = 1;
+        this.filterText = '';
+        this.activeFilter = '';
       }
     });
   }
 
   ngOnDestroy(): void {
     this.authSub?.unsubscribe();
+    this.clearFilterTimer();
   }
 
   loadUsersRecommendedMovies(page = this.currentPage): void {
     this.loading = true;
     this.errorMessage = '';
-    this.moviesApi.listUsersRecommendedMovies(page, this.pageSize).subscribe({
+    this.moviesApi.listUsersRecommendedMovies(page, this.pageSize, this.activeFilter).subscribe({
       next: moviePage => {
         this.movies = moviePage.movies;
         this.totalCount = moviePage.totalCount;
@@ -60,6 +66,42 @@ export class UsersRecommendedMoviesComponent implements OnInit, OnDestroy {
         this.loading = false;
       }
     });
+  }
+
+  onFilterInput(event: Event): void {
+    this.filterText = (event.target as HTMLInputElement).value;
+    this.clearFilterTimer();
+
+    const filter = this.filterText.trim();
+    if (!filter) {
+      if (this.activeFilter) {
+        this.activeFilter = '';
+        this.loadUsersRecommendedMovies(1);
+      }
+      return;
+    }
+
+    if (filter.length <= 3) {
+      return;
+    }
+
+    this.filterTimer = setTimeout(() => {
+      const nextFilter = this.filterText.trim();
+      if (nextFilter.length > 3 && nextFilter !== this.activeFilter) {
+        this.activeFilter = nextFilter;
+        this.loadUsersRecommendedMovies(1);
+      }
+    }, 300);
+  }
+
+  clearFilter(): void {
+    this.clearFilterTimer();
+    const shouldReload = !!this.activeFilter || !!this.filterText;
+    this.filterText = '';
+    this.activeFilter = '';
+    if (shouldReload) {
+      this.loadUsersRecommendedMovies(1);
+    }
   }
 
   poster(movie: Movie): string {
@@ -95,5 +137,12 @@ export class UsersRecommendedMoviesComponent implements OnInit, OnDestroy {
         this.recommendationBusy[movie.imdbId] = false;
       }
     });
+  }
+
+  private clearFilterTimer(): void {
+    if (this.filterTimer) {
+      clearTimeout(this.filterTimer);
+      this.filterTimer = undefined;
+    }
   }
 }

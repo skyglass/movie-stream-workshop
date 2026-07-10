@@ -1,27 +1,24 @@
+# Epic EP-026: Movie Rank History
+
+**Use Case ID:** view-movie-details  
+**Use Case Name:** View Movie Details  
+**Primary Actor:** Authenticated User  
+**Goal:** See which directly challenged movies ranked higher or lower than the movie being inspected.  
+**Status:** Implemented
+
+## Short Description
+
+Movie details now include a `Rank History` section below comments. The section is split into `Higher Ranks` and
+`Lower Ranks`: higher ranks are direct challenge winners where the current movie was the loser, and lower ranks are
+direct challenge losers where the current movie was the winner.
+
+Each rank-history item is shown as a compact movie card with poster, title, year, director, and the viewer's current
+rank/rating rendered as `Your Rank: #2(9.86)`. Both lists are sorted by current rank ascending, so `#1` appears first.
+
+## Acceptance Criteria
+
+```gherkin
 Feature: view-movie-details
-
-  Scenario: Movie details include metadata
-    Given movie "tt0133093" exists with title "The Matrix"
-    When the viewer opens details for movie "tt0133093"
-    Then the viewed movie details show title "The Matrix"
-
-  Scenario: Movie details include extended metadata
-    Given movie "tt0133093" exists with title "The Matrix", director "Lana Wachowski, Lilly Wachowski", writer "Lilly Wachowski, Lana Wachowski", year "1999", genre "Action, Sci-Fi", country "United States, Australia", and type "Movie"
-    When the viewer opens details for movie "tt0133093"
-    Then the viewed movie details show director "Lana Wachowski, Lilly Wachowski", writer "Lilly Wachowski, Lana Wachowski", year "1999", genre "Action, Sci-Fi", country "United States, Australia", and type "Movie"
-
-  Scenario: Movie details include comments newest first
-    Given movie "tt0133093" exists with title "The Matrix"
-    And movie "tt0133093" for detail viewing has comment "First comment" by "user"
-    And movie "tt0133093" for detail viewing has comment "Second comment" by "admin"
-    When the viewer opens details for movie "tt0133093"
-    Then the first viewed movie comment is "Second comment"
-
-  Scenario: Movie details mark movies recommended by the current user
-    Given movie "tt0083658" exists with title "Blade Runner"
-    And movie "tt0083658" is already recommended by "user"
-    When regular user "user" opens details for movie "tt0083658"
-    Then the viewed movie is marked recommended
 
   Scenario: Movie details show rank history from direct challenge votes
     Given movie "tt101" exists with title "Higher One", director "Director A", writer "N/A", year "1999", genre "Drama", country "United States", and type "Movie"
@@ -50,3 +47,4 @@ Feature: view-movie-details
     Given movie "tt102" exists with title "Current Movie"
     When anonymous viewer requests rank history for movie "tt102"
     Then the movie API response status is 401 or 403
+```

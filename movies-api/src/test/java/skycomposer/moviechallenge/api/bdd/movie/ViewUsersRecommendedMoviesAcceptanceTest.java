@@ -32,6 +32,11 @@ public class ViewUsersRecommendedMoviesAcceptanceTest {
         fixture.moviePage(viewUsersRecommendedMovies.viewUsersRecommendedMovies(username, fixture.moviePage(page, pageSize)));
     }
 
+    @When("regular user {string} requests users recommended movies filtered by {string}")
+    public void regularUserRequestsUsersRecommendedMoviesFilteredBy(String username, String filter) {
+        fixture.moviePage(viewUsersRecommendedMovies.viewUsersRecommendedMovies(username, fixture.firstMoviePage(), filter));
+    }
+
     @Then("users recommended movies show {string} before {string}")
     public void usersRecommendedMoviesShowBefore(String firstImdbId, String secondImdbId) {
         fixture.assertMovieListOrdersImdbIdBefore(firstImdbId, secondImdbId);

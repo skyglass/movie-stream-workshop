@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Meta, Title } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { FavoriteMoviesShare, Movie, MoviesApiService } from '../../services/movies-api';
@@ -17,6 +18,8 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   private readonly moviesApi = inject(MoviesApiService);
   readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly meta = inject(Meta);
+  private readonly title = inject(Title);
   private authSub?: Subscription;
   private routeSub?: Subscription;
 
@@ -27,19 +30,25 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   shareErrorMessage = '';
   shareUrl = '';
   copiedShareUrl = false;
+  shareDetailsVisible = false;
   share?: FavoriteMoviesShare;
   isPublicView = false;
   publicUsername = '';
   currentPage = 1;
   totalCount = 0;
   readonly pageSize = this.moviesApi.moviePageSize;
+  filterText = '';
+  activeFilter = '';
+  private filterTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit(): void {
     this.routeSub = this.route.paramMap.subscribe(params => {
       const encodedUsername = params.get('username');
       this.isPublicView = encodedUsername !== null;
       this.publicUsername = encodedUsername ? this.decodeUsername(encodedUsername) : '';
+      this.applySeoMetadata();
       this.resetMovies();
+      this.resetFilter();
       this.resetShareState();
       if (this.isPublicView) {
         this.loadFavoriteMovies(1);
@@ -57,6 +66,7 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
         this.loadShareStatus();
       } else {
         this.resetMovies();
+        this.resetFilter();
         this.resetShareState();
       }
     });
@@ -65,14 +75,15 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.authSub?.unsubscribe();
     this.routeSub?.unsubscribe();
+    this.clearFilterTimer();
   }
 
   loadFavoriteMovies(page = this.currentPage): void {
     this.loading = true;
     this.errorMessage = '';
     const moviesRequest = this.isPublicView
-      ? this.moviesApi.listPublicFavoriteMovies(this.publicUsername, page, this.pageSize)
-      : this.moviesApi.listFavoriteMovies(page, this.pageSize);
+      ? this.moviesApi.listPublicFavoriteMovies(this.publicUsername, page, this.pageSize, this.activeFilter)
+      : this.moviesApi.listFavoriteMovies(page, this.pageSize, this.activeFilter);
 
     moviesRequest.subscribe({
       next: moviePage => {
@@ -88,6 +99,42 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
         this.loading = false;
       }
     });
+  }
+
+  onFilterInput(event: Event): void {
+    this.filterText = (event.target as HTMLInputElement).value;
+    this.clearFilterTimer();
+
+    const filter = this.filterText.trim();
+    if (!filter) {
+      if (this.activeFilter) {
+        this.activeFilter = '';
+        this.loadFavoriteMovies(1);
+      }
+      return;
+    }
+
+    if (filter.length <= 3) {
+      return;
+    }
+
+    this.filterTimer = setTimeout(() => {
+      const nextFilter = this.filterText.trim();
+      if (nextFilter.length > 3 && nextFilter !== this.activeFilter) {
+        this.activeFilter = nextFilter;
+        this.loadFavoriteMovies(1);
+      }
+    }, 300);
+  }
+
+  clearFilter(): void {
+    this.clearFilterTimer();
+    const shouldReload = !!this.activeFilter || !!this.filterText;
+    this.filterText = '';
+    this.activeFilter = '';
+    if (shouldReload) {
+      this.loadFavoriteMovies(1);
+    }
   }
 
   loadShareStatus(): void {
@@ -106,35 +153,16 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   }
 
   shareFavoriteMovies(): void {
-    this.shareLoading = true;
-    this.shareErrorMessage = '';
+    if (!this.share?.myFavoriteMoviesPublic) return;
     this.copiedShareUrl = false;
-    this.moviesApi.shareFavoriteMovies().subscribe({
-      next: share => {
-        this.applyShare(share);
-        this.shareLoading = false;
-      },
-      error: err => {
-        this.shareErrorMessage = err?.error?.message ?? err?.message ?? 'Could not share favorite movies';
-        this.shareLoading = false;
-      }
-    });
+    this.shareUrl = this.moviesApi.favoriteMoviesShareUrl(this.share);
+    this.shareDetailsVisible = true;
   }
 
-  makeFavoriteMoviesPrivate(): void {
-    this.shareLoading = true;
-    this.shareErrorMessage = '';
+  closeShareDetails(): void {
+    this.shareDetailsVisible = false;
+    this.shareUrl = '';
     this.copiedShareUrl = false;
-    this.moviesApi.makeFavoriteMoviesPrivate().subscribe({
-      next: share => {
-        this.applyShare(share);
-        this.shareLoading = false;
-      },
-      error: err => {
-        this.shareErrorMessage = err?.error?.message ?? err?.message ?? 'Could not make favorite movies private';
-        this.shareLoading = false;
-      }
-    });
   }
 
   async copyShareUrl(): Promise<void> {
@@ -154,7 +182,9 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
 
   private applyShare(share: FavoriteMoviesShare): void {
     this.share = share;
-    this.shareUrl = share.myFavoriteMoviesPublic ? this.moviesApi.favoriteMoviesShareUrl(share) : '';
+    if (!share.myFavoriteMoviesPublic) {
+      this.closeShareDetails();
+    }
   }
 
   private resetMovies(): void {
@@ -165,12 +195,26 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     this.loading = false;
   }
 
+  private resetFilter(): void {
+    this.clearFilterTimer();
+    this.filterText = '';
+    this.activeFilter = '';
+  }
+
   private resetShareState(): void {
     this.share = undefined;
     this.shareUrl = '';
     this.shareErrorMessage = '';
     this.shareLoading = false;
     this.copiedShareUrl = false;
+    this.shareDetailsVisible = false;
+  }
+
+  private clearFilterTimer(): void {
+    if (this.filterTimer) {
+      clearTimeout(this.filterTimer);
+      this.filterTimer = undefined;
+    }
   }
 
   private decodeUsername(value: string): string {
@@ -179,6 +223,23 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     } catch {
       return value;
     }
+  }
+
+  private applySeoMetadata(): void {
+    const pageTitle = this.isPublicView
+      ? `${this.publicUsername}'s Favorite Movies | Movie Challenge`
+      : 'My Favorite Movies | Movie Challenge';
+    const description = this.isPublicView
+      ? `Browse ${this.publicUsername}'s shared favorite movies from Movie Challenge.`
+      : 'View and share your favorite movies from Movie Challenge.';
+
+    this.title.setTitle(pageTitle);
+    this.meta.updateTag({ name: 'description', content: description });
+    this.meta.updateTag({ name: 'robots', content: this.isPublicView ? 'index, follow' : 'noindex' });
+    this.meta.updateTag({ property: 'og:title', content: pageTitle });
+    this.meta.updateTag({ property: 'og:description', content: description });
+    this.meta.updateTag({ name: 'twitter:title', content: pageTitle });
+    this.meta.updateTag({ name: 'twitter:description', content: description });
   }
 
   private copyShareUrlWithFallback(): void {

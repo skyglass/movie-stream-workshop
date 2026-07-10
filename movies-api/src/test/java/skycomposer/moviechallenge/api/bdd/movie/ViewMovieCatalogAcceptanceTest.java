@@ -36,6 +36,11 @@ public class ViewMovieCatalogAcceptanceTest {
         fixture.moviePage(viewMovieCatalog.viewCatalog(fixture.moviePage(page, pageSize)));
     }
 
+    @When("the viewer requests the movie catalog filtered by {string}")
+    public void theViewerRequestsTheMovieCatalogFilteredBy(String filter) {
+        fixture.moviePage(viewMovieCatalog.viewCatalog(fixture.firstMoviePage(), filter));
+    }
+
     @Then("the catalog discovery list shows {string} before {string}")
     public void theCatalogDiscoveryListShowsBefore(String firstTitle, String secondTitle) {
         fixture.assertMovieListOrdersTitleBefore(firstTitle, secondTitle);
@@ -49,6 +54,16 @@ public class ViewMovieCatalogAcceptanceTest {
     @Then("the catalog discovery list total count is {int}")
     public void theCatalogDiscoveryListTotalCountIs(int count) {
         fixture.assertMovieListTotalCountIs(count);
+    }
+
+    @Then("the catalog discovery list contains movie {string}")
+    public void theCatalogDiscoveryListContainsMovie(String imdbId) {
+        fixture.assertMovieListContainsImdbId(imdbId);
+    }
+
+    @Then("the catalog discovery list does not contain movie {string}")
+    public void theCatalogDiscoveryListDoesNotContainMovie(String imdbId) {
+        fixture.assertMovieListDoesNotContainImdbId(imdbId);
     }
 
     @Then("catalog movie {string} is marked recommended")

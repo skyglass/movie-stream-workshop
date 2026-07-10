@@ -180,6 +180,131 @@ describe('MoviesApiService', () => {
     request.flush({ movies: [], totalCount: 0 });
   });
 
+  it('sends trimmed filters for paginated movie list endpoints', (done) => {
+    let completedRequests = 0;
+    const completeRequest = () => {
+      completedRequests++;
+      if (completedRequests === 5) {
+        done();
+      }
+    };
+
+    service.listMovies(2, 5, ' matrix ').subscribe(() => completeRequest());
+    service.listFavoriteMovies(2, 5, ' matrix ').subscribe(() => completeRequest());
+    service.listPublicFavoriteMovies('sky composer', 2, 5, ' matrix ').subscribe(() => completeRequest());
+    service.listUsersFavoriteMovies(2, 5, ' matrix ').subscribe(() => completeRequest());
+    service.listUsersRecommendedMovies(2, 5, ' matrix ').subscribe(() => completeRequest());
+
+    [
+      `${appConfig.apiBaseUrl}${appConfig.moviesApiPath}`,
+      `${appConfig.apiBaseUrl}${appConfig.favoriteMoviesPath}`,
+      `${appConfig.apiBaseUrl}${appConfig.publicFavoriteMoviesPath}/sky%20composer`,
+      `${appConfig.apiBaseUrl}${appConfig.usersFavoriteMoviesPath}`,
+      `${appConfig.apiBaseUrl}${appConfig.usersRecommendedMoviesPath}`
+    ].forEach(url => {
+      const request = http.expectOne(req =>
+        req.url === url
+        && req.params.get('page') === '2'
+        && req.params.get('pageSize') === '5'
+        && req.params.get('filter') === 'matrix');
+      request.flush({ movies: [], totalCount: 0 });
+    });
+  });
+
+  it('requests movie rank history', (done) => {
+    service.getMovieRankHistory('tt101').subscribe(rankHistory => {
+      expect(rankHistory.higherRanks.map(movie => movie.imdbId)).toEqual(['tt100']);
+      expect(rankHistory.lowerRanks.map(movie => movie.imdbId)).toEqual(['tt102']);
+      done();
+    });
+
+    const request = http.expectOne(`${appConfig.apiBaseUrl}${appConfig.moviesApiPath}/tt101/rank-history`);
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      higherRanks: [
+        {
+          imdbId: 'tt100',
+          title: 'Higher Movie',
+          poster: '',
+          year: '1998',
+          director: 'Higher Director',
+          rankPosition: 1,
+          rating: 10
+        }
+      ],
+      lowerRanks: [
+        {
+          imdbId: 'tt102',
+          title: 'Lower Movie',
+          poster: '',
+          year: '2000',
+          director: 'Lower Director',
+          rankPosition: 3,
+          rating: 1
+        }
+      ]
+    });
+  });
+
+  it('requests paginated suggested movie challenges', (done) => {
+    service.listSuggestedMovieChallenges(3, 7).subscribe(page => {
+      expect(page.challenges).toEqual([]);
+      expect(page.totalCount).toBe(0);
+      done();
+    });
+
+    const request = http.expectOne(`${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested?page=3&pageSize=7`);
+    request.flush({ challenges: [], totalCount: 0 });
+  });
+
+  it('submits selected movie challenges in a batch', (done) => {
+    service.submitMovieChallengeSelections([
+      { movie1Id: 'tt101', movie2Id: 'tt102', selectedMovieId: 'tt101' },
+      { movie1Id: 'tt103', movie2Id: 'tt104', selectedMovieId: 'tt104' }
+    ]).subscribe(() => {
+      done();
+    });
+
+    const request = http.expectOne(`${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/votes/batch`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      selections: [
+        { movie1Id: 'tt101', movie2Id: 'tt102', selectedMovieId: 'tt101' },
+        { movie1Id: 'tt103', movie2Id: 'tt104', selectedMovieId: 'tt104' }
+      ]
+    });
+    request.flush(null);
+  });
+
+  it('requests movie replay through recommendation replay endpoint', (done) => {
+    service.replayMovie('tt101').subscribe(movie => {
+      expect(movie.imdbId).toBe('tt101');
+      expect(movie.recommended).toBeTrue();
+      done();
+    });
+
+    const request = http.expectOne(`${appConfig.apiBaseUrl}${appConfig.moviesApiPath}/tt101/recommendation/replay`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({});
+    request.flush({
+      imdbId: 'tt101',
+      title: 'Replay Movie',
+      director: 'N/A',
+      writer: 'N/A',
+      year: 'N/A',
+      poster: '',
+      genre: '',
+      country: '',
+      type: 'MOVIE',
+      typeDescription: 'Movie',
+      recommended: true,
+      disliked: false,
+      rankPosition: null,
+      rating: null,
+      comments: []
+    });
+  });
+
   it('builds the public favorite movies share URL from the configured UI base URL', () => {
     expect(service.favoriteMoviesShareUrl({
       myFavoriteMoviesPublic: true,

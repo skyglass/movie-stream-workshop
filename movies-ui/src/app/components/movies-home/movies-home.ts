@@ -27,7 +27,10 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   totalCount = 0;
   readonly pageSize = this.moviesApi.moviePageSize;
   recommendationBusy: Record<string, boolean> = {};
+  filterText = '';
+  activeFilter = '';
   private authSub?: Subscription;
+  private filterTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit(): void {
     this.applySeoMetadata();
@@ -38,12 +41,13 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.authSub?.unsubscribe();
+    this.clearFilterTimer();
   }
 
   loadMovies(page = this.currentPage): void {
     this.loading = true;
     this.errorMessage = '';
-    this.moviesApi.listMovies(page, this.pageSize).subscribe({
+    this.moviesApi.listMovies(page, this.pageSize, this.activeFilter).subscribe({
       next: moviePage => {
         this.movies = moviePage.movies;
         this.totalCount = moviePage.totalCount;
@@ -55,6 +59,42 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
         this.loading = false;
       }
     });
+  }
+
+  onFilterInput(event: Event): void {
+    this.filterText = (event.target as HTMLInputElement).value;
+    this.clearFilterTimer();
+
+    const filter = this.filterText.trim();
+    if (!filter) {
+      if (this.activeFilter) {
+        this.activeFilter = '';
+        this.loadMovies(1);
+      }
+      return;
+    }
+
+    if (filter.length <= 3) {
+      return;
+    }
+
+    this.filterTimer = setTimeout(() => {
+      const nextFilter = this.filterText.trim();
+      if (nextFilter.length > 3 && nextFilter !== this.activeFilter) {
+        this.activeFilter = nextFilter;
+        this.loadMovies(1);
+      }
+    }, 300);
+  }
+
+  clearFilter(): void {
+    this.clearFilterTimer();
+    const shouldReload = !!this.activeFilter || !!this.filterText;
+    this.filterText = '';
+    this.activeFilter = '';
+    if (shouldReload) {
+      this.loadMovies(1);
+    }
   }
 
   poster(movie: Movie): string {
@@ -107,5 +147,12 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
     this.meta.updateTag({ property: 'og:description', content: description });
     this.meta.updateTag({ name: 'twitter:title', content: pageTitle });
     this.meta.updateTag({ name: 'twitter:description', content: description });
+  }
+
+  private clearFilterTimer(): void {
+    if (this.filterTimer) {
+      clearTimeout(this.filterTimer);
+      this.filterTimer = undefined;
+    }
   }
 }
