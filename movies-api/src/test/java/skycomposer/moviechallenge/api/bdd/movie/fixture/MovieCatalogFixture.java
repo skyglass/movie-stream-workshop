@@ -426,6 +426,16 @@ public class MovieCatalogFixture {
         assertEquals(rankPosition, movie.rankPosition());
     }
 
+    public void assertSuggestedMovieChallengeMovieConfidence(int number, String movieId, int confidencePercent) {
+        SuggestedMovieChallengeDto challenge = suggestedMovieChallenge(number);
+        SuggestedMovieChallengeDto.SuggestedMovieChallengeMovieDto movie = List.of(challenge.movie1(), challenge.movie2())
+                .stream()
+                .filter(candidate -> candidate.imdbId().equals(movieId))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(confidencePercent, movie.confidencePercent());
+    }
+
     public void assertHigherRankHistoryMatches(List<Map<String, String>> expectedRows) {
         assertNotNull(selectedMovieRankHistory, "Expected movie rank history to be loaded");
         assertRankHistoryMatches(selectedMovieRankHistory.higherRanks(), expectedRows);

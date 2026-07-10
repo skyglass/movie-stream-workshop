@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 
 import { AuthService } from '../../services/auth';
-import { Movie, MoviesApiService, OmdbMovieSearchResult } from '../../services/movies-api';
+import { Movie, MoviesApiService, OmdbMovieSearchResult, SuggestedMovieChallenge } from '../../services/movies-api';
 import { MovieSearchComponent } from './movie-search';
 
 describe('MovieSearchComponent', () => {
@@ -47,7 +47,25 @@ describe('MovieSearchComponent', () => {
     component.recommendSelectedMovie();
 
     expect(moviesApi.recommendMovieFromSearch).toHaveBeenCalled();
-    expect(moviesApi.listSuggestedMovieChallenges).toHaveBeenCalledOnceWith(1, 12);
+    expect(moviesApi.listSuggestedMovieChallenges).toHaveBeenCalledOnceWith(1, 12, false);
+  });
+
+  it('reloads suggested challenges with higher ranked first enabled', () => {
+    moviesApi.listSuggestedMovieChallenges.calls.reset();
+
+    component.toggleHigherRankedFirst({ target: { checked: true } } as unknown as Event);
+
+    expect(component.higherRankedFirst).toBeTrue();
+    expect(moviesApi.listSuggestedMovieChallenges).toHaveBeenCalledOnceWith(1, 12, true);
+  });
+
+  it('toggles confidence help independently from probability help', () => {
+    const challenge = suggestedChallenge();
+
+    component.toggleConfidenceHelp(challenge, challenge.movie1);
+
+    expect(component.confidenceHelpVisible(challenge, challenge.movie1)).toBeTrue();
+    expect(component.probabilityHelpVisible(challenge, challenge.movie1)).toBeFalse();
   });
 
   function selectedSearchResult(): OmdbMovieSearchResult {
@@ -87,6 +105,31 @@ describe('MovieSearchComponent', () => {
       rankPosition: null,
       rating: null,
       comments: []
+    };
+  }
+
+  function suggestedChallenge(): SuggestedMovieChallenge {
+    return {
+      movie1: {
+        imdbId: 'tt101',
+        title: 'Movie One',
+        poster: '',
+        year: '2001',
+        director: 'Director One',
+        winProbabilityPercent: 55,
+        rankPosition: 1,
+        confidencePercent: 60
+      },
+      movie2: {
+        imdbId: 'tt102',
+        title: 'Movie Two',
+        poster: '',
+        year: '2002',
+        director: 'Director Two',
+        winProbabilityPercent: 45,
+        rankPosition: 2,
+        confidencePercent: 40
+      }
     };
   }
 });

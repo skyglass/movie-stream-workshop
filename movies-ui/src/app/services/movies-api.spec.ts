@@ -257,6 +257,19 @@ describe('MoviesApiService', () => {
     request.flush({ challenges: [], totalCount: 0 });
   });
 
+  it('requests suggested movie challenges with higher ranked first ordering', (done) => {
+    service.listSuggestedMovieChallenges(3, 7, true).subscribe(page => {
+      expect(page.challenges).toEqual([]);
+      expect(page.totalCount).toBe(0);
+      done();
+    });
+
+    const request = http.expectOne(
+      `${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested?page=3&pageSize=7&higherRankedFirst=true`
+    );
+    request.flush({ challenges: [], totalCount: 0 });
+  });
+
   it('submits selected movie challenges in a batch', (done) => {
     service.submitMovieChallengeSelections([
       { movie1Id: 'tt101', movie2Id: 'tt102', selectedMovieId: 'tt101' },

@@ -264,12 +264,33 @@ tbody tr:focus-visible {
   margin-bottom: 1rem;
 }
 
+.suggested-controls {
+  display: grid;
+  justify-items: end;
+  gap: 0.45rem;
+}
+
 .suggested-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.suggested-order-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #344054;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.suggested-order-toggle input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
 }
 
 .selection-count {
@@ -382,7 +403,7 @@ tbody tr:focus-visible {
 }
 
 .suggested-movie-body dl div {
-  grid-template-columns: 4.25rem minmax(0, 1fr);
+  grid-template-columns: 7.75rem minmax(0, 1fr);
 }
 
 .suggested-movie-body dt {
@@ -601,6 +622,10 @@ dd {
 
   .suggested-header {
     display: grid;
+  }
+
+  .suggested-controls {
+    justify-items: stretch;
   }
 
   .suggested-actions {

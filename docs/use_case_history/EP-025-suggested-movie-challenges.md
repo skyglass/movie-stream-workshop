@@ -8,14 +8,19 @@
 
 ## Short Description
 
-The Search Wizard page shows a paginated Suggested Challenges list below movie search. The list uses the same challenge
-selection order as the single next-challenge flow: exploration pairs are shown first while any exploration pair exists;
-refinement pairs are shown only after exploration is exhausted.
+The Search Wizard page shows a paginated Suggested Challenges list below movie search. By default, exploration pairs are
+shown first while any exploration pair exists; refinement pairs are shown only after exploration is exhausted. Refinement
+suggestions are filtered to avoid pairs where the predicted winner would display at 70% or higher, then ordered by a
+bucketed Bradley-Terry uncertainty signal followed by higher-ranked movies inside the same bucket.
 
 Each challenge contains two compact movie cards separated by a `VS` marker. Each card shows poster, title, year,
-director, and `P`, the Bradley-Terry win chance against the paired movie. `P` is calculated from the current
-`user_movie_rank.mu` values and displays the current rank in parentheses when rank exists, for example `90% (#3)`.
-Unranked pairs are shown as `50%`.
+director, `Confidence`, and `P`, the Bradley-Terry win chance against the paired movie. `Confidence` is a per-movie
+rank-confidence percentage from `10%` to `100%`, calculated by normalizing the movie's Bradley-Terry `sigma` into the
+same ten-bucket scale used for suggested challenge uncertainty and reversing it. Clicking the info icon next to
+`Confidence` shows `Movie Rank Confidence, based on previous comparisons`.
+
+`P` is calculated from the current `user_movie_rank.mu` values and displays the current rank in parentheses when rank
+exists, for example `90% (#3)`. Unranked pairs are shown as `50%`.
 
 Users may select winners for multiple suggested challenges and submit them in one transactional batch. Batch submit
 uses the same validation and winner-loser recording behavior as the single Movie Challenge vote, then rebuilds
@@ -27,7 +32,7 @@ suggested challenge page without submitting votes.
 ```gherkin
 Feature: movie-challenge
 
-  Scenario: Suggested challenges are paginated in next challenge order with win chances
+  Scenario: Suggested challenges are paginated with win chances
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"
     And movie "tt103" exists with title "Movie Three"
@@ -36,16 +41,10 @@ Feature: movie-challenge
     And movie "tt102" is already recommended by "user"
     And movie "tt103" is already recommended by "user"
     And movie "tt104" is already recommended by "user"
-    And movie "tt101" has rank 1 and 6 direct comparisons for "user"
-    And movie "tt102" has rank 2 and 1 direct comparison for "user"
-    And movie "tt103" has rank 3 and 4 direct comparisons for "user"
-    And movie "tt104" has rank 4 and 7 direct comparisons for "user"
     When regular user "user" requests suggested movie challenges page 1 with size 2
     Then the suggested movie challenge total count is 3
     And the suggested movie challenge list contains 2 challenges
-    And suggested movie challenge 1 is movie "tt102" against movie "tt103"
-    And suggested movie challenge 1 movie "tt102" has win chance 73 percent and rank 2
-    And suggested movie challenge 1 movie "tt103" has win chance 27 percent and rank 3
+    And suggested movie challenge 1 is movie "tt101" against movie "tt102"
 
   Scenario: Regular user submits suggested challenge selections in a batch
     Given movie "tt101" exists with title "Movie One"

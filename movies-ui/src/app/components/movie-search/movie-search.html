@@ -176,20 +176,30 @@
       </div>
 
       @if (auth.token) {
-        <div class="suggested-actions">
-          @if (hasSuggestedSelections()) {
-            <span class="selection-count">{{ selectedSuggestedCount() }} selected</span>
-          }
-          <button type="button" (click)="discardSuggestedSelections()" [disabled]="suggestedSaving || suggestedLoading">
-            Discard
-          </button>
-          <button
-            type="button"
-            class="primary"
-            (click)="submitSuggestedSelections()"
-            [disabled]="!hasSuggestedSelections() || suggestedSaving">
-            {{ suggestedSaving ? 'Submitting' : 'Submit' }}
-          </button>
+        <div class="suggested-controls">
+          <div class="suggested-actions">
+            @if (hasSuggestedSelections()) {
+              <span class="selection-count">{{ selectedSuggestedCount() }} selected</span>
+            }
+            <button type="button" (click)="discardSuggestedSelections()" [disabled]="suggestedSaving || suggestedLoading">
+              Discard
+            </button>
+            <button
+              type="button"
+              class="primary"
+              (click)="submitSuggestedSelections()"
+              [disabled]="!hasSuggestedSelections() || suggestedSaving">
+              {{ suggestedSaving ? 'Submitting' : 'Submit' }}
+            </button>
+          </div>
+          <label class="suggested-order-toggle">
+            <input
+              type="checkbox"
+              [checked]="higherRankedFirst"
+              [disabled]="suggestedLoading || suggestedSaving"
+              (change)="toggleHigherRankedFirst($event)" />
+            <span>Higher Ranked First</span>
+          </label>
         </div>
       }
     </header>
@@ -232,6 +242,19 @@
                   </div>
                   <div>
                     <dt>
+                      Confidence:
+                      <button
+                        type="button"
+                        class="probability-info"
+                        aria-label="Show confidence explanation"
+                        (click)="toggleConfidenceHelp(challenge, challenge.movie1); $event.stopPropagation()">
+                        <span class="material-icons" aria-hidden="true">info</span>
+                      </button>
+                    </dt>
+                    <dd>{{ challenge.movie1.confidencePercent }}%</dd>
+                  </div>
+                  <div>
+                    <dt>
                       P
                       <button
                         type="button"
@@ -251,6 +274,9 @@
                 </dl>
                 @if (probabilityHelpVisible(challenge, challenge.movie1)) {
                   <div class="probability-help">{{ probabilityHelpText }}</div>
+                }
+                @if (confidenceHelpVisible(challenge, challenge.movie1)) {
+                  <div class="probability-help">{{ confidenceHelpText }}</div>
                 }
               </div>
             </article>
@@ -285,6 +311,19 @@
                   </div>
                   <div>
                     <dt>
+                      Confidence:
+                      <button
+                        type="button"
+                        class="probability-info"
+                        aria-label="Show confidence explanation"
+                        (click)="toggleConfidenceHelp(challenge, challenge.movie2); $event.stopPropagation()">
+                        <span class="material-icons" aria-hidden="true">info</span>
+                      </button>
+                    </dt>
+                    <dd>{{ challenge.movie2.confidencePercent }}%</dd>
+                  </div>
+                  <div>
+                    <dt>
                       P
                       <button
                         type="button"
@@ -304,6 +343,9 @@
                 </dl>
                 @if (probabilityHelpVisible(challenge, challenge.movie2)) {
                   <div class="probability-help">{{ probabilityHelpText }}</div>
+                }
+                @if (confidenceHelpVisible(challenge, challenge.movie2)) {
+                  <div class="probability-help">{{ confidenceHelpText }}</div>
                 }
               </div>
             </article>

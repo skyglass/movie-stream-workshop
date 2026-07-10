@@ -54,21 +54,54 @@ public class MovieChallengeRepository {
     }
 
     public SuggestedMovieChallengePageDto findSuggestedChallenges(String username, Pageable pageable) {
+        return findSuggestedChallenges(username, pageable, false);
+    }
+
+    public SuggestedMovieChallengePageDto findSuggestedChallenges(String username,
+                                                                  Pageable pageable,
+                                                                  boolean higherRankedFirst) {
+        SuggestedChallengeOrdering ordering = higherRankedFirst
+                ? SuggestedChallengeOrdering.HIGHER_RANKED_FIRST
+                : SuggestedChallengeOrdering.UNCERTAINTY_BUCKET_FIRST;
+        if (ordering.preferRankedRefinement()) {
+            Map<String, Object> refinementParams = refinementParams(username);
+            long refinementCount = countChallenges(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                    refinementParams);
+            if (refinementCount > 0) {
+                return querySuggestedChallenges(
+                        pagedSql(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                                suggestedRefinementChallengeOrderSql(ordering)),
+                        pageParams(refinementParams, pageable),
+                        refinementCount);
+            }
+
+            Map<String, Object> explorationParams = explorationParams(username);
+            long explorationCount = countChallenges(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                    explorationParams);
+            return querySuggestedChallenges(
+                    pagedSql(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                            suggestedExplorationChallengeOrderSql(ordering)),
+                    pageParams(explorationParams, pageable),
+                    explorationCount);
+        }
+
         Map<String, Object> explorationParams = explorationParams(username);
-        long explorationCount = countChallenges(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST), explorationParams);
+        long explorationCount = countChallenges(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                explorationParams);
         if (explorationCount > 0) {
             return querySuggestedChallenges(
                     pagedSql(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
-                            suggestedExplorationChallengeOrderSql()),
+                            suggestedExplorationChallengeOrderSql(ordering)),
                     pageParams(explorationParams, pageable),
                     explorationCount);
         }
 
         Map<String, Object> refinementParams = refinementParams(username);
-        long refinementCount = countChallenges(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST), refinementParams);
+        long refinementCount = countChallenges(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                refinementParams);
         return querySuggestedChallenges(
                 pagedSql(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
-                        suggestedRefinementChallengeOrderSql()),
+                        suggestedRefinementChallengeOrderSql(ordering)),
                 pageParams(refinementParams, pageable),
                 refinementCount);
     }
@@ -152,17 +185,30 @@ public class MovieChallengeRepository {
                 """
                 : "";
         return """
-                with recommended_movie as (
+                with rank_sigma_range as (
+                    select movie_rank.user_id,
+                        min(movie_rank.sigma) as min_user_sigma,
+                        max(movie_rank.sigma) as max_user_sigma
+                    from user_movie_rank movie_rank
+                    where movie_rank.user_id = :username
+                    group by movie_rank.user_id
+                ),
+                recommended_movie as (
                     select recommendation.user_id,
                         recommendation.movie_id,
                         coalesce(movie_rank.direct_comparisons, 0) as direct_comparisons,
                         coalesce(movie_rank.rank_position, 0) as sort_rank_position,
                         movie_rank.rank_position,
-                        movie_rank.mu
+                        movie_rank.mu,
+                        movie_rank.sigma,
+                        rank_sigma_range.min_user_sigma,
+                        rank_sigma_range.max_user_sigma
                     from movie_recommendations recommendation
                     left join user_movie_rank movie_rank
                         on movie_rank.user_id = recommendation.user_id
                         and movie_rank.movie_id = recommendation.movie_id
+                    left join rank_sigma_range
+                        on rank_sigma_range.user_id = recommendation.user_id
                     where recommendation.user_id = :username
                         and recommendation.positive = true
                 ),
@@ -222,6 +268,26 @@ public class MovieChallengeRepository {
                                 <= partner_movie.sort_rank_position then partner_movie.mu
                             else candidate_movie.mu
                         end as movie2_mu,
+                        case
+                            when candidate_movie.direct_comparisons
+                                < partner_movie.direct_comparisons then candidate_movie.sigma
+                            when partner_movie.direct_comparisons
+                                < candidate_movie.direct_comparisons then partner_movie.sigma
+                            when candidate_movie.sort_rank_position
+                                <= partner_movie.sort_rank_position then candidate_movie.sigma
+                            else partner_movie.sigma
+                        end as movie1_sigma,
+                        case
+                            when candidate_movie.direct_comparisons
+                                < partner_movie.direct_comparisons then partner_movie.sigma
+                            when partner_movie.direct_comparisons
+                                < candidate_movie.direct_comparisons then candidate_movie.sigma
+                            when candidate_movie.sort_rank_position
+                                <= partner_movie.sort_rank_position then partner_movie.sigma
+                            else candidate_movie.sigma
+                        end as movie2_sigma,
+                        candidate_movie.min_user_sigma,
+                        candidate_movie.max_user_sigma,
                         least(candidate_movie.direct_comparisons, partner_movie.direct_comparisons)
                             as lower_direct_comparisons,
                         greatest(candidate_movie.direct_comparisons, partner_movie.direct_comparisons)
@@ -267,6 +333,7 @@ public class MovieChallengeRepository {
                     movie1.director as movie1_director,
                     selected_pair.movie1_rank_position,
                     selected_pair.movie1_mu,
+                    %s as movie1_confidence_percent,
                     selected_pair.movie2_id,
                     movie2.title as movie2_title,
                     movie2.poster as movie2_poster,
@@ -274,6 +341,7 @@ public class MovieChallengeRepository {
                     movie2.director as movie2_director,
                     selected_pair.movie2_rank_position,
                     selected_pair.movie2_mu,
+                    %s as movie2_confidence_percent,
                     selected_pair.lower_direct_comparisons,
                     selected_pair.higher_direct_comparisons,
                     selected_pair.rank_distance
@@ -284,7 +352,14 @@ public class MovieChallengeRepository {
                     on movie2.imdb_id = selected_pair.movie2_id
                 where selected_pair.lower_direct_comparisons < :explorationDirectComparisons
                     %s
-                """.formatted(candidatePairPriorityOrder, suggestedListFilters);
+                """.formatted(candidatePairPriorityOrder,
+                confidencePercentSql("selected_pair.movie1_sigma",
+                        "selected_pair.min_user_sigma",
+                        "selected_pair.max_user_sigma"),
+                confidencePercentSql("selected_pair.movie2_sigma",
+                        "selected_pair.min_user_sigma",
+                        "selected_pair.max_user_sigma"),
+                suggestedListFilters);
     }
 
     private String explorationChallengeOrderSql() {
@@ -297,7 +372,22 @@ public class MovieChallengeRepository {
                 """;
     }
 
-    private String suggestedExplorationChallengeOrderSql() {
+    private String suggestedExplorationChallengeOrderSql(SuggestedChallengeOrdering ordering) {
+        if (ordering.prioritizeHigherRanks()) {
+            return """
+                    order by case
+                            when movie1_rank_position is null then 1
+                            else 0
+                        end,
+                        movie1_rank_position,
+                        rank_distance,
+                        higher_direct_comparisons,
+                        coalesce(abs(movie1_mu - movie2_mu), 0),
+                        lower_direct_comparisons,
+                        movie1_id,
+                        movie2_id
+                    """;
+        }
         return """
                 order by lower_direct_comparisons,
                     case
@@ -356,31 +446,43 @@ public class MovieChallengeRepository {
                 : "";
         String stopFilters = filterMode.applyRefinementStopFilters()
                 ? """
-                    and selected_pair.rank_distance <= :closeRankWindow
-                    and selected_pair.score_distance <= :closeScoreDistance
-                    and selected_pair.pair_information >= :minimalRefinementPairInformation
+                    and filtered_pair.rank_distance <= :closeRankWindow
+                    and filtered_pair.score_distance <= :closeScoreDistance
+                    and filtered_pair.pair_information >= :minimalRefinementPairInformation
                 """
                 : "";
         String suggestedListFilters = filterMode.applySuggestedPairLimit()
                 ? """
-                    and selected_pair.candidate_pair_priority = 1
-                    and abs(selected_pair.movie1_mu - selected_pair.movie2_mu) < :suggestedMaxMuDistance
+                    and filtered_pair.candidate_pair_priority = 1
+                    and abs(filtered_pair.movie1_mu - filtered_pair.movie2_mu) < :suggestedMaxMuDistance
                 """
                 : "";
         return """
-                with ranked_recommendation as (
+                with rank_sigma_range as (
+                    select movie_rank.user_id,
+                        min(movie_rank.sigma) as min_user_sigma,
+                        max(movie_rank.sigma) as max_user_sigma
+                    from user_movie_rank movie_rank
+                    where movie_rank.user_id = :username
+                    group by movie_rank.user_id
+                ),
+                ranked_recommendation as (
                     select movie_rank.user_id,
                         movie_rank.movie_id,
                         movie_rank.rank_position,
                         movie_rank.score,
                         movie_rank.direct_comparisons,
                         movie_rank.mu,
-                        movie_rank.sigma
+                        movie_rank.sigma,
+                        rank_sigma_range.min_user_sigma,
+                        rank_sigma_range.max_user_sigma
                     from user_movie_rank movie_rank
                     join movie_recommendations recommendation
                         on recommendation.user_id = movie_rank.user_id
                         and recommendation.movie_id = movie_rank.movie_id
                         and recommendation.positive = true
+                    left join rank_sigma_range
+                        on rank_sigma_range.user_id = movie_rank.user_id
                     where movie_rank.user_id = :username
                 ),
                 selected_pair as (
@@ -439,6 +541,26 @@ public class MovieChallengeRepository {
                                 <= second_rank.rank_position then second_rank.mu
                             else first_rank.mu
                         end as movie2_mu,
+                        case
+                            when first_rank.direct_comparisons
+                                < second_rank.direct_comparisons then first_rank.sigma
+                            when second_rank.direct_comparisons
+                                < first_rank.direct_comparisons then second_rank.sigma
+                            when first_rank.rank_position
+                                <= second_rank.rank_position then first_rank.sigma
+                            else second_rank.sigma
+                        end as movie1_sigma,
+                        case
+                            when first_rank.direct_comparisons
+                                < second_rank.direct_comparisons then second_rank.sigma
+                            when second_rank.direct_comparisons
+                                < first_rank.direct_comparisons then first_rank.sigma
+                            when first_rank.rank_position
+                                <= second_rank.rank_position then second_rank.sigma
+                            else first_rank.sigma
+                        end as movie2_sigma,
+                        first_rank.min_user_sigma,
+                        first_rank.max_user_sigma,
                         least(first_rank.direct_comparisons, second_rank.direct_comparisons)
                             as lower_direct_comparisons,
                         greatest(first_rank.direct_comparisons, second_rank.direct_comparisons)
@@ -446,6 +568,7 @@ public class MovieChallengeRepository {
                         second_rank.rank_position - first_rank.rank_position as rank_distance,
                         abs(first_rank.score - second_rank.score) as score_distance,
                         %s as pair_information,
+                        greatest(first_rank.sigma, second_rank.sigma) as pair_uncertainty_signal,
                         row_number() over (
                             partition by first_rank.user_id, first_rank.movie_id
                             order by %s
@@ -478,6 +601,7 @@ public class MovieChallengeRepository {
                     movie1.director as movie1_director,
                     selected_pair.movie1_rank_position,
                     selected_pair.movie1_mu,
+                    %s as movie1_confidence_percent,
                     selected_pair.movie2_id,
                     movie2.title as movie2_title,
                     movie2.poster as movie2_poster,
@@ -485,20 +609,43 @@ public class MovieChallengeRepository {
                     movie2.director as movie2_director,
                     selected_pair.movie2_rank_position,
                     selected_pair.movie2_mu,
+                    %s as movie2_confidence_percent,
                     selected_pair.lower_direct_comparisons,
                     selected_pair.higher_direct_comparisons,
                     selected_pair.rank_distance,
                     selected_pair.score_distance,
-                    selected_pair.pair_information
-                from selected_pair
+                    selected_pair.pair_information,
+                    selected_pair.pair_uncertainty_signal,
+                    case
+                        when selected_pair.max_uncertainty_signal = selected_pair.min_uncertainty_signal then 10
+                        else least(10, cast(floor(((selected_pair.pair_uncertainty_signal
+                                - selected_pair.min_uncertainty_signal)
+                            / nullif(selected_pair.max_uncertainty_signal
+                                - selected_pair.min_uncertainty_signal, 0)) * 10) as integer) + 1)
+                    end as uncertainty_bucket
+                from (
+                    select filtered_pair.*,
+                        min(filtered_pair.pair_uncertainty_signal) over () as min_uncertainty_signal,
+                        max(filtered_pair.pair_uncertainty_signal) over () as max_uncertainty_signal
+                    from selected_pair filtered_pair
+                    where filtered_pair.lower_direct_comparisons >= :explorationDirectComparisons
+                        %s
+                        %s
+                ) selected_pair
                 join movies movie1
                     on movie1.imdb_id = selected_pair.movie1_id
                 join movies movie2
                     on movie2.imdb_id = selected_pair.movie2_id
-                where selected_pair.lower_direct_comparisons >= :explorationDirectComparisons
-                    %s
-                    %s
-                """.formatted(pairInformationSql, candidatePairPriorityOrder, closeRankJoinFilter, stopFilters,
+                """.formatted(pairInformationSql,
+                candidatePairPriorityOrder,
+                closeRankJoinFilter,
+                confidencePercentSql("selected_pair.movie1_sigma",
+                        "selected_pair.min_user_sigma",
+                        "selected_pair.max_user_sigma"),
+                confidencePercentSql("selected_pair.movie2_sigma",
+                        "selected_pair.min_user_sigma",
+                        "selected_pair.max_user_sigma"),
+                stopFilters,
                 suggestedListFilters);
     }
 
@@ -513,17 +660,45 @@ public class MovieChallengeRepository {
                 """;
     }
 
-    private String suggestedRefinementChallengeOrderSql() {
+    private String suggestedRefinementChallengeOrderSql(SuggestedChallengeOrdering ordering) {
+        if (ordering.prioritizeHigherRanks()) {
+            return """
+                    order by least(movie1_rank_position, movie2_rank_position),
+                        rank_distance,
+                        uncertainty_bucket desc,
+                        pair_uncertainty_signal desc,
+                        pair_information desc,
+                        higher_direct_comparisons,
+                        lower_direct_comparisons,
+                        movie1_id,
+                        movie2_id
+                    """;
+        }
         return """
-                order by movie1_rank_position,
-                    movie2_rank_position,
-                    pair_information desc,
+                order by uncertainty_bucket desc,
+                    least(movie1_rank_position, movie2_rank_position),
                     rank_distance,
+                    greatest(movie1_rank_position, movie2_rank_position),
+                    pair_uncertainty_signal desc,
+                    pair_information desc,
                     higher_direct_comparisons,
                     lower_direct_comparisons,
                     movie1_id,
                     movie2_id
                 """;
+    }
+
+    private String confidencePercentSql(String sigmaColumn, String minSigmaColumn, String maxSigmaColumn) {
+        return """
+                case
+                    when %1$s is null
+                        or %2$s is null
+                        or %3$s is null
+                        or %3$s = %2$s then 10
+                    else (11 - least(10, cast(floor(((%1$s - %2$s)
+                            / nullif(%3$s - %2$s, 0)) * 10) as integer) + 1)) * 10
+                end
+                """.formatted(sigmaColumn, minSigmaColumn, maxSigmaColumn);
     }
 
     private Map<String, Object> refinementParams(String username) {
@@ -569,6 +744,27 @@ public class MovieChallengeRepository {
         }
     }
 
+    private enum SuggestedChallengeOrdering {
+        UNCERTAINTY_BUCKET_FIRST(false, false),
+        HIGHER_RANKED_FIRST(true, true);
+
+        private final boolean prioritizeHigherRanks;
+        private final boolean preferRankedRefinement;
+
+        SuggestedChallengeOrdering(boolean prioritizeHigherRanks, boolean preferRankedRefinement) {
+            this.prioritizeHigherRanks = prioritizeHigherRanks;
+            this.preferRankedRefinement = preferRankedRefinement;
+        }
+
+        private boolean prioritizeHigherRanks() {
+            return prioritizeHigherRanks;
+        }
+
+        private boolean preferRankedRefinement() {
+            return preferRankedRefinement;
+        }
+    }
+
     private Optional<MovieChallengeDto> queryChallenge(String sql, Map<String, Object> params) {
         return jdbcTemplate.query(sql, params, rs -> {
             if (!rs.next()) {
@@ -602,7 +798,8 @@ public class MovieChallengeRepository {
                             rs.getString("movie1_year"),
                             rs.getString("movie1_director"),
                             movie1WinProbability,
-                            nullableInteger(rs, "movie1_rank_position")),
+                            nullableInteger(rs, "movie1_rank_position"),
+                            rs.getInt("movie1_confidence_percent")),
                     new SuggestedMovieChallengeMovieDto(
                             rs.getString("movie2_id"),
                             rs.getString("movie2_title"),
@@ -610,7 +807,8 @@ public class MovieChallengeRepository {
                             rs.getString("movie2_year"),
                             rs.getString("movie2_director"),
                             movie2WinProbability,
-                            nullableInteger(rs, "movie2_rank_position")));
+                            nullableInteger(rs, "movie2_rank_position"),
+                            rs.getInt("movie2_confidence_percent")));
         });
         return new SuggestedMovieChallengePageDto(challenges, totalCount);
     }

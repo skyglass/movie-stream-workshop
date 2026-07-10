@@ -80,6 +80,16 @@ public class MovieChallengeAcceptanceTest {
         fixture.suggestedMovieChallengePage(movieChallenge.suggestedChallenges(username, fixture.moviePage(page, pageSize)));
     }
 
+    @When("regular user {string} requests suggested movie challenges page {int} with size {int} higher ranked first")
+    public void regularUserRequestsSuggestedMovieChallengesPageWithSizeHigherRankedFirst(String username,
+                                                                                         int page,
+                                                                                         int pageSize) {
+        fixture.suggestedMovieChallengePage(movieChallenge.suggestedChallenges(
+                username,
+                fixture.moviePage(page, pageSize),
+                true));
+    }
+
     @When("regular user {string} selects movie {string} from movie challenge pair {string} and {string}")
     public void regularUserSelectsMovieFromMovieChallengePair(String username,
                                                               String selectedMovieId,
@@ -141,6 +151,11 @@ public class MovieChallengeAcceptanceTest {
                 movieId,
                 winProbabilityPercent,
                 rankPosition);
+    }
+
+    @Then("suggested movie challenge {int} movie {string} has confidence {int} percent")
+    public void suggestedMovieChallengeMovieHasConfidence(int number, String movieId, int confidencePercent) {
+        fixture.assertSuggestedMovieChallengeMovieConfidence(number, movieId, confidencePercent);
     }
 
     @Then("movie {string} has {int} direct win(s) by {string}")

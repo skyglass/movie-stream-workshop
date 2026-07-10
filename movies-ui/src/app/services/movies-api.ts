@@ -81,6 +81,7 @@ export interface SuggestedMovieChallengeMovie {
   director: string;
   winProbabilityPercent: number;
   rankPosition: number | null;
+  confidencePercent: number;
 }
 
 export interface SuggestedMovieChallenge {
@@ -297,9 +298,17 @@ export class MoviesApiService {
     return this.http.post<void>(`${this.movieChallengesBase}/votes`, { movie1Id, movie2Id, selectedMovieId });
   }
 
-  listSuggestedMovieChallenges(page = 1, pageSize = this.moviePageSize): Observable<SuggestedMovieChallengePage> {
+  listSuggestedMovieChallenges(
+    page = 1,
+    pageSize = this.moviePageSize,
+    higherRankedFirst = false
+  ): Observable<SuggestedMovieChallengePage> {
+    const params = this.pageParams(page, pageSize);
+    if (higherRankedFirst) {
+      params['higherRankedFirst'] = 'true';
+    }
     return this.http.get<SuggestedMovieChallengePage>(`${this.movieChallengesBase}/suggested`, {
-      params: this.pageParams(page, pageSize)
+      params
     });
   }
 

@@ -35,13 +35,23 @@ public class MovieChallengeUseCase {
 
     @Transactional(readOnly = true)
     public SuggestedMovieChallengePageDto suggestedChallenges(Jwt jwt, Pageable pageable) {
+        return suggestedChallenges(jwt, pageable, false);
+    }
+
+    @Transactional(readOnly = true)
+    public SuggestedMovieChallengePageDto suggestedChallenges(Jwt jwt, Pageable pageable, boolean higherRankedFirst) {
         UserExtra userExtra = userExtraService.syncFromJwt(jwt);
-        return suggestedChallenges(userExtra.getUsername(), pageable);
+        return suggestedChallenges(userExtra.getUsername(), pageable, higherRankedFirst);
     }
 
     @Transactional(readOnly = true)
     public SuggestedMovieChallengePageDto suggestedChallenges(String username, Pageable pageable) {
-        return movieChallengeRepository.findSuggestedChallenges(username, pageable);
+        return suggestedChallenges(username, pageable, false);
+    }
+
+    @Transactional(readOnly = true)
+    public SuggestedMovieChallengePageDto suggestedChallenges(String username, Pageable pageable, boolean higherRankedFirst) {
+        return movieChallengeRepository.findSuggestedChallenges(username, pageable, higherRankedFirst);
     }
 
     @Transactional

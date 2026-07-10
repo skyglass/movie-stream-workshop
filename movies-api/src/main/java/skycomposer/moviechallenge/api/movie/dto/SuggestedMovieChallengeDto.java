@@ -9,6 +9,7 @@ public record SuggestedMovieChallengeDto(SuggestedMovieChallengeMovieDto movie1,
                                                   String year,
                                                   String director,
                                                   int winProbabilityPercent,
-                                                  Integer rankPosition) {
+                                                  Integer rankPosition,
+                                                  int confidencePercent) {
     }
 }
