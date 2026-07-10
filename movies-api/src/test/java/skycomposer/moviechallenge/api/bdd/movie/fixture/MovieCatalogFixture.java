@@ -242,6 +242,22 @@ public class MovieCatalogFixture {
     }
 
     public void setMovieRank(String imdbId, String username, int rankPosition, int directComparisons) {
+        BigDecimal score = BigDecimal.valueOf(Math.max(1, 11 - rankPosition));
+        setMovieRank(
+                imdbId,
+                username,
+                rankPosition,
+                directComparisons,
+                score.subtract(BigDecimal.valueOf(5.5)),
+                BigDecimal.valueOf(2.0 / Math.sqrt(Math.max(directComparisons, 1))));
+    }
+
+    public void setMovieRank(String imdbId,
+                             String username,
+                             int rankPosition,
+                             int directComparisons,
+                             BigDecimal mu,
+                             BigDecimal sigma) {
         ensureUser(username);
         jdbcTemplate.update(
                 "delete from user_movie_rank where user_id = ? and movie_id = ?",
@@ -266,8 +282,8 @@ public class MovieCatalogFixture {
                 rankPosition,
                 BigDecimal.valueOf(Math.max(1, 11 - rankPosition)),
                 directComparisons,
-                BigDecimal.valueOf(Math.max(1, 11 - rankPosition) - 5.5),
-                BigDecimal.valueOf(2.0 / Math.sqrt(Math.max(directComparisons, 1))),
+                mu,
+                sigma,
                 BigDecimal.valueOf(Math.min(9, 5.77 / Math.sqrt(Math.max(directComparisons, 1)))));
     }
 

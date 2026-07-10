@@ -65,7 +65,7 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
   selectedSuggestedMovieIds: Record<string, string> = {};
   visibleProbabilityHelpKey = '';
   readonly suggestedPageSize = this.moviesApi.moviePageSize;
-  readonly probabilityHelpText = 'Win chance beased on previous comparisons';
+  readonly probabilityHelpText = 'Chance of winning, based on previous comparisons';
   private lastSearchKey = '';
 
   ngOnInit(): void {

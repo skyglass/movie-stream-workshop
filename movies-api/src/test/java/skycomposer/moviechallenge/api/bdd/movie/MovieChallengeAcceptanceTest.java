@@ -7,6 +7,7 @@ import io.cucumber.datatable.DataTable;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +39,22 @@ public class MovieChallengeAcceptanceTest {
     @Given("movie {string} has rank {int} and {int} direct comparison(s) for {string}")
     public void movieHasRankAndDirectComparisonsFor(String imdbId, int rankPosition, int directComparisons, String username) {
         fixture.setMovieRank(imdbId, username, rankPosition, directComparisons);
+    }
+
+    @Given("movie {string} has rank {int}, {int} direct comparison(s), mu {string}, and sigma {string} for {string}")
+    public void movieHasRankDirectComparisonsMuAndSigmaFor(String imdbId,
+                                                           int rankPosition,
+                                                           int directComparisons,
+                                                           String mu,
+                                                           String sigma,
+                                                           String username) {
+        fixture.setMovieRank(
+                imdbId,
+                username,
+                rankPosition,
+                directComparisons,
+                new BigDecimal(mu),
+                new BigDecimal(sigma));
     }
 
     @Given("user {string} has already ranked movies {string} from best to worst except pair {string} and {string}")

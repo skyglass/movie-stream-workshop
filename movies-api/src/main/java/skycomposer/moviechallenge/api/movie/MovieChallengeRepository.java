@@ -35,6 +35,12 @@ public class MovieChallengeRepository {
     private static final int CLOSE_RANK_WINDOW_RECOMMENDATION_DIVISOR = 33;
     private static final double CLOSE_SCORE_DISTANCE = 1.0;
     private static final double MINIMAL_REFINEMENT_PAIR_INFORMATION = 0.30;
+    private static final int SUGGESTED_MAX_DISPLAYED_WIN_PERCENT = 70;
+    // Suggested challenge probabilities are displayed with Math.round, so keep the raw cutoff
+    // below the half-percent boundary to avoid showing 70%+ pairs in the UI.
+    private static final double SUGGESTED_MAX_WIN_PROBABILITY = (SUGGESTED_MAX_DISPLAYED_WIN_PERCENT - 0.5) / 100;
+    private static final double SUGGESTED_MAX_MU_DISTANCE = Math.log(SUGGESTED_MAX_WIN_PROBABILITY
+            / (1 - SUGGESTED_MAX_WIN_PROBABILITY));
     private static final int BRADLEY_TERRY_ITERATIONS = 50;
     private static final double BRADLEY_TERRY_PRIOR_PRECISION = 1.0;
     private static final double BRADLEY_TERRY_MAX_UPDATE = 0.75;
@@ -49,10 +55,11 @@ public class MovieChallengeRepository {
 
     public SuggestedMovieChallengePageDto findSuggestedChallenges(String username, Pageable pageable) {
         Map<String, Object> explorationParams = explorationParams(username);
-        long explorationCount = countChallenges(explorationChallengeBaseSql(), explorationParams);
+        long explorationCount = countChallenges(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST), explorationParams);
         if (explorationCount > 0) {
             return querySuggestedChallenges(
-                    pagedSql(explorationChallengeBaseSql(), explorationChallengeOrderSql()),
+                    pagedSql(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                            suggestedExplorationChallengeOrderSql()),
                     pageParams(explorationParams, pageable),
                     explorationCount);
         }
@@ -60,7 +67,8 @@ public class MovieChallengeRepository {
         Map<String, Object> refinementParams = refinementParams(username);
         long refinementCount = countChallenges(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST), refinementParams);
         return querySuggestedChallenges(
-                pagedSql(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST), refinementChallengeOrderSql()),
+                pagedSql(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                        suggestedRefinementChallengeOrderSql()),
                 pageParams(refinementParams, pageable),
                 refinementCount);
     }
@@ -108,11 +116,41 @@ public class MovieChallengeRepository {
 
     private Optional<MovieChallengeDto> findExplorationChallenge(String username) {
         return queryChallenge(
-                singleSql(explorationChallengeBaseSql(), explorationChallengeOrderSql()),
+                singleSql(explorationChallengeBaseSql(ChallengeFilterMode.NEXT_CHALLENGE), explorationChallengeOrderSql()),
                 explorationParams(username));
     }
 
-    private String explorationChallengeBaseSql() {
+    private String explorationChallengeBaseSql(ChallengeFilterMode filterMode) {
+        String candidatePairPriorityOrder = filterMode.applySuggestedPairLimit()
+                ? """
+                    case
+                        when candidate_movie.mu is null
+                            or partner_movie.mu is null
+                            or abs(candidate_movie.mu - partner_movie.mu) < :suggestedMaxMuDistance then 0
+                        else 1
+                    end,
+                    abs(candidate_movie.sort_rank_position - partner_movie.sort_rank_position),
+                    partner_movie.direct_comparisons,
+                    partner_movie.sort_rank_position,
+                    partner_movie.movie_id
+                """
+                : """
+                    abs(candidate_movie.sort_rank_position - partner_movie.sort_rank_position),
+                    partner_movie.direct_comparisons,
+                    partner_movie.sort_rank_position,
+                    partner_movie.movie_id
+                """;
+        String suggestedListFilters = filterMode.applySuggestedPairLimit()
+                ? """
+                    and selected_pair.candidate_direct_comparisons = selected_pair.min_candidate_direct_comparisons
+                    and selected_pair.candidate_pair_priority = 1
+                    and (
+                        selected_pair.movie1_mu is null
+                        or selected_pair.movie2_mu is null
+                        or abs(selected_pair.movie1_mu - selected_pair.movie2_mu) < :suggestedMaxMuDistance
+                    )
+                """
+                : "";
         return """
                 with recommended_movie as (
                     select recommendation.user_id,
@@ -188,7 +226,15 @@ public class MovieChallengeRepository {
                             as lower_direct_comparisons,
                         greatest(candidate_movie.direct_comparisons, partner_movie.direct_comparisons)
                             as higher_direct_comparisons,
-                        abs(candidate_movie.sort_rank_position - partner_movie.sort_rank_position) as rank_distance
+                        abs(candidate_movie.sort_rank_position - partner_movie.sort_rank_position) as rank_distance,
+                        candidate_movie.direct_comparisons as candidate_direct_comparisons,
+                        min(candidate_movie.direct_comparisons) over (
+                            partition by candidate_movie.user_id
+                        ) as min_candidate_direct_comparisons,
+                        row_number() over (
+                            partition by candidate_movie.user_id, candidate_movie.movie_id
+                            order by %s
+                        ) as candidate_pair_priority
                     from recommended_movie candidate_movie
                     join recommended_movie partner_movie
                         on partner_movie.user_id = candidate_movie.user_id
@@ -237,7 +283,8 @@ public class MovieChallengeRepository {
                 join movies movie2
                     on movie2.imdb_id = selected_pair.movie2_id
                 where selected_pair.lower_direct_comparisons < :explorationDirectComparisons
-                """;
+                    %s
+                """.formatted(candidatePairPriorityOrder, suggestedListFilters);
     }
 
     private String explorationChallengeOrderSql() {
@@ -250,10 +297,27 @@ public class MovieChallengeRepository {
                 """;
     }
 
+    private String suggestedExplorationChallengeOrderSql() {
+        return """
+                order by lower_direct_comparisons,
+                    case
+                        when movie1_rank_position is null
+                            or movie2_rank_position is null then 0
+                        else 1
+                    end,
+                    rank_distance,
+                    higher_direct_comparisons,
+                    coalesce(abs(movie1_mu - movie2_mu), 0),
+                    movie1_id,
+                    movie2_id
+                """;
+    }
+
     private Map<String, Object> explorationParams(String username) {
         return Map.of(
                 "username", username,
-                "explorationDirectComparisons", EXPLORATION_DIRECT_COMPARISONS);
+                "explorationDirectComparisons", EXPLORATION_DIRECT_COMPARISONS,
+                "suggestedMaxMuDistance", SUGGESTED_MAX_MU_DISTANCE);
     }
 
     private Optional<MovieChallengeDto> findRefinementChallenge(String username) {
@@ -263,6 +327,30 @@ public class MovieChallengeRepository {
     }
 
     private String refinementChallengeBaseSql(ChallengeFilterMode filterMode) {
+        String pairInformationSql = """
+                (first_rank.sigma + second_rank.sigma)
+                    / (cast(4 as numeric(12, 6))
+                        + abs(first_rank.mu - second_rank.mu))
+                """;
+        String candidatePairPriorityOrder = filterMode.applySuggestedPairLimit()
+                ? """
+                    case
+                        when abs(first_rank.mu - second_rank.mu) < :suggestedMaxMuDistance then 0
+                        else 1
+                    end,
+                    second_rank.rank_position - first_rank.rank_position,
+                    %s desc,
+                    greatest(first_rank.direct_comparisons, second_rank.direct_comparisons),
+                    least(first_rank.direct_comparisons, second_rank.direct_comparisons),
+                    second_rank.movie_id
+                """.formatted(pairInformationSql)
+                : """
+                    %s desc,
+                    second_rank.rank_position - first_rank.rank_position,
+                    greatest(first_rank.direct_comparisons, second_rank.direct_comparisons),
+                    least(first_rank.direct_comparisons, second_rank.direct_comparisons),
+                    second_rank.movie_id
+                """.formatted(pairInformationSql);
         String closeRankJoinFilter = filterMode.applyRefinementStopFilters()
                 ? "and second_rank.rank_position <= first_rank.rank_position + :closeRankWindow"
                 : "";
@@ -271,6 +359,12 @@ public class MovieChallengeRepository {
                     and selected_pair.rank_distance <= :closeRankWindow
                     and selected_pair.score_distance <= :closeScoreDistance
                     and selected_pair.pair_information >= :minimalRefinementPairInformation
+                """
+                : "";
+        String suggestedListFilters = filterMode.applySuggestedPairLimit()
+                ? """
+                    and selected_pair.candidate_pair_priority = 1
+                    and abs(selected_pair.movie1_mu - selected_pair.movie2_mu) < :suggestedMaxMuDistance
                 """
                 : "";
         return """
@@ -351,9 +445,11 @@ public class MovieChallengeRepository {
                             as higher_direct_comparisons,
                         second_rank.rank_position - first_rank.rank_position as rank_distance,
                         abs(first_rank.score - second_rank.score) as score_distance,
-                        (first_rank.sigma + second_rank.sigma)
-                            / (cast(4 as numeric(12, 6))
-                                + abs(first_rank.mu - second_rank.mu)) as pair_information
+                        %s as pair_information,
+                        row_number() over (
+                            partition by first_rank.user_id, first_rank.movie_id
+                            order by %s
+                        ) as candidate_pair_priority
                     from ranked_recommendation first_rank
                     join ranked_recommendation second_rank
                         on second_rank.user_id = first_rank.user_id
@@ -401,12 +497,27 @@ public class MovieChallengeRepository {
                     on movie2.imdb_id = selected_pair.movie2_id
                 where selected_pair.lower_direct_comparisons >= :explorationDirectComparisons
                     %s
-                """.formatted(closeRankJoinFilter, stopFilters);
+                    %s
+                """.formatted(pairInformationSql, candidatePairPriorityOrder, closeRankJoinFilter, stopFilters,
+                suggestedListFilters);
     }
 
     private String refinementChallengeOrderSql() {
         return """
                 order by pair_information desc,
+                    rank_distance,
+                    higher_direct_comparisons,
+                    lower_direct_comparisons,
+                    movie1_id,
+                    movie2_id
+                """;
+    }
+
+    private String suggestedRefinementChallengeOrderSql() {
+        return """
+                order by movie1_rank_position,
+                    movie2_rank_position,
+                    pair_information desc,
                     rank_distance,
                     higher_direct_comparisons,
                     lower_direct_comparisons,
@@ -421,7 +532,8 @@ public class MovieChallengeRepository {
                 "explorationDirectComparisons", EXPLORATION_DIRECT_COMPARISONS,
                 "closeRankWindow", closeRankWindow(username),
                 "closeScoreDistance", CLOSE_SCORE_DISTANCE,
-                "minimalRefinementPairInformation", MINIMAL_REFINEMENT_PAIR_INFORMATION);
+                "minimalRefinementPairInformation", MINIMAL_REFINEMENT_PAIR_INFORMATION,
+                "suggestedMaxMuDistance", SUGGESTED_MAX_MU_DISTANCE);
     }
 
     private int closeRankWindow(String username) {
@@ -437,17 +549,23 @@ public class MovieChallengeRepository {
     }
 
     private enum ChallengeFilterMode {
-        NEXT_CHALLENGE(true),
-        SUGGESTED_LIST(false);
+        NEXT_CHALLENGE(true, false),
+        SUGGESTED_LIST(false, true);
 
         private final boolean refinementStopFilters;
+        private final boolean suggestedPairLimit;
 
-        ChallengeFilterMode(boolean refinementStopFilters) {
+        ChallengeFilterMode(boolean refinementStopFilters, boolean suggestedPairLimit) {
             this.refinementStopFilters = refinementStopFilters;
+            this.suggestedPairLimit = suggestedPairLimit;
         }
 
         private boolean applyRefinementStopFilters() {
             return refinementStopFilters;
+        }
+
+        private boolean applySuggestedPairLimit() {
+            return suggestedPairLimit;
         }
     }
 
