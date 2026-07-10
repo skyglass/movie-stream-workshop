@@ -59,12 +59,12 @@ describe('MovieSearchComponent', () => {
     expect(moviesApi.listSuggestedMovieChallenges).toHaveBeenCalledOnceWith(1, 12, true);
   });
 
-  it('toggles confidence help independently from probability help', () => {
+  it('toggles rank help independently from probability help', () => {
     const challenge = suggestedChallenge();
 
-    component.toggleConfidenceHelp(challenge, challenge.movie1);
+    component.toggleRankHelp(challenge, challenge.movie1);
 
-    expect(component.confidenceHelpVisible(challenge, challenge.movie1)).toBeTrue();
+    expect(component.rankHelpVisible(challenge, challenge.movie1)).toBeTrue();
     expect(component.probabilityHelpVisible(challenge, challenge.movie1)).toBeFalse();
   });
 

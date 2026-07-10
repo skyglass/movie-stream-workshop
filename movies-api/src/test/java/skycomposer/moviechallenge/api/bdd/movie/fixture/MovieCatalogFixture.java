@@ -34,6 +34,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 public class MovieCatalogFixture {
 
+    private static final BigDecimal SCORE_ERROR_80_PER_SIGMA = BigDecimal.valueOf(2.25 * 1.28155);
+
     private final MovieRepository movieRepository;
     private final MovieRecommendationRepository movieRecommendationRepository;
     private final MovieChallengeRepository movieChallengeRepository;
@@ -284,7 +286,7 @@ public class MovieCatalogFixture {
                 directComparisons,
                 mu,
                 sigma,
-                BigDecimal.valueOf(Math.min(9, 5.77 / Math.sqrt(Math.max(directComparisons, 1)))));
+                SCORE_ERROR_80_PER_SIGMA.multiply(sigma).min(BigDecimal.valueOf(9)));
     }
 
     public void setMovieRanks(String username, List<Map<String, String>> rankRows) {
@@ -408,8 +410,8 @@ public class MovieCatalogFixture {
 
     public void assertSuggestedMovieChallengeIs(int number, String firstMovieId, String secondMovieId) {
         SuggestedMovieChallengeDto challenge = suggestedMovieChallenge(number);
-        assertEquals(firstMovieId, challenge.movie1().imdbId());
-        assertEquals(secondMovieId, challenge.movie2().imdbId());
+        assertEquals(firstMovieId, challenge.movie1().imdbId(), suggestedMovieChallengeSummary());
+        assertEquals(secondMovieId, challenge.movie2().imdbId(), suggestedMovieChallengeSummary());
     }
 
     public void assertSuggestedMovieChallengeMovieProbabilityAndRank(int number,
@@ -688,6 +690,20 @@ public class MovieCatalogFixture {
     private SuggestedMovieChallengeDto suggestedMovieChallenge(int number) {
         assertNotNull(suggestedMovieChallenges, "Expected suggested movie challenges to be loaded");
         return suggestedMovieChallenges.get(number - 1);
+    }
+
+    private String suggestedMovieChallengeSummary() {
+        if (suggestedMovieChallenges == null) {
+            return "No suggested movie challenges loaded";
+        }
+        return suggestedMovieChallenges.stream()
+                .map(challenge -> challenge.movie1().imdbId()
+                        + "(" + challenge.movie1().confidencePercent() + "%)"
+                        + " vs "
+                        + challenge.movie2().imdbId()
+                        + "(" + challenge.movie2().confidencePercent() + "%)")
+                .toList()
+                .toString();
     }
 
     private record MoviePair(String movie1Id, String movie2Id) {

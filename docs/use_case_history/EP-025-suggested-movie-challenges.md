@@ -11,16 +11,24 @@
 The Search Wizard page shows a paginated Suggested Challenges list below movie search. By default, exploration pairs are
 shown first while any exploration pair exists; refinement pairs are shown only after exploration is exhausted. Refinement
 suggestions are filtered to avoid pairs where the predicted winner would display at 70% or higher, then ordered by a
-bucketed Bradley-Terry uncertainty signal followed by higher-ranked movies inside the same bucket.
+bucketed pair-confidence signal followed by higher-ranked movies inside the same bucket.
 
 Each challenge contains two compact movie cards separated by a `VS` marker. Each card shows poster, title, year,
-director, `Confidence`, and `P`, the Bradley-Terry win chance against the paired movie. `Confidence` is a per-movie
-rank-confidence percentage from `10%` to `100%`, calculated by normalizing the movie's Bradley-Terry `sigma` into the
-same ten-bucket scale used for suggested challenge uncertainty and reversing it. Clicking the info icon next to
-`Confidence` shows `Movie Rank Confidence, based on previous comparisons`.
+director, `Rank`, and `P`, the Bradley-Terry win chance against the paired movie. `Rank` displays the current rank
+with rank confidence in parentheses, for example `#1 (60%)`. Rank confidence is a per-movie percentage from `10%` to
+`100%`, calculated from direct-comparison coverage and the Bradley-Terry `sigma` band.
+Under-explored movies may appear below `60%`; ranked refinement movies are distributed across `60%` to `100%`.
+The ranked band starts near the Bradley-Terry prior sigma and approaches `100%` when sigma reaches the stable
+score-error band used by challenge refinement.
+The value is floored into 10% buckets so confidence works as a stable grouping signal across users and over time.
+Clicking the info icon next to `Rank` shows
+`Movie Rank and Rank Confidence, based on previous comparisons`.
 
-`P` is calculated from the current `user_movie_rank.mu` values and displays the current rank in parentheses when rank
-exists, for example `90% (#3)`. Unranked pairs are shown as `50%`.
+Default suggested challenge ordering uses a pair-confidence bucket calculated from both movie confidence values and
+floored to the nearest 10%. This keeps uncertain pairs ahead while leaving rank as the next priority inside each bucket.
+
+`P` is calculated from the current `user_movie_rank.mu` values and displays only the win chance percentage. Unranked
+pairs are shown as `50%`.
 
 Users may select winners for multiple suggested challenges and submit them in one transactional batch. Batch submit
 uses the same validation and winner-loser recording behavior as the single Movie Challenge vote, then rebuilds

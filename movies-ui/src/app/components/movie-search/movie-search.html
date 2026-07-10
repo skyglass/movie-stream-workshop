@@ -242,16 +242,23 @@
                   </div>
                   <div>
                     <dt>
-                      Confidence:
+                      Rank:
                       <button
                         type="button"
                         class="probability-info"
-                        aria-label="Show confidence explanation"
-                        (click)="toggleConfidenceHelp(challenge, challenge.movie1); $event.stopPropagation()">
+                        aria-label="Show rank explanation"
+                        (click)="toggleRankHelp(challenge, challenge.movie1); $event.stopPropagation()">
                         <span class="material-icons" aria-hidden="true">info</span>
                       </button>
                     </dt>
-                    <dd>{{ challenge.movie1.confidencePercent }}%</dd>
+                    <dd>
+                      @if (challenge.movie1.rankPosition !== null) {
+                        #{{ challenge.movie1.rankPosition }}
+                      } @else {
+                        N/A
+                      }
+                      ({{ challenge.movie1.confidencePercent }}%)
+                    </dd>
                   </div>
                   <div>
                     <dt>
@@ -264,19 +271,14 @@
                         <span class="material-icons" aria-hidden="true">info</span>
                       </button>
                     </dt>
-                    <dd>
-                      {{ challenge.movie1.winProbabilityPercent }}%
-                      @if (challenge.movie1.rankPosition !== null) {
-                        (#{{ challenge.movie1.rankPosition }})
-                      }
-                    </dd>
+                    <dd>{{ challenge.movie1.winProbabilityPercent }}%</dd>
                   </div>
                 </dl>
                 @if (probabilityHelpVisible(challenge, challenge.movie1)) {
                   <div class="probability-help">{{ probabilityHelpText }}</div>
                 }
-                @if (confidenceHelpVisible(challenge, challenge.movie1)) {
-                  <div class="probability-help">{{ confidenceHelpText }}</div>
+                @if (rankHelpVisible(challenge, challenge.movie1)) {
+                  <div class="probability-help">{{ rankHelpText }}</div>
                 }
               </div>
             </article>
@@ -311,16 +313,23 @@
                   </div>
                   <div>
                     <dt>
-                      Confidence:
+                      Rank:
                       <button
                         type="button"
                         class="probability-info"
-                        aria-label="Show confidence explanation"
-                        (click)="toggleConfidenceHelp(challenge, challenge.movie2); $event.stopPropagation()">
+                        aria-label="Show rank explanation"
+                        (click)="toggleRankHelp(challenge, challenge.movie2); $event.stopPropagation()">
                         <span class="material-icons" aria-hidden="true">info</span>
                       </button>
                     </dt>
-                    <dd>{{ challenge.movie2.confidencePercent }}%</dd>
+                    <dd>
+                      @if (challenge.movie2.rankPosition !== null) {
+                        #{{ challenge.movie2.rankPosition }}
+                      } @else {
+                        N/A
+                      }
+                      ({{ challenge.movie2.confidencePercent }}%)
+                    </dd>
                   </div>
                   <div>
                     <dt>
@@ -333,19 +342,14 @@
                         <span class="material-icons" aria-hidden="true">info</span>
                       </button>
                     </dt>
-                    <dd>
-                      {{ challenge.movie2.winProbabilityPercent }}%
-                      @if (challenge.movie2.rankPosition !== null) {
-                        (#{{ challenge.movie2.rankPosition }})
-                      }
-                    </dd>
+                    <dd>{{ challenge.movie2.winProbabilityPercent }}%</dd>
                   </div>
                 </dl>
                 @if (probabilityHelpVisible(challenge, challenge.movie2)) {
                   <div class="probability-help">{{ probabilityHelpText }}</div>
                 }
-                @if (confidenceHelpVisible(challenge, challenge.movie2)) {
-                  <div class="probability-help">{{ confidenceHelpText }}</div>
+                @if (rankHelpVisible(challenge, challenge.movie2)) {
+                  <div class="probability-help">{{ rankHelpText }}</div>
                 }
               </div>
             </article>

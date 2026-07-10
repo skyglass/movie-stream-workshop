@@ -18,8 +18,9 @@ The default unchecked mode still gives exploration challenges first, so newly re
 not starved. The checked mode is an explicit user preference for more dramatic comparisons among favorite high-ranked
 movies, and falls back to exploration suggestions when no ranked refinement candidates are available.
 
-Suggested challenge movie cards display each movie's `Confidence` as a percentage on the same ten-bucket scale as the
-uncertainty ordering signal, reversed so higher uncertainty produces lower confidence.
+Suggested challenge movie cards display each movie's `Rank` with rank confidence in parentheses. The confidence value
+is an absolute 10% bucket derived from direct-comparison coverage and Bradley-Terry `sigma`; default ordering uses a
+pair-confidence bucket from both movies as the grouping signal before rank.
 
 ## Acceptance Criteria
 

@@ -122,8 +122,8 @@ Feature: movie-challenge
     Then the suggested movie challenge total count is 3
     And the suggested movie challenge list contains 2 challenges
     And suggested movie challenge 1 is movie "tt103" against movie "tt104"
-    And suggested movie challenge 1 movie "tt103" has confidence 10 percent
-    And suggested movie challenge 1 movie "tt104" has confidence 10 percent
+    And suggested movie challenge 1 movie "tt103" has confidence 60 percent
+    And suggested movie challenge 1 movie "tt104" has confidence 60 percent
 
   Scenario: Suggested refinement challenges prefer top-ranked movies within the same uncertainty bucket
     Given movie "tt101" exists with title "Movie One"

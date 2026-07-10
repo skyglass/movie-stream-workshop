@@ -65,10 +65,10 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
   higherRankedFirst = false;
   selectedSuggestedMovieIds: Record<string, string> = {};
   visibleProbabilityHelpKey = '';
-  visibleConfidenceHelpKey = '';
+  visibleRankHelpKey = '';
   readonly suggestedPageSize = this.moviesApi.moviePageSize;
   readonly probabilityHelpText = 'Chance of winning, based on previous comparisons';
-  readonly confidenceHelpText = 'Movie Rank Confidence, based on previous comparisons';
+  readonly rankHelpText = 'Movie Rank and Rank Confidence, based on previous comparisons';
   private lastSearchKey = '';
 
   ngOnInit(): void {
@@ -191,7 +191,7 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
     this.suggestedLoading = true;
     this.suggestedErrorMessage = '';
     this.visibleProbabilityHelpKey = '';
-    this.visibleConfidenceHelpKey = '';
+    this.visibleRankHelpKey = '';
     this.suggestedSub = this.moviesApi.listSuggestedMovieChallenges(
       page,
       this.suggestedPageSize,
@@ -283,13 +283,13 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
     return this.visibleProbabilityHelpKey === `${this.challengeKey(challenge)}:${movie.imdbId}`;
   }
 
-  toggleConfidenceHelp(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): void {
+  toggleRankHelp(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): void {
     const key = `${this.challengeKey(challenge)}:${movie.imdbId}`;
-    this.visibleConfidenceHelpKey = this.visibleConfidenceHelpKey === key ? '' : key;
+    this.visibleRankHelpKey = this.visibleRankHelpKey === key ? '' : key;
   }
 
-  confidenceHelpVisible(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): boolean {
-    return this.visibleConfidenceHelpKey === `${this.challengeKey(challenge)}:${movie.imdbId}`;
+  rankHelpVisible(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): boolean {
+    return this.visibleRankHelpKey === `${this.challengeKey(challenge)}:${movie.imdbId}`;
   }
 
   private runSearch(criteria: OmdbMovieSearchCriteria, page: number): void {
@@ -422,6 +422,6 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
     this.higherRankedFirst = false;
     this.selectedSuggestedMovieIds = {};
     this.visibleProbabilityHelpKey = '';
-    this.visibleConfidenceHelpKey = '';
+    this.visibleRankHelpKey = '';
   }
 }

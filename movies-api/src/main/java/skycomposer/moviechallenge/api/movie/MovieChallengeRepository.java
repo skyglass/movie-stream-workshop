@@ -45,6 +45,9 @@ public class MovieChallengeRepository {
     private static final double BRADLEY_TERRY_PRIOR_PRECISION = 1.0;
     private static final double BRADLEY_TERRY_MAX_UPDATE = 0.75;
     private static final double SCORE_ERROR_80_PER_SIGMA = 2.25 * 1.28155;
+    private static final double CONFIDENCE_REFERENCE_SIGMA = 1 / Math.sqrt(BRADLEY_TERRY_PRIOR_PRECISION);
+    private static final double CONFIDENCE_STABLE_SIGMA = CLOSE_SCORE_DISTANCE / SCORE_ERROR_80_PER_SIGMA;
+    private static final int CONFIDENCE_COMPARISON_REFERENCE_DIRECT_COMPARISONS = 15;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -184,31 +187,26 @@ public class MovieChallengeRepository {
                     )
                 """
                 : "";
+        String movie1ConfidenceSql = confidencePercentSql(
+                "selected_pair.movie1_direct_comparisons",
+                "selected_pair.movie1_sigma");
+        String movie2ConfidenceSql = confidencePercentSql(
+                "selected_pair.movie2_direct_comparisons",
+                "selected_pair.movie2_sigma");
+        String pairConfidenceSql = pairConfidencePercentSql(movie1ConfidenceSql, movie2ConfidenceSql);
         return """
-                with rank_sigma_range as (
-                    select movie_rank.user_id,
-                        min(movie_rank.sigma) as min_user_sigma,
-                        max(movie_rank.sigma) as max_user_sigma
-                    from user_movie_rank movie_rank
-                    where movie_rank.user_id = :username
-                    group by movie_rank.user_id
-                ),
-                recommended_movie as (
+                with recommended_movie as (
                     select recommendation.user_id,
                         recommendation.movie_id,
                         coalesce(movie_rank.direct_comparisons, 0) as direct_comparisons,
                         coalesce(movie_rank.rank_position, 0) as sort_rank_position,
                         movie_rank.rank_position,
                         movie_rank.mu,
-                        movie_rank.sigma,
-                        rank_sigma_range.min_user_sigma,
-                        rank_sigma_range.max_user_sigma
+                        movie_rank.sigma
                     from movie_recommendations recommendation
                     left join user_movie_rank movie_rank
                         on movie_rank.user_id = recommendation.user_id
                         and movie_rank.movie_id = recommendation.movie_id
-                    left join rank_sigma_range
-                        on rank_sigma_range.user_id = recommendation.user_id
                     where recommendation.user_id = :username
                         and recommendation.positive = true
                 ),
@@ -286,8 +284,24 @@ public class MovieChallengeRepository {
                                 <= partner_movie.sort_rank_position then partner_movie.sigma
                             else candidate_movie.sigma
                         end as movie2_sigma,
-                        candidate_movie.min_user_sigma,
-                        candidate_movie.max_user_sigma,
+                        case
+                            when candidate_movie.direct_comparisons
+                                < partner_movie.direct_comparisons then candidate_movie.direct_comparisons
+                            when partner_movie.direct_comparisons
+                                < candidate_movie.direct_comparisons then partner_movie.direct_comparisons
+                            when candidate_movie.sort_rank_position
+                                <= partner_movie.sort_rank_position then candidate_movie.direct_comparisons
+                            else partner_movie.direct_comparisons
+                        end as movie1_direct_comparisons,
+                        case
+                            when candidate_movie.direct_comparisons
+                                < partner_movie.direct_comparisons then partner_movie.direct_comparisons
+                            when partner_movie.direct_comparisons
+                                < candidate_movie.direct_comparisons then candidate_movie.direct_comparisons
+                            when candidate_movie.sort_rank_position
+                                <= partner_movie.sort_rank_position then partner_movie.direct_comparisons
+                            else candidate_movie.direct_comparisons
+                        end as movie2_direct_comparisons,
                         least(candidate_movie.direct_comparisons, partner_movie.direct_comparisons)
                             as lower_direct_comparisons,
                         greatest(candidate_movie.direct_comparisons, partner_movie.direct_comparisons)
@@ -342,6 +356,7 @@ public class MovieChallengeRepository {
                     selected_pair.movie2_rank_position,
                     selected_pair.movie2_mu,
                     %s as movie2_confidence_percent,
+                    %s as pair_confidence_percent,
                     selected_pair.lower_direct_comparisons,
                     selected_pair.higher_direct_comparisons,
                     selected_pair.rank_distance
@@ -353,12 +368,9 @@ public class MovieChallengeRepository {
                 where selected_pair.lower_direct_comparisons < :explorationDirectComparisons
                     %s
                 """.formatted(candidatePairPriorityOrder,
-                confidencePercentSql("selected_pair.movie1_sigma",
-                        "selected_pair.min_user_sigma",
-                        "selected_pair.max_user_sigma"),
-                confidencePercentSql("selected_pair.movie2_sigma",
-                        "selected_pair.min_user_sigma",
-                        "selected_pair.max_user_sigma"),
+                movie1ConfidenceSql,
+                movie2ConfidenceSql,
+                pairConfidenceSql,
                 suggestedListFilters);
     }
 
@@ -381,6 +393,7 @@ public class MovieChallengeRepository {
                         end,
                         movie1_rank_position,
                         rank_distance,
+                        pair_confidence_percent,
                         higher_direct_comparisons,
                         coalesce(abs(movie1_mu - movie2_mu), 0),
                         lower_direct_comparisons,
@@ -389,13 +402,14 @@ public class MovieChallengeRepository {
                     """;
         }
         return """
-                order by lower_direct_comparisons,
+                order by pair_confidence_percent,
                     case
                         when movie1_rank_position is null
                             or movie2_rank_position is null then 0
-                        else 1
+                        else least(movie1_rank_position, movie2_rank_position)
                     end,
                     rank_distance,
+                    lower_direct_comparisons,
                     higher_direct_comparisons,
                     coalesce(abs(movie1_mu - movie2_mu), 0),
                     movie1_id,
@@ -407,7 +421,12 @@ public class MovieChallengeRepository {
         return Map.of(
                 "username", username,
                 "explorationDirectComparisons", EXPLORATION_DIRECT_COMPARISONS,
-                "suggestedMaxMuDistance", SUGGESTED_MAX_MU_DISTANCE);
+                "suggestedMaxMuDistance", SUGGESTED_MAX_MU_DISTANCE,
+                "confidenceDirectComparisons", EXPLORATION_DIRECT_COMPARISONS,
+                "confidenceReferenceSigma", CONFIDENCE_REFERENCE_SIGMA,
+                "confidenceStableSigma", CONFIDENCE_STABLE_SIGMA,
+                "confidenceComparisonReferenceDirectComparisons",
+                CONFIDENCE_COMPARISON_REFERENCE_DIRECT_COMPARISONS);
     }
 
     private Optional<MovieChallengeDto> findRefinementChallenge(String username) {
@@ -457,32 +476,27 @@ public class MovieChallengeRepository {
                     and abs(filtered_pair.movie1_mu - filtered_pair.movie2_mu) < :suggestedMaxMuDistance
                 """
                 : "";
+        String movie1ConfidenceSql = confidencePercentSql(
+                "selected_pair.movie1_direct_comparisons",
+                "selected_pair.movie1_sigma");
+        String movie2ConfidenceSql = confidencePercentSql(
+                "selected_pair.movie2_direct_comparisons",
+                "selected_pair.movie2_sigma");
+        String pairConfidenceSql = pairConfidencePercentSql(movie1ConfidenceSql, movie2ConfidenceSql);
         return """
-                with rank_sigma_range as (
-                    select movie_rank.user_id,
-                        min(movie_rank.sigma) as min_user_sigma,
-                        max(movie_rank.sigma) as max_user_sigma
-                    from user_movie_rank movie_rank
-                    where movie_rank.user_id = :username
-                    group by movie_rank.user_id
-                ),
-                ranked_recommendation as (
+                with ranked_recommendation as (
                     select movie_rank.user_id,
                         movie_rank.movie_id,
                         movie_rank.rank_position,
                         movie_rank.score,
                         movie_rank.direct_comparisons,
                         movie_rank.mu,
-                        movie_rank.sigma,
-                        rank_sigma_range.min_user_sigma,
-                        rank_sigma_range.max_user_sigma
+                        movie_rank.sigma
                     from user_movie_rank movie_rank
                     join movie_recommendations recommendation
                         on recommendation.user_id = movie_rank.user_id
                         and recommendation.movie_id = movie_rank.movie_id
                         and recommendation.positive = true
-                    left join rank_sigma_range
-                        on rank_sigma_range.user_id = movie_rank.user_id
                     where movie_rank.user_id = :username
                 ),
                 selected_pair as (
@@ -559,8 +573,24 @@ public class MovieChallengeRepository {
                                 <= second_rank.rank_position then second_rank.sigma
                             else first_rank.sigma
                         end as movie2_sigma,
-                        first_rank.min_user_sigma,
-                        first_rank.max_user_sigma,
+                        case
+                            when first_rank.direct_comparisons
+                                < second_rank.direct_comparisons then first_rank.direct_comparisons
+                            when second_rank.direct_comparisons
+                                < first_rank.direct_comparisons then second_rank.direct_comparisons
+                            when first_rank.rank_position
+                                <= second_rank.rank_position then first_rank.direct_comparisons
+                            else second_rank.direct_comparisons
+                        end as movie1_direct_comparisons,
+                        case
+                            when first_rank.direct_comparisons
+                                < second_rank.direct_comparisons then second_rank.direct_comparisons
+                            when second_rank.direct_comparisons
+                                < first_rank.direct_comparisons then first_rank.direct_comparisons
+                            when first_rank.rank_position
+                                <= second_rank.rank_position then second_rank.direct_comparisons
+                            else first_rank.direct_comparisons
+                        end as movie2_direct_comparisons,
                         least(first_rank.direct_comparisons, second_rank.direct_comparisons)
                             as lower_direct_comparisons,
                         greatest(first_rank.direct_comparisons, second_rank.direct_comparisons)
@@ -610,6 +640,7 @@ public class MovieChallengeRepository {
                     selected_pair.movie2_rank_position,
                     selected_pair.movie2_mu,
                     %s as movie2_confidence_percent,
+                    %s as pair_confidence_percent,
                     selected_pair.lower_direct_comparisons,
                     selected_pair.higher_direct_comparisons,
                     selected_pair.rank_distance,
@@ -639,12 +670,9 @@ public class MovieChallengeRepository {
                 """.formatted(pairInformationSql,
                 candidatePairPriorityOrder,
                 closeRankJoinFilter,
-                confidencePercentSql("selected_pair.movie1_sigma",
-                        "selected_pair.min_user_sigma",
-                        "selected_pair.max_user_sigma"),
-                confidencePercentSql("selected_pair.movie2_sigma",
-                        "selected_pair.min_user_sigma",
-                        "selected_pair.max_user_sigma"),
+                movie1ConfidenceSql,
+                movie2ConfidenceSql,
+                pairConfidenceSql,
                 stopFilters,
                 suggestedListFilters);
     }
@@ -665,6 +693,7 @@ public class MovieChallengeRepository {
             return """
                     order by least(movie1_rank_position, movie2_rank_position),
                         rank_distance,
+                        pair_confidence_percent,
                         uncertainty_bucket desc,
                         pair_uncertainty_signal desc,
                         pair_information desc,
@@ -675,10 +704,11 @@ public class MovieChallengeRepository {
                     """;
         }
         return """
-                order by uncertainty_bucket desc,
+                order by pair_confidence_percent,
                     least(movie1_rank_position, movie2_rank_position),
                     rank_distance,
                     greatest(movie1_rank_position, movie2_rank_position),
+                    uncertainty_bucket desc,
                     pair_uncertainty_signal desc,
                     pair_information desc,
                     higher_direct_comparisons,
@@ -688,17 +718,49 @@ public class MovieChallengeRepository {
                 """;
     }
 
-    private String confidencePercentSql(String sigmaColumn, String minSigmaColumn, String maxSigmaColumn) {
+    private String confidencePercentSql(String directComparisonsColumn, String sigmaColumn) {
         return """
                 case
                     when %1$s is null
-                        or %2$s is null
-                        or %3$s is null
-                        or %3$s = %2$s then 10
-                    else (11 - least(10, cast(floor(((%1$s - %2$s)
-                            / nullif(%3$s - %2$s, 0)) * 10) as integer) + 1)) * 10
+                        or %2$s is null then 10
+                    when %1$s < :confidenceDirectComparisons then greatest(10, least(50,
+                        cast(floor(((cast(%1$s as numeric(12, 6))
+                            / cast(:confidenceDirectComparisons as numeric(12, 6)))
+                            * cast(60 as numeric(12, 6)) + cast(0.000001 as numeric(12, 6)))
+                            / cast(10 as numeric(12, 6))) as integer) * 10))
+                    else greatest(60, least(100, cast(floor((
+                        cast(0.75 as numeric(12, 6)) * (
+                            cast(60 as numeric(12, 6))
+                            + cast(40 as numeric(12, 6)) * least(
+                                cast(1 as numeric(12, 6)),
+                                greatest(cast(0 as numeric(12, 6)),
+                                    (:confidenceReferenceSigma - %2$s)
+                                    / nullif(:confidenceReferenceSigma - :confidenceStableSigma, 0))
+                            )
+                        )
+                        + cast(0.25 as numeric(12, 6)) * (
+                            cast(60 as numeric(12, 6))
+                            + cast(40 as numeric(12, 6)) * least(
+                                cast(1 as numeric(12, 6)),
+                                greatest(cast(0 as numeric(12, 6)),
+                                    cast(%1$s - :confidenceDirectComparisons as numeric(12, 6))
+                                    / cast(:confidenceComparisonReferenceDirectComparisons
+                                        - :confidenceDirectComparisons as numeric(12, 6)))
+                            )
+                        )
+                        + cast(0.000001 as numeric(12, 6)))
+                        / cast(10 as numeric(12, 6))) as integer) * 10))
                 end
-                """.formatted(sigmaColumn, minSigmaColumn, maxSigmaColumn);
+                """.formatted(directComparisonsColumn, sigmaColumn);
+    }
+
+    private String pairConfidencePercentSql(String movie1ConfidenceSql, String movie2ConfidenceSql) {
+        return """
+                greatest(10, least(100, cast(floor(((
+                    (%1$s) + (%2$s)
+                ) / cast(2 as numeric(12, 6)) + cast(0.000001 as numeric(12, 6)))
+                    / cast(10 as numeric(12, 6))) as integer) * 10))
+                """.formatted(movie1ConfidenceSql, movie2ConfidenceSql);
     }
 
     private Map<String, Object> refinementParams(String username) {
@@ -708,7 +770,12 @@ public class MovieChallengeRepository {
                 "closeRankWindow", closeRankWindow(username),
                 "closeScoreDistance", CLOSE_SCORE_DISTANCE,
                 "minimalRefinementPairInformation", MINIMAL_REFINEMENT_PAIR_INFORMATION,
-                "suggestedMaxMuDistance", SUGGESTED_MAX_MU_DISTANCE);
+                "suggestedMaxMuDistance", SUGGESTED_MAX_MU_DISTANCE,
+                "confidenceDirectComparisons", EXPLORATION_DIRECT_COMPARISONS,
+                "confidenceReferenceSigma", CONFIDENCE_REFERENCE_SIGMA,
+                "confidenceStableSigma", CONFIDENCE_STABLE_SIGMA,
+                "confidenceComparisonReferenceDirectComparisons",
+                CONFIDENCE_COMPARISON_REFERENCE_DIRECT_COMPARISONS);
     }
 
     private int closeRankWindow(String username) {
