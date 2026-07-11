@@ -31,7 +31,10 @@ The next challenge selector uses the rank projection to reduce unnecessary work:
    missing a direct vote.
 6. A newly recommended movie can still be challenged against an already well-compared movie because the new movie still
    needs evidence.
-7. Among eligible pairs, the selector prefers the pair with the least direct evidence.
+7. Among eligible exploration pairs, the selector prefers the pair with the least direct evidence, then the closest
+   rank distance. Among eligible refinement pairs, it prefers the most pair information, then the closest rank distance.
+8. After direct-comparison priorities, the selector uses both movie ranks ascending before movie IDs as deterministic
+   tie-breakers. Rank therefore resolves otherwise equivalent candidates without dominating evidence or distance.
 
 The direct-comparison target scales with the current number of positive challenge candidates:
 `clamp(4, 10, ceil(log2(movie_count)) + 1)`. For example, `32` movies target `6` direct comparisons per movie, while

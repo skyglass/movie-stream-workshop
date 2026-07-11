@@ -115,7 +115,19 @@
             <div class="state error">{{ rankHistoryErrorMessage }}</div>
           } @else if (rankHistory) {
             <section class="rank-history-group" aria-labelledby="higher-ranks-title">
-              <h3 id="higher-ranks-title">Higher Ranks</h3>
+              <h3 id="higher-ranks-title">
+                Winners
+                <button
+                  type="button"
+                  class="rank-history-info"
+                  aria-label="Show winners explanation"
+                  (click)="toggleRankHistoryHelp('winners')">
+                  <span class="material-icons" aria-hidden="true">info</span>
+                </button>
+              </h3>
+              @if (rankHistoryHelpVisible('winners')) {
+                <div class="rank-history-help">{{ winnersHelpText }}</div>
+              }
               @if (rankHistory.higherRanks.length > 0) {
                 <div class="rank-history-grid">
                   @for (rankedMovie of rankHistory.higherRanks; track rankedMovie.imdbId) {
@@ -149,7 +161,19 @@
             </section>
 
             <section class="rank-history-group" aria-labelledby="lower-ranks-title">
-              <h3 id="lower-ranks-title">Lower Ranks</h3>
+              <h3 id="lower-ranks-title">
+                Losers
+                <button
+                  type="button"
+                  class="rank-history-info"
+                  aria-label="Show losers explanation"
+                  (click)="toggleRankHistoryHelp('losers')">
+                  <span class="material-icons" aria-hidden="true">info</span>
+                </button>
+              </h3>
+              @if (rankHistoryHelpVisible('losers')) {
+                <div class="rank-history-help">{{ losersHelpText }}</div>
+              }
               @if (rankHistory.lowerRanks.length > 0) {
                 <div class="rank-history-grid">
                   @for (rankedMovie of rankHistory.lowerRanks; track rankedMovie.imdbId) {

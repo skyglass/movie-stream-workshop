@@ -137,6 +137,39 @@ h3 {
 h3 {
   margin-top: 1rem;
   font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.rank-history-info {
+  width: 1.35rem;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  min-height: 1.35rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+  color: #1b6fa8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rank-history-info .material-icons {
+  font-size: 1rem;
+}
+
+.rank-history-help {
+  border: 1px solid #b9d8ef;
+  border-radius: 6px;
+  background: #f5fbff;
+  color: #244c73;
+  padding: 0.5rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .comment-form {

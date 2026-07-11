@@ -6,6 +6,8 @@ import { Subscription, combineLatest } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { Movie, MovieRankHistory, MovieRankHistoryMovie, MoviesApiService } from '../../services/movies-api';
 
+type RankHistoryHelpSection = 'winners' | 'losers';
+
 @Component({
   standalone: true,
   selector: 'app-movie-detail',
@@ -32,6 +34,10 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
   replaySaving = false;
   errorMessage = '';
   rankHistoryErrorMessage = '';
+  visibleRankHistoryHelp: RankHistoryHelpSection | '' = '';
+
+  readonly winnersHelpText = 'Movies that won curent movie in comparisons';
+  readonly losersHelpText = 'Movies that lost to current movie in comparisons';
 
   readonly commentForm = this.fb.group({
     text: ['', [Validators.required, Validators.maxLength(4000)]]
@@ -168,6 +174,14 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
     return `#${movie.rankPosition}(${movie.rating.toFixed(2)})`;
   }
 
+  toggleRankHistoryHelp(section: RankHistoryHelpSection): void {
+    this.visibleRankHistoryHelp = this.visibleRankHistoryHelp === section ? '' : section;
+  }
+
+  rankHistoryHelpVisible(section: RankHistoryHelpSection): boolean {
+    return this.visibleRankHistoryHelp === section;
+  }
+
   avatar(seed: string): string {
     return `https://api.dicebear.com/6.x/avataaars/svg?seed=${encodeURIComponent(seed || 'user')}`;
   }
@@ -182,6 +196,7 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
     this.replaySaving = false;
     this.errorMessage = '';
     this.rankHistoryErrorMessage = '';
+    this.visibleRankHistoryHelp = '';
     this.commentForm.reset();
   }
 }

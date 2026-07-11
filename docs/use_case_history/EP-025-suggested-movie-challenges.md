@@ -10,22 +10,25 @@
 
 The Search Wizard page shows a paginated Suggested Challenges list below movie search. By default, exploration pairs are
 shown first while any exploration pair exists; refinement pairs are shown only after exploration is exhausted. Refinement
-suggestions are filtered to avoid pairs where the predicted winner would display at 70% or higher, then ordered by a
-bucketed pair-confidence signal followed by higher-ranked movies inside the same bucket.
+suggestions are filtered to avoid pairs where the predicted winner would display at 70% or higher, then ordered by pair
+information, pair rank distance, direct-comparison counts, and the two movie ranks.
+Exploration continues until each participating movie has at least four direct comparisons.
 
 Each challenge contains two compact movie cards separated by a `VS` marker. Each card shows poster, title, year,
 director, `Rank`, and `P`, the Bradley-Terry win chance against the paired movie. `Rank` displays the current rank
-with rank confidence in parentheses, for example `#1 (60%)`. Rank confidence is a per-movie percentage from `10%` to
-`100%`, calculated from direct-comparison coverage and the Bradley-Terry `sigma` band.
-Under-explored movies may appear below `60%`; ranked refinement movies are distributed across `60%` to `100%`.
-The ranked band starts near the Bradley-Terry prior sigma and approaches `100%` when sigma reaches the stable
-score-error band used by challenge refinement.
-The value is floored into 10% buckets so confidence works as a stable grouping signal across users and over time.
+with pair confidence in parentheses, for example `#1 (60%)`. Both movies receive the same integer pair-confidence
+percentage. It is the inverse linear normalization of the pair's information across all eligible pairs: the maximum
+pair information maps to `0%`, the minimum maps to `100%`, and intermediate results are rounded to the nearest integer.
+If all eligible pairs have identical information, they receive `100%`; a pair without computable information receives
+`0%`.
 Clicking the info icon next to `Rank` shows
 `Movie Rank and Rank Confidence, based on previous comparisons`.
 
-Default suggested challenge ordering uses a pair-confidence bucket calculated from both movie confidence values and
-floored to the nearest 10%. This keeps uncertain pairs ahead while leaving rank as the next priority inside each bucket.
+For default refinement sorting, the existing pair-confidence scale is used: maximum pair information maps to `0%` and
+minimum pair information maps to `100%`. Values at or below `50%` receive sorting priority `0`; values above `50%`
+receive priority `1`. The priority sorts ascending so pairs nearer the maximum information come first, followed by Movie
+1 rank ascending, rank distance ascending, the higher and lower direct-comparison counts ascending, and Movie 2 rank
+ascending. Movie IDs provide deterministic tie-breakers.
 
 `P` is calculated from the current `user_movie_rank.mu` values and displays only the win chance percentage. Unranked
 pairs are shown as `50%`.

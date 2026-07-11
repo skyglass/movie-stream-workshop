@@ -8,9 +8,10 @@
 
 ## Short Description
 
-Movie details now include a `Rank History` section below comments. The section is split into `Higher Ranks` and
-`Lower Ranks`: higher ranks are direct challenge winners where the current movie was the loser, and lower ranks are
-direct challenge losers where the current movie was the winner.
+Movie details now include a `Rank History` section below comments. The section is split into `Winners` and `Losers`:
+winners are direct challenge winners where the current movie was the loser, and losers are direct challenge losers
+where the current movie was the winner. Each section heading has an info icon explaining the relationship to the current
+movie.
 
 Each rank-history item is shown as a compact movie card with poster, title, year, director, and the viewer's current
 rank/rating rendered as `Your Rank: #2(9.86)`. Both lists are sorted by current rank ascending, so `#1` appears first.
