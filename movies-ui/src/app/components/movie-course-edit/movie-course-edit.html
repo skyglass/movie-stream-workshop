@@ -1,0 +1,12 @@
+<section class="edit-page">@if(loading){<p>Loading Movie Course…</p>}@else if(course){
+  <header><div><p class="eyebrow">Creator tools</p><h1>Edit Movie Course</h1></div><a class="button secondary" [routerLink]="['/movie-courses',course.id]">View Course</a></header>
+  @if(errorMessage){<p class="error">{{errorMessage}}</p>}
+  <form class="panel" (ngSubmit)="saveCourse()"><label>Title<input name="title" [(ngModel)]="title" maxlength="200" required></label><label>Course description<textarea name="description" [(ngModel)]="description" rows="5"></textarea></label><button [disabled]="busy">Save Course</button></form>
+  <section class="panel"><h2>Add a movie</h2><p>Search the internal movie catalog.</p><form class="search" (ngSubmit)="search()"><input name="filter" [(ngModel)]="filter" placeholder="Title, director, writer, year or genre"><button>Search</button></form>
+    @for(movie of results;track movie.imdbId){<div class="result"><div><strong>{{movie.title}}</strong><span>{{movie.year}} · {{movie.director}} · {{movie.genre}}</span></div><button [disabled]="busy" (click)="add(movie)">Add to Course</button></div>}</section>
+  <section><h2>Course movies</h2><p>Watching order is unique within the course. “Add description” saves course-specific context for the movie.</p>
+    @for(movie of course.movies;track movie.imdbId){<article class="movie-editor"><h3>{{movie.watchOrder}}. {{movie.title}}</h3><div class="fields"><label>Watching order<input type="number" min="1" [(ngModel)]="orders[movie.imdbId]"></label>
+      <label>Linked next course<select [(ngModel)]="links[movie.imdbId]"><option [ngValue]="null">None</option>@for(c of allCourses;track c.id){@if(c.id!==course.id){<option [ngValue]="c.id">{{c.title}}</option>}}</select></label></div>
+      <label>Movie course description<textarea rows="4" [(ngModel)]="descriptions[movie.imdbId]" placeholder="Why is this movie part of the course?"></textarea></label><div class="actions"><button [disabled]="busy" (click)="saveMovie(movie)">{{movie.description?'Save description':'Add description'}}</button><button class="danger secondary" (click)="remove(movie)">Remove</button></div></article>}
+  </section><div class="delete-zone"><div><strong>Delete Movie Course</strong><p>Deletes its movies, applications, descriptions and links. Movie catalog and user ratings remain intact.</p></div><button class="danger" (click)="deleteCourse()">Delete Movie Course</button></div>
+}</section>

@@ -1,0 +1,15 @@
+<section class="course-page">@if (loading){<p>Loading Movie Course…</p>} @else if(course){
+  <header><div><p class="eyebrow">Movie Course</p><h1>{{course.title}}</h1><p>{{course.description}}</p><p>Created by {{course.creator}}</p></div>
+  @if(course.owner){<a class="button" [routerLink]="['/movie-courses',course.id,'edit']">Edit Movie Course</a>}</header>
+  @if(!course.applied){<div class="notice"><p>Apply to unlock this ordered course watch list.</p><button (click)="apply()">Apply to Course</button></div>}
+  @if(course.expert){<div class="expert"><span class="material-icons">workspace_premium</span><div><strong>You are an expert in this Movie Course!</strong>
+    @if(course.suggestedCourses.length){<p>Suggested next: @for(s of course.suggestedCourses;track s.id){<a [routerLink]="['/movie-courses',s.id]">{{s.title}}</a> }}</p>}</div></div>}
+  @if(errorMessage){<p class="error">{{errorMessage}}</p>}
+  @if(course.applied){<div class="movies">@for(movie of course.movies;track movie.imdbId){<article><div class="order">{{movie.watchOrder}}</div><img [src]="poster(movie)" [alt]="movie.title+' poster'">
+    <div class="info"><h2><a [routerLink]="['/movies',movie.imdbId]">{{movie.title}}</a></h2><p class="description">{{movie.description||'No course description yet.'}}</p>
+    <dl><div><dt>Year</dt><dd>{{movie.year}}</dd></div><div><dt>Director</dt><dd>{{movie.director}}</dd></div><div><dt>Writer</dt><dd>{{movie.writer||'N/A'}}</dd></div><div><dt>Genre</dt><dd>{{movie.genre||'N/A'}}</dd></div><div><dt>Your Rating</dt><dd>{{movie.disliked?'0.00':(movie.rating===null?'Not ranked':(movie.rating|number:'1.2-2'))}}</dd></div></dl>
+    @if(movie.linkedCourseId){<p>Leads to <a [routerLink]="['/movie-courses',movie.linkedCourseId]">{{movie.linkedCourseTitle}}</a></p>}
+    <div class="rating">@if(movie.liked){<button class="liked" [disabled]="busy[movie.imdbId]" (click)="clear(movie)"><span class="material-icons">thumb_up</span> Liked</button>}
+    @else if(movie.disliked){<button class="disliked" [disabled]="busy[movie.imdbId]" (click)="clear(movie)"><span class="material-icons">thumb_down</span> Disliked</button>}
+    @else{<button class="liked" (click)="like(movie)"><span class="material-icons">thumb_up</span> Like</button><button class="disliked" (click)="dislike(movie)"><span class="material-icons">thumb_down</span> Dislike</button>}</div></div></article>}</div>}
+}</section>
