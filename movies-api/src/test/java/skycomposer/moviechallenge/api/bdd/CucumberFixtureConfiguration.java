@@ -6,6 +6,7 @@ import skycomposer.moviechallenge.api.movie.MovieRepository;
 import skycomposer.moviechallenge.api.movie.MovieRecommendationRepository;
 import skycomposer.moviechallenge.api.bdd.movie.fixture.MovieCatalogFixture;
 import skycomposer.moviechallenge.api.bdd.user.fixture.UserAccessFixture;
+import skycomposer.moviechallenge.api.bdd.fixture.RestApiFixture;
 import skycomposer.moviechallenge.api.userextra.UserExtraRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -29,6 +30,11 @@ public class CucumberFixtureConfiguration {
                                         ObjectMapper objectMapper,
                                         JdbcTemplate jdbcTemplate) {
         return new UserAccessFixture(userExtraRepository, objectMapper, jdbcTemplate);
+    }
+
+    @Bean
+    RestApiFixture restApiFixture() {
+        return new RestApiFixture();
     }
 
     @Bean

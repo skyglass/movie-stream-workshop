@@ -178,6 +178,23 @@ export interface RecommendMovieFromSearchRequest {
   type: MovieType;
 }
 
+export interface CourseMovie {
+  imdbId: string; title: string; description: string; year: string; director: string;
+  writer: string; genre: string; poster: string; watchOrder: number;
+  linkedCourseId: number | null; linkedCourseTitle: string | null;
+  liked: boolean; disliked: boolean; rating: number | null;
+}
+
+export interface MovieCourse {
+  id: number; title: string; description: string; creator: string; owner: boolean;
+  applied: boolean; expert: boolean; averageRating: number | null; movieCount: number;
+  movies: CourseMovie[]; suggestedCourses: { id: number; title: string }[];
+}
+
+export interface CourseMovieInput {
+  movieId: string; description: string; watchOrder: number; linkedCourseId: number | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class MoviesApiService {
   private readonly omdbSearchPageSize = 10;
@@ -189,6 +206,7 @@ export class MoviesApiService {
   private readonly usersRecommendedMoviesBase: string;
   private readonly userExtrasBase: string;
   private readonly usersBase: string;
+  private readonly movieCoursesBase: string;
 
   constructor(private http: HttpClient, private cfg: AppConfigService) {
     const c = cfg.config;
@@ -200,6 +218,7 @@ export class MoviesApiService {
     this.usersRecommendedMoviesBase = `${c.apiBaseUrl}${c.usersRecommendedMoviesPath}`;
     this.userExtrasBase = `${c.apiBaseUrl}${c.userExtrasPath}`;
     this.usersBase = `${c.apiBaseUrl}${c.usersApiPath}`;
+    this.movieCoursesBase = `${c.apiBaseUrl}/api/movie-courses`;
   }
 
   get moviePageSize(): number {
@@ -208,6 +227,29 @@ export class MoviesApiService {
 
   listMovies(page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {
     return this.http.get<MoviePage>(this.moviesBase, { params: this.pageParams(page, pageSize, filter) });
+  }
+
+  listMovieCourses(): Observable<MovieCourse[]> { return this.http.get<MovieCourse[]>(this.movieCoursesBase); }
+  getMovieCourse(id: number): Observable<MovieCourse> { return this.http.get<MovieCourse>(`${this.movieCoursesBase}/${id}`); }
+  manageMovieCourse(id: number): Observable<MovieCourse> { return this.http.get<MovieCourse>(`${this.movieCoursesBase}/${id}/manage`); }
+  createMovieCourse(title: string, description: string): Observable<MovieCourse> {
+    return this.http.post<MovieCourse>(this.movieCoursesBase, { title, description });
+  }
+  updateMovieCourse(id: number, title: string, description: string): Observable<MovieCourse> {
+    return this.http.put<MovieCourse>(`${this.movieCoursesBase}/${id}`, { title, description });
+  }
+  deleteMovieCourse(id: number): Observable<void> { return this.http.delete<void>(`${this.movieCoursesBase}/${id}`); }
+  applyToMovieCourse(id: number): Observable<MovieCourse> {
+    return this.http.post<MovieCourse>(`${this.movieCoursesBase}/${id}/applications`, {});
+  }
+  addCourseMovie(id: number, input: CourseMovieInput): Observable<MovieCourse> {
+    return this.http.post<MovieCourse>(`${this.movieCoursesBase}/${id}/movies`, input);
+  }
+  updateCourseMovie(id: number, movieId: string, input: CourseMovieInput): Observable<MovieCourse> {
+    return this.http.put<MovieCourse>(`${this.movieCoursesBase}/${id}/movies/${movieId}`, input);
+  }
+  removeCourseMovie(id: number, movieId: string): Observable<MovieCourse> {
+    return this.http.delete<MovieCourse>(`${this.movieCoursesBase}/${id}/movies/${movieId}`);
   }
 
   listFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {

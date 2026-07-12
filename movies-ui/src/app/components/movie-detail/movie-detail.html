@@ -76,36 +76,38 @@
       </article>
 
       <div class="detail-main">
-        <section class="comments-panel">
-          <h2>Add a comment</h2>
-          <form [formGroup]="commentForm" (ngSubmit)="addComment()" class="comment-form">
-            <input formControlName="text" placeholder="Tell us more about ..." />
-            <button type="submit" [disabled]="commentForm.invalid || saving">
-              {{ saving ? 'Saving' : 'Submit' }}
-            </button>
-          </form>
-          @if (errorMessage) {
-            <div class="inline-error">{{ errorMessage }}</div>
-          }
-
-          <h2>Comments</h2>
-          <div class="comment-list">
-            @for (comment of movie.comments; track comment.username + comment.timestamp + $index) {
-              <article class="comment">
-                <img [src]="avatar(comment.avatar)" alt="" />
-                <div>
-                  <div class="comment-meta">
-                    <strong>{{ comment.username }}</strong>
-                    <time>{{ comment.timestamp | date:'yyyy-MM-ddTHH:mm:ssZZZZZ' }}</time>
-                  </div>
-                  <p>{{ comment.text }}</p>
-                </div>
-              </article>
-            } @empty {
-              <div class="empty">No comments yet</div>
+        @if (auth.isAdmin) {
+          <section class="comments-panel">
+            <h2>Add a comment</h2>
+            <form [formGroup]="commentForm" (ngSubmit)="addComment()" class="comment-form">
+              <input formControlName="text" placeholder="Tell us more about ..." />
+              <button type="submit" [disabled]="commentForm.invalid || saving">
+                {{ saving ? 'Saving' : 'Submit' }}
+              </button>
+            </form>
+            @if (errorMessage) {
+              <div class="inline-error">{{ errorMessage }}</div>
             }
-          </div>
-        </section>
+
+            <h2>Comments</h2>
+            <div class="comment-list">
+              @for (comment of movie.comments; track comment.username + comment.timestamp + $index) {
+                <article class="comment">
+                  <img [src]="avatar(comment.avatar)" alt="" />
+                  <div>
+                    <div class="comment-meta">
+                      <strong>{{ comment.username }}</strong>
+                      <time>{{ comment.timestamp | date:'yyyy-MM-ddTHH:mm:ssZZZZZ' }}</time>
+                    </div>
+                    <p>{{ comment.text }}</p>
+                  </div>
+                </article>
+              } @empty {
+                <div class="empty">No comments yet</div>
+              }
+            </div>
+          </section>
+        }
 
         <section class="rank-history-panel" aria-labelledby="rank-history-title">
           <h2 id="rank-history-title">Rank History</h2>

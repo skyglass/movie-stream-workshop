@@ -6,12 +6,14 @@ import { MovieDetailComponent } from './components/movie-detail/movie-detail';
 import { MovieEditComponent } from './components/movie-edit/movie-edit';
 import { MovieWizardComponent } from './components/movie-wizard/movie-wizard';
 import { FavoriteMoviesComponent } from './components/favorite-movies/favorite-movies';
-import { UsersFavoriteMoviesComponent } from './components/users-favorite-movies/users-favorite-movies';
 import { UsersRecommendedMoviesComponent } from './components/users-recommended-movies/users-recommended-movies';
 import { AdminLayoutComponent } from './components/admin-layout/admin-layout';
 import { AdminUsersComponent } from './components/admin-users/admin-users';
 import { ProfileComponent } from './components/profile/profile';
 import { adminGuard, authGuard } from './services/auth-guard';
+import { MovieCoursesComponent } from './components/movie-courses/movie-courses';
+import { MovieCourseDetailComponent } from './components/movie-course-detail/movie-course-detail';
+import { MovieCourseEditComponent } from './components/movie-course-edit/movie-course-edit';
 
 export const routes: Routes = [
   { path: 'home', component: MoviesHomeComponent },
@@ -22,7 +24,9 @@ export const routes: Routes = [
   { path: 'wizard', component: MovieWizardComponent, canActivate: [adminGuard] },
   { path: 'favorites', component: FavoriteMoviesComponent, canActivate: [authGuard] },
   { path: 'my-favorite-movies/:username', component: FavoriteMoviesComponent },
-  { path: 'users-favorites', component: UsersFavoriteMoviesComponent, canActivate: [authGuard] },
+  { path: 'movie-courses', component: MovieCoursesComponent, canActivate: [authGuard] },
+  { path: 'movie-courses/:id', component: MovieCourseDetailComponent, canActivate: [authGuard] },
+  { path: 'movie-courses/:id/edit', component: MovieCourseEditComponent, canActivate: [authGuard] },
   { path: 'users-recommended', component: UsersRecommendedMoviesComponent, canActivate: [authGuard] },
   { path: 'profile', component: ProfileComponent, canActivate: [authGuard] },
   {
