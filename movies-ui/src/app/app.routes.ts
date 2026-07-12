@@ -24,9 +24,9 @@ export const routes: Routes = [
   { path: 'wizard', component: MovieWizardComponent, canActivate: [adminGuard] },
   { path: 'favorites', component: FavoriteMoviesComponent, canActivate: [authGuard] },
   { path: 'my-favorite-movies/:username', component: FavoriteMoviesComponent },
-  { path: 'movie-courses', component: MovieCoursesComponent, canActivate: [authGuard] },
-  { path: 'movie-courses/:id', component: MovieCourseDetailComponent, canActivate: [authGuard] },
-  { path: 'movie-courses/:id/edit', component: MovieCourseEditComponent, canActivate: [authGuard] },
+  { path: 'movie-journeys', component: MovieCoursesComponent },
+  { path: 'movie-journeys/:id', component: MovieCourseDetailComponent },
+  { path: 'movie-journeys/:id/edit', component: MovieCourseEditComponent, canActivate: [authGuard] },
   { path: 'users-recommended', component: UsersRecommendedMoviesComponent, canActivate: [authGuard] },
   { path: 'profile', component: ProfileComponent, canActivate: [authGuard] },
   {

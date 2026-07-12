@@ -1,26 +1,26 @@
 <section class="course-page">
   @if (loading) {
-    <p>Loading Movie Course…</p>
+    <p>Loading Movie Journey…</p>
   } @else if (course) {
     <header class="course-introduction">
       <div class="course-heading">
-        <p class="eyebrow">Movie Course</p>
+        <p class="eyebrow">Movie Journey</p>
         <h1>{{ course.header }}</h1>
         <h2>{{ course.title }}</h2>
         <div class="course-description">
-          <p>{{ course.description || 'No course description yet.' }}</p>
+          <p>{{ course.description || 'No journey description yet.' }}</p>
         </div>
         <p class="course-creator">Created by {{ course.creator }}</p>
       </div>
       @if (course.owner) {
-        <a class="button" [routerLink]="['/movie-courses', course.id, 'edit']">Edit Movie Course</a>
+        <a class="button" [routerLink]="['/movie-journeys', course.id, 'edit']">Edit Movie Journey</a>
       }
     </header>
 
-    @if (!course.applied) {
+    @if (auth.token && !course.applied && !course.owner) {
       <div class="notice">
-        <p>Apply to unlock this ordered course watch list.</p>
-        <button type="button" (click)="apply()">Apply to Course</button>
+        <p>Start this journey to unlock its ordered watch list.</p>
+        <button type="button" (click)="apply()">Start Journey</button>
       </div>
     }
 
@@ -28,12 +28,12 @@
       <div class="expert">
         <span class="material-icons" aria-hidden="true">workspace_premium</span>
         <div>
-          <strong>You are an expert in this Movie Course!</strong>
+          <strong>Journey Expert — completed!</strong>
           @if (course.suggestedCourses.length) {
             <div class="suggested-courses">
-              <span>Suggested next:</span>
+              <span>Continue your journey:</span>
               @for (suggestion of course.suggestedCourses; track suggestion.id) {
-                <a [routerLink]="['/movie-courses', suggestion.id]">{{ suggestion.title }}</a>
+                <a [routerLink]="['/movie-journeys', suggestion.id]">{{ suggestion.title }}</a>
               }
             </div>
           }
@@ -45,11 +45,11 @@
       <p class="error">{{ errorMessage }}</p>
     }
 
-    @if (course.applied) {
+    @if (!auth.token || course.applied || course.owner) {
       <div class="movies">
         @for (movie of course.movies; track movie.imdbId) {
           <article class="movie-card">
-            <div class="sequence-number" [attr.aria-label]="'Course movie sequence ' + movie.watchOrder">{{ movie.watchOrder }}</div>
+            <div class="journey-movie-header">{{ movie.header || movie.title }}</div>
             <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
               <img [src]="poster(movie)" [alt]="movie.title + ' poster'">
             </a>
@@ -63,20 +63,29 @@
                 <div><dt>Your Rating:</dt><dd>{{ movie.disliked ? '0.00' : (movie.rating !== null && movie.rankPosition !== null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-') }}</dd></div>
               </dl>
               </a>
+              <div class="journey-movie-description" tabindex="0">
+                {{ movie.description || 'No description yet.' }}
+              </div>
               @if (movie.linkedCourseId) {
-                <p>Leads to <a [routerLink]="['/movie-courses', movie.linkedCourseId]">{{ movie.linkedCourseTitle }}</a></p>
+                <p>Leads to <a [routerLink]="['/movie-journeys', movie.linkedCourseId]">{{ movie.linkedCourseTitle }}</a></p>
               }
               <div class="rating course-movie-actions">
-                @if (movie.liked) {
+                @if (!auth.token) {
+                  <span class="auth-required-action" tabindex="0">
+                    <button class="liked" disabled><span class="material-icons">thumb_up</span> Like</button>
+                    <span class="auth-required-tooltip" role="tooltip">Please, login to start the journey!</span>
+                  </span>
+                  <span class="auth-required-action" tabindex="0">
+                    <button class="disliked" disabled><span class="material-icons">thumb_down</span> Dislike</button>
+                    <span class="auth-required-tooltip" role="tooltip">Please, login to start the journey!</span>
+                  </span>
+                } @else if (movie.liked) {
                   <button class="liked" [disabled]="busy[movie.imdbId]" (click)="clear(movie)"><span class="material-icons">thumb_up</span> Liked</button>
                 } @else if (movie.disliked) {
                   <button class="disliked" [disabled]="busy[movie.imdbId]" (click)="clear(movie)"><span class="material-icons">thumb_down</span> Disliked</button>
                 } @else {
                   <button class="liked" [disabled]="busy[movie.imdbId]" (click)="like(movie)"><span class="material-icons">thumb_up</span> Like</button>
                   <button class="disliked" [disabled]="busy[movie.imdbId]" (click)="dislike(movie)"><span class="material-icons">thumb_down</span> Dislike</button>
-                }
-                @if (movie.description.trim()) {
-                  <button type="button" class="info-button" title="Why this movie matters in this course" aria-label="Show course movie description" (click)="showDescription(movie)"><span class="material-icons" aria-hidden="true">info</span></button>
                 }
               </div>
             </div>
@@ -86,14 +95,3 @@
     }
   }
 </section>
-
-@if (descriptionMovie) {
-  <div class="dialog-backdrop" (click)="closeDescription()">
-    <section class="description-dialog" role="dialog" aria-modal="true" aria-labelledby="course-description-title" (click)="$event.stopPropagation()">
-      <button type="button" class="dialog-close" aria-label="Close course movie description" title="Close" (click)="closeDescription()"><span class="material-icons" aria-hidden="true">close</span></button>
-      <p class="dialog-eyebrow">Why this movie matters</p>
-      <h2 id="course-description-title">{{ descriptionMovie.title }}</h2>
-      <p class="dialog-description">{{ descriptionMovie.description }}</p>
-    </section>
-  </div>
-}

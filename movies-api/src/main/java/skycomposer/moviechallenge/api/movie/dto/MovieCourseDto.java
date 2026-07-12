@@ -9,7 +9,7 @@ public record MovieCourseDto(
         List<CourseMovieDto> movies, List<CourseSuggestionDto> suggestedCourses) {
 
     public record CourseMovieDto(
-            String imdbId, String title, String description, String year, String director,
+            String imdbId, String title, String header, String description, String year, String director,
             String writer, String genre, String poster, int watchOrder, Long linkedCourseId,
             String linkedCourseTitle, boolean liked, boolean disliked, Integer rankPosition, BigDecimal rating) {}
 

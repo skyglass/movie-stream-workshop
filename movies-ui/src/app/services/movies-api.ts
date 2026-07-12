@@ -179,7 +179,7 @@ export interface RecommendMovieFromSearchRequest {
 }
 
 export interface CourseMovie {
-  imdbId: string; title: string; description: string; year: string; director: string;
+  imdbId: string; title: string; header: string; description: string; year: string; director: string;
   writer: string; genre: string; poster: string; watchOrder: number;
   linkedCourseId: number | null; linkedCourseTitle: string | null;
   liked: boolean; disliked: boolean; rankPosition: number | null; rating: number | null;
@@ -192,7 +192,7 @@ export interface MovieCourse {
 }
 
 export interface CourseMovieInput {
-  movieId: string; description: string; watchOrder: number; linkedCourseId: number | null;
+  movieId: string; header: string; description: string; watchOrder: number; linkedCourseId: number | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -218,7 +218,7 @@ export class MoviesApiService {
     this.usersRecommendedMoviesBase = `${c.apiBaseUrl}${c.usersRecommendedMoviesPath}`;
     this.userExtrasBase = `${c.apiBaseUrl}${c.userExtrasPath}`;
     this.usersBase = `${c.apiBaseUrl}${c.usersApiPath}`;
-    this.movieCoursesBase = `${c.apiBaseUrl}/api/movies/movie-courses`;
+    this.movieCoursesBase = `${c.apiBaseUrl}/api/movies/movie-journeys`;
   }
 
   get moviePageSize(): number {

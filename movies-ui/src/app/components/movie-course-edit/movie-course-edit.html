@@ -1,12 +1,39 @@
-<section class="edit-page">@if(loading){<p>Loading Movie Course…</p>}@else if(course){
-  <header><div><p class="eyebrow">Creator tools</p><h1>Edit Movie Course</h1></div><a class="button secondary" [routerLink]="['/movie-courses',course.id]">View Course</a></header>
+<section class="edit-page">@if(loading){<p>Loading Movie Journey…</p>}@else if(course){
+  <header><div><p class="eyebrow">Creator tools</p><h1>Edit Movie Journey</h1></div><a class="button secondary" [routerLink]="['/movie-journeys',course.id]">View Journey</a></header>
   @if(errorMessage){<p class="error">{{errorMessage}}</p>}
-  <form class="panel" (ngSubmit)="saveCourse()"><label>Header<input name="header" [(ngModel)]="header" maxlength="200" required></label><label>Title<input name="title" [(ngModel)]="title" maxlength="200" required></label><label>Course description<textarea name="description" [(ngModel)]="description" rows="5"></textarea></label><button [disabled]="busy">Save Course</button></form>
-  <section class="panel"><h2>Add a movie</h2><p>Search the internal movie catalog.</p><form class="search" (ngSubmit)="search()"><input name="filter" [(ngModel)]="filter" placeholder="Title, director, writer, year or genre"><button>Search</button></form>
-    @for(movie of results;track movie.imdbId){<div class="result"><div><strong>{{movie.title}}</strong><span>{{movie.year}} · {{movie.director}} · {{movie.genre}}</span></div><button [disabled]="busy" (click)="add(movie)">Add to Course</button></div>}</section>
-  <section><h2>Course movies</h2><p>Watching order is unique within the course. “Add description” saves course-specific context for the movie.</p>
-    @for(movie of course.movies;track movie.imdbId){<article class="movie-editor"><h3>{{movie.watchOrder}}. {{movie.title}}</h3><div class="fields"><label>Watching order<input type="number" min="1" [(ngModel)]="orders[movie.imdbId]"></label>
-      <label>Linked next course<select [(ngModel)]="links[movie.imdbId]"><option [ngValue]="null">None</option>@for(c of allCourses;track c.id){@if(c.id!==course.id){<option [ngValue]="c.id">{{c.title}}</option>}}</select></label></div>
-      <label>Movie course description<textarea rows="4" [(ngModel)]="descriptions[movie.imdbId]" placeholder="Why is this movie part of the course?"></textarea></label><div class="actions"><button [disabled]="busy" (click)="saveMovie(movie)">{{movie.description?'Save description':'Add description'}}</button><button class="danger secondary" (click)="remove(movie)">Remove</button></div></article>}
-  </section><div class="delete-zone"><div><strong>Delete Movie Course</strong><p>Deletes its movies, applications, descriptions and links. Movie catalog and user ratings remain intact.</p></div><button class="danger" (click)="deleteCourse()">Delete Movie Course</button></div>
+  <form class="panel" (ngSubmit)="saveCourse()"><label>Header<input name="header" [(ngModel)]="header" maxlength="200" required></label><label>Title<input name="title" [(ngModel)]="title" maxlength="200" required></label><label>Journey description<textarea name="description" [(ngModel)]="description" rows="5"></textarea></label><button [disabled]="busy">Save Journey</button></form>
+  <button type="button" class="add-movie-toggle" [attr.aria-expanded]="addingMovie" aria-controls="add-journey-movie-panel" (click)="toggleAddMovie()">{{addingMovie?'Close':'Add a movie'}}</button>
+  @if(addingMovie){<section id="add-journey-movie-panel" class="panel add-movie-panel"><h2>Add a movie</h2><p>Search movie catalog</p><form class="search" (ngSubmit)="search()"><input #movieSearchInput name="filter" [(ngModel)]="filter" (input)="onSearchInput()" placeholder="Title, director, writer, year or genre" autocomplete="off"><button type="submit">Search</button><button type="button" class="clear-search" [disabled]="!filter && results.length===0" (click)="clearSearch()">Clear</button></form>
+    @for(movie of results;track movie.imdbId){<div class="result"><div><strong>{{movie.title}}</strong><span>{{movie.year}} · {{movie.director}} · {{movie.genre}}</span></div><button [disabled]="busy" (click)="add(movie)">Add to Journey</button></div>}</section>}
+  <section><h2>Journey Movies</h2>
+    <div class="journey-movie-edit-list">
+    @for(movie of course.movies;track movie.imdbId){
+      @if(editingMovies[movie.imdbId]){
+      <article class="movie-editor editing">
+        <div class="editor-sequence">{{movie.watchOrder}}</div>
+        <div class="catalog-movie-title">{{movie.title}}</div>
+        <label>Header<input maxlength="200" [(ngModel)]="headers[movie.imdbId]" placeholder="Journey-specific heading for this movie"></label>
+        <label>Description<textarea rows="4" [(ngModel)]="descriptions[movie.imdbId]" placeholder="Why is this movie part of the journey?"></textarea></label>
+        <div class="actions"><button [disabled]="busy" (click)="saveMovie(movie)">Save</button><button class="danger secondary" [disabled]="busy" (click)="remove(movie)">Remove</button></div>
+      </article>
+      } @else {
+      <article class="journey-preview-card">
+        <div class="journey-preview-header">{{movie.header || movie.title}}</div>
+        <div class="journey-preview-poster"><img [src]="poster(movie)" [alt]="movie.title+' poster'"></div>
+        <div class="journey-preview-body">
+          <div class="journey-preview-title">{{movie.title}}</div>
+          <dl>
+            <div><dt>Year:</dt><dd>{{movie.year}}</dd></div>
+            <div><dt>Director:</dt><dd>{{movie.director}}</dd></div>
+            <div><dt>Genre:</dt><dd>{{movie.genre||'N/A'}}</dd></div>
+            <div><dt>Your Rating:</dt><dd>{{movie.disliked?'0.00':(movie.rating!==null&&movie.rankPosition!==null?(movie.rating|number:'1.1-2')+' (#'+movie.rankPosition+')':'-')}}</dd></div>
+          </dl>
+          <div class="movie-editor-description" tabindex="0">{{movie.description || 'No description yet.'}}</div>
+          <div class="actions"><button type="button" class="secondary edit-movie-button" (click)="editMovie(movie)"><span class="material-icons" aria-hidden="true">edit</span> Edit</button></div>
+        </div>
+      </article>
+      }
+    }
+    </div>
+  </section><div class="delete-zone"><div><strong>Delete Movie Journey</strong><p>Deletes its movies, explorers, descriptions and links. Movie catalog and user ratings remain intact.</p></div><button class="danger" (click)="deleteCourse()">Delete Movie Journey</button></div>
 }</section>

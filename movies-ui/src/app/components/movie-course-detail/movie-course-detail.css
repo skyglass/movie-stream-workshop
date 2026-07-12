@@ -16,7 +16,7 @@
 .suggested-courses { display: flex; gap: .45rem; flex-wrap: wrap; margin-top: .4rem; }
 .movies { display: grid; grid-template-columns: repeat(auto-fill,minmax(235px,1fr)); gap: 1.25rem; align-items: stretch; }
 .movie-card { position: relative; min-width: 0; overflow: hidden; border: 1px solid #d6dde6; border-radius: 10px; background: #fff; box-shadow: 0 4px 14px rgba(32,51,73,.08); }
-.sequence-number { position: absolute; z-index: 2; top: .65rem; left: .65rem; display: grid; place-items: center; min-width: 2.25rem; height: 2.25rem; padding: 0 .45rem; border: 2px solid #fff; border-radius: 999px; background: #273c75; color: #fff; font-size: 1rem; font-weight: 900; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.journey-movie-header { min-height: 3.25rem; display: flex; align-items: center; padding: .8rem 1rem; border-bottom: 1px solid #d6dde6; background: #eef2f8; color: #1e3350; font-size: 1rem; font-weight: 850; line-height: 1.35; }
 .movie-card .poster-link { display: block; width: 100%; aspect-ratio: 2/3; overflow: hidden; background: #e7ebf0; }
 .movie-card .poster-link img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s ease; }
 .movie-card .poster-link:hover img { transform: scale(1.025); }
@@ -28,16 +28,15 @@
 .movie-info dt { color: #637083; font-size: .78rem; font-weight: 700; }
 .movie-info dd { min-width: 0; margin: 0; color: #26384e; font-size: .82rem; overflow-wrap: anywhere; }
 .movie-info > p { margin: .25rem 1rem; font-size: .82rem; }
+.journey-movie-description { height: 7rem; margin: .35rem 1rem .25rem; padding: .8rem .9rem; overflow-y: auto; border: 1px solid #d9e0e8; border-left: 4px solid #273c75; border-radius: 5px; background: #f6f8fb; color: #344256; font-size: .94rem; line-height: 1.55; white-space: pre-wrap; scrollbar-gutter: stable; }
+.journey-movie-description:focus { outline: 2px solid #6f85a6; outline-offset: 2px; }
 .course-movie-actions { display: flex; gap: .45rem; align-items: center; margin-top: auto; padding: .75rem 1rem 1rem; }
 .course-movie-actions button { display: inline-flex; align-items: center; justify-content: center; gap: .25rem; min-height: 2.25rem; padding: .45rem .65rem; font-size: .82rem; }
+.auth-required-action { position: relative; display: inline-flex; border-radius: 7px; cursor: not-allowed; }
+.auth-required-action button { pointer-events: none; opacity: .5; }
+.auth-required-tooltip { position: absolute; z-index: 5; bottom: calc(100% + .55rem); left: 0; width: max-content; max-width: 15rem; padding: .55rem .7rem; border-radius: 6px; background: #172238; color: #fff; font-size: .82rem; font-weight: 700; line-height: 1.35; box-shadow: 0 5px 16px rgba(0,0,0,.25); opacity: 0; visibility: hidden; transform: translateY(.2rem); transition: opacity .15s ease,transform .15s ease; pointer-events: none; }
+.auth-required-tooltip::after { content: ''; position: absolute; top: 100%; left: 1rem; border: .35rem solid transparent; border-top-color: #172238; }
+.auth-required-action:hover .auth-required-tooltip,.auth-required-action:focus .auth-required-tooltip,.auth-required-action:focus-within .auth-required-tooltip { opacity: 1; visibility: visible; transform: translateY(0); }
 .liked { background: #267a3d; }
 .disliked { background: #a43c3c; }
-.course-movie-actions .info-button { margin-left: auto; padding: .45rem; background: #e9edf7; color: #273c75; }
-.dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1.25rem; background: rgba(15,23,42,.62); backdrop-filter: blur(2px); }
-.description-dialog { position: relative; width: min(560px,100%); max-height: 80vh; overflow: auto; padding: 2rem 2.25rem; border-radius: 14px; background: #fff; box-shadow: 0 24px 70px rgba(0,0,0,.35); color: #202938; }
-.description-dialog h2 { margin: .25rem 2.5rem 1rem 0; font-size: 1.65rem; line-height: 1.25; }
-.dialog-eyebrow { margin: 0; color: #5b6790; font-size: .8rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.dialog-description { margin: 0; white-space: pre-wrap; font-family: Georgia,'Times New Roman',serif; font-size: 1.12rem; line-height: 1.7; color: #303846; }
-.dialog-close { position: absolute; top: 1rem; right: 1rem; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; border-radius: 50%; background: #eef1f6; color: #303b55; }
-.dialog-close:hover { background: #dfe5ef; }
-@media(max-width:650px) { .course-page { padding: 1rem; } .course-introduction { display: grid; padding: 1.25rem; } .movies { grid-template-columns: repeat(auto-fill,minmax(200px,1fr)); } .description-dialog { padding: 1.5rem; } }
+@media(max-width:650px) { .course-page { padding: 1rem; } .course-introduction { display: grid; padding: 1.25rem; } .movies { grid-template-columns: repeat(auto-fill,minmax(200px,1fr)); } }

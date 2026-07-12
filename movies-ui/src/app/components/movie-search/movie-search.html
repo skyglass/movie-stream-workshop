@@ -192,30 +192,32 @@
               {{ suggestedSaving ? 'Submitting' : 'Submit' }}
             </button>
           </div>
-          <label class="suggested-order-toggle">
-            <input
-              type="checkbox"
-              [checked]="higherRankedFirst"
-              [disabled]="suggestedLoading || suggestedSaving"
-              (change)="toggleHigherRankedFirst($event)" />
-            <span>Higher Ranked First</span>
-          </label>
-          <label class="suggested-order-toggle">
-            <input
-              type="checkbox"
-              [checked]="boostHigherRanks"
-              [disabled]="suggestedLoading || suggestedSaving"
-              (change)="toggleBoostHigherRanks($event)" />
-            <span>Boost Higher Ranks</span>
-          </label>
-          <label class="suggested-order-toggle">
-            <input
-              type="checkbox"
-              [checked]="moreInterestingFirst"
-              [disabled]="suggestedLoading || suggestedSaving"
-              (change)="toggleMoreInterestingFirst($event)" />
-            <span>More Interesting First</span>
-          </label>
+          <div class="suggested-order-controls" aria-label="Suggested challenge ordering">
+            <label class="suggested-order-toggle">
+              <input
+                type="checkbox"
+                [checked]="higherRankedFirst"
+                [disabled]="suggestedLoading || suggestedSaving"
+                (change)="toggleHigherRankedFirst($event)" />
+              <span>Higher Ranked First</span>
+            </label>
+            <label class="suggested-order-toggle">
+              <input
+                type="checkbox"
+                [checked]="moreInterestingFirst"
+                [disabled]="suggestedLoading || suggestedSaving"
+                (change)="toggleMoreInterestingFirst($event)" />
+              <span>More Interesting First</span>
+            </label>
+            <label class="suggested-order-toggle">
+              <input
+                type="checkbox"
+                [checked]="boostHigherRanks"
+                [disabled]="suggestedLoading || suggestedSaving"
+                (change)="toggleBoostHigherRanks($event)" />
+              <span>Boost Higher Ranks</span>
+            </label>
+          </div>
         </div>
       }
     </header>

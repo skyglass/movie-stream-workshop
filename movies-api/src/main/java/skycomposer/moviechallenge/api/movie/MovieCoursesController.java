@@ -14,7 +14,7 @@ import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/api/movie-courses")
+@RequestMapping({"/api/movie-journeys", "/api/movie-courses"})
 public class MovieCoursesController {
     private final MovieCourseRepository courses;
 
@@ -34,6 +34,7 @@ public class MovieCoursesController {
     @DeleteMapping("/{id}/movies/{movieId}") public MovieCourseDto removeMovie(@PathVariable long id, @PathVariable String movieId, @AuthenticationPrincipal Jwt jwt) { return courses.removeMovie(id, movieId, username(jwt)); }
 
     private String username(Jwt jwt) {
+        if (jwt == null) return null;
         for (String claim : List.of("preferred_username", "username")) {
             String value = jwt.getClaimAsString(claim); if (value != null && !value.isBlank()) return value;
         }

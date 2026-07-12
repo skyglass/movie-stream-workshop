@@ -27,6 +27,10 @@ public class RestApiFixture {
         assertEquals(status, lastResponse.getResponse().getStatus());
     }
 
+    public String responseBody() throws Exception {
+        return lastResponse.getResponse().getContentAsString();
+    }
+
     public void reset() {
         lastResponse = null;
     }
