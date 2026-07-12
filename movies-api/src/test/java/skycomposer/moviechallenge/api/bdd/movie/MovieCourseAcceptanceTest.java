@@ -11,6 +11,7 @@ import skycomposer.moviechallenge.api.movie.MovieCourseRepository;
 import skycomposer.moviechallenge.api.movie.dto.AddCourseMovieRequest;
 import skycomposer.moviechallenge.api.movie.dto.CreateMovieCourseRequest;
 import skycomposer.moviechallenge.api.movie.dto.MovieCourseDto;
+import skycomposer.moviechallenge.api.movie.model.MovieJourneyType;
 
 import java.util.Arrays;
 import java.util.List;
@@ -36,7 +37,7 @@ public class MovieCourseAcceptanceTest {
 
     @Given("movie course {string} with title {string} and description {string} is created by {string}")
     public void courseCreated(String header, String title, String description, String creator) {
-        course = courses.create(new CreateMovieCourseRequest(header, title, description), creator);
+        course = courses.create(new CreateMovieCourseRequest(header, title, description, MovieJourneyType.JOURNEY), creator);
     }
 
     @When("regular user {string} requests Movie Courses through the API")
@@ -81,6 +82,13 @@ public class MovieCourseAcceptanceTest {
         assertTrue(body.contains("\"header\":\"" + header + "\""));
         assertTrue(body.contains("\"title\":\"" + title + "\""));
         assertTrue(body.contains("\"description\":\"" + description + "\""));
+    }
+
+    @Then("the Movie Journey response identifies it as {string}")
+    public void responseContainsJourneyType(String typeDescription) throws Exception {
+        String body = restApi.responseBody();
+        assertTrue(body.contains("\"type\":\"JOURNEY\""));
+        assertTrue(body.contains("\"typeDescription\":\"" + typeDescription + "\""));
     }
 
     @Then("user {string} is enrolled in the Movie Course")

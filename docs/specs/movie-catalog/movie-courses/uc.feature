@@ -7,11 +7,13 @@ Feature: movie-courses
     When regular user "student" requests Movie Courses through the API
     Then the Movie Course API response status is 200
     And the Movie Course response contains header "Film Language", title "Learn the grammar of cinema", and description "A guided introduction"
+    And the Movie Journey response identifies it as "Movie Journey"
 
   Scenario: An anonymous viewer can list Movie Journeys
     When an anonymous viewer requests Movie Journeys through the API
     Then the Movie Course API response status is 200
     And the Movie Course response contains header "Film Language", title "Learn the grammar of cinema", and description "A guided introduction"
+    And the Movie Journey response identifies it as "Movie Journey"
 
   Scenario: A student can apply to a Movie Course
     When regular user "student" applies to the Movie Course through the API

@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import skycomposer.moviechallenge.api.movie.dto.AddCourseMovieRequest;
 import skycomposer.moviechallenge.api.movie.dto.CreateMovieCourseRequest;
 import skycomposer.moviechallenge.api.movie.dto.MovieCourseDto;
+import skycomposer.moviechallenge.api.movie.model.MovieJourneyType;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -22,7 +23,7 @@ public class MovieCourseRepository {
 
     public List<MovieCourseDto> findAll(String user) {
         return jdbc.sql("""
-                select c.id, c.header, c.title, c.description, c.journey_creator,
+                select c.id, c.header, c.title, c.description, c.type, c.journey_creator,
                        exists(select 1 from user_movie_journey uc where uc.movie_journey_id=c.id and uc.user_id=:user) applied,
                        count(distinct cm.movie_id) movie_count,
                        coalesce(avg(ur.rating), 0) average_rating
@@ -32,7 +33,8 @@ public class MovieCourseRepository {
                 group by c.id
                 order by average_rating desc, lower(c.title), c.id
                 """).param("user", user).query((rs, n) -> new MovieCourseDto(
-                rs.getLong("id"), rs.getString("header"), rs.getString("title"), rs.getString("description"), rs.getString("journey_creator"),
+                rs.getLong("id"), rs.getString("header"), rs.getString("title"), rs.getString("description"),
+                journeyType(rs.getInt("type")), journeyType(rs.getInt("type")).getDescription(), rs.getString("journey_creator"),
                 Objects.equals(user, rs.getString("journey_creator")), rs.getBoolean("applied"), false,
                 rs.getBigDecimal("average_rating"), rs.getInt("movie_count"), List.of(), List.of())).list();
     }
@@ -42,7 +44,8 @@ public class MovieCourseRepository {
                 select c.*, exists(select 1 from user_movie_journey uc where uc.movie_journey_id=c.id and uc.user_id=:user) applied
                 from movie_journey c where c.id=:id
                 """).param("id", id).param("user", user).query((rs, n) -> new MovieCourseDto(
-                rs.getLong("id"), rs.getString("header"), rs.getString("title"), rs.getString("description"), rs.getString("journey_creator"),
+                rs.getLong("id"), rs.getString("header"), rs.getString("title"), rs.getString("description"),
+                journeyType(rs.getInt("type")), journeyType(rs.getInt("type")).getDescription(), rs.getString("journey_creator"),
                 Objects.equals(user, rs.getString("journey_creator")), rs.getBoolean("applied"), false, null, 0, List.of(), List.of()))
                 .optional().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie Journey not found"));
         List<MovieCourseDto.CourseMovieDto> movies = jdbc.sql("""
@@ -71,15 +74,16 @@ public class MovieCourseRepository {
                 order by linked.title
                 """).param("id", id).param("user", user).query((rs, n) ->
                 new MovieCourseDto.CourseSuggestionDto(rs.getLong("id"), rs.getString("title"))).list() : List.of();
-        return new MovieCourseDto(course.id(), course.header(), course.title(), course.description(), course.creator(), course.owner(),
+        return new MovieCourseDto(course.id(), course.header(), course.title(), course.description(), course.type(),
+                course.typeDescription(), course.creator(), course.owner(),
                 course.applied(), expert, course.averageRating(), movies.size(), movies, suggestions);
     }
 
     @Transactional
     public MovieCourseDto create(CreateMovieCourseRequest request, String user) {
-        long id = jdbc.sql("insert into movie_journey(header, title, description, journey_creator) values (:header,:title,:description,:user) returning id")
+        long id = jdbc.sql("insert into movie_journey(header, title, description, type, journey_creator) values (:header,:title,:description,:type,:user) returning id")
                 .param("header", request.header().trim()).param("title", request.title().trim())
-                .param("description", text(request.description())).param("user", user)
+                .param("description", text(request.description())).param("type", request.type().getCode()).param("user", user)
                 .query(Long.class).single();
         return find(id, user);
     }
@@ -92,9 +96,9 @@ public class MovieCourseRepository {
 
     public MovieCourseDto update(long id, CreateMovieCourseRequest request, String user) {
         requireOwner(id, user);
-        jdbc.sql("update movie_journey set header=:header, title=:title, description=:description where id=:id")
+        jdbc.sql("update movie_journey set header=:header, title=:title, description=:description, type=:type where id=:id")
                 .param("header", request.header().trim()).param("title", request.title().trim())
-                .param("description", text(request.description())).param("id", id).update();
+                .param("description", text(request.description())).param("type", request.type().getCode()).param("id", id).update();
         return find(id, user);
     }
 
@@ -165,4 +169,5 @@ public class MovieCourseRepository {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Linked Movie Journey not found");
     }
     private String text(String value) { return value == null ? "" : value.trim(); }
+    private MovieJourneyType journeyType(int code) { return MovieJourneyType.fromCode(code); }
 }

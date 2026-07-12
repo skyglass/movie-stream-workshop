@@ -2,9 +2,11 @@ package skycomposer.moviechallenge.api.movie.dto;
 
 import java.math.BigDecimal;
 import java.util.List;
+import skycomposer.moviechallenge.api.movie.model.MovieJourneyType;
 
 public record MovieCourseDto(
-        long id, String header, String title, String description, String creator, boolean owner,
+        long id, String header, String title, String description, MovieJourneyType type, String typeDescription,
+        String creator, boolean owner,
         boolean applied, boolean expert, BigDecimal averageRating, int movieCount,
         List<CourseMovieDto> movies, List<CourseSuggestionDto> suggestedCourses) {
 

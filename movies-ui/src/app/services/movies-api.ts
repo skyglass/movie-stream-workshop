@@ -186,10 +186,13 @@ export interface CourseMovie {
 }
 
 export interface MovieCourse {
-  id: number; header: string; title: string; description: string; creator: string; owner: boolean;
+  id: number; header: string; title: string; description: string; type: MovieJourneyType;
+  typeDescription: string; creator: string; owner: boolean;
   applied: boolean; expert: boolean; averageRating: number | null; movieCount: number;
   movies: CourseMovie[]; suggestedCourses: { id: number; title: string }[];
 }
+
+export type MovieJourneyType = 'JOURNEY' | 'GUIDE' | 'COURSE' | 'FESTIVAL' | 'TOUR';
 
 export interface CourseMovieInput {
   movieId: string; header: string; description: string; watchOrder: number; linkedCourseId: number | null;
@@ -232,11 +235,11 @@ export class MoviesApiService {
   listMovieCourses(): Observable<MovieCourse[]> { return this.http.get<MovieCourse[]>(this.movieCoursesBase); }
   getMovieCourse(id: number): Observable<MovieCourse> { return this.http.get<MovieCourse>(`${this.movieCoursesBase}/${id}`); }
   manageMovieCourse(id: number): Observable<MovieCourse> { return this.http.get<MovieCourse>(`${this.movieCoursesBase}/${id}/manage`); }
-  createMovieCourse(header: string, title: string, description: string): Observable<MovieCourse> {
-    return this.http.post<MovieCourse>(this.movieCoursesBase, { header, title, description });
+  createMovieCourse(header: string, title: string, description: string, type: MovieJourneyType): Observable<MovieCourse> {
+    return this.http.post<MovieCourse>(this.movieCoursesBase, { header, title, description, type });
   }
-  updateMovieCourse(id: number, header: string, title: string, description: string): Observable<MovieCourse> {
-    return this.http.put<MovieCourse>(`${this.movieCoursesBase}/${id}`, { header, title, description });
+  updateMovieCourse(id: number, header: string, title: string, description: string, type: MovieJourneyType): Observable<MovieCourse> {
+    return this.http.put<MovieCourse>(`${this.movieCoursesBase}/${id}`, { header, title, description, type });
   }
   deleteMovieCourse(id: number): Observable<void> { return this.http.delete<void>(`${this.movieCoursesBase}/${id}`); }
   applyToMovieCourse(id: number): Observable<MovieCourse> {

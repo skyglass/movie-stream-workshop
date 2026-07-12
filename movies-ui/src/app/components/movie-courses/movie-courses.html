@@ -1,11 +1,11 @@
 <section class="courses-page">
   <header><div><p class="eyebrow">Explore through film</p><h1>Movie Journeys</h1><p>Follow curated watch lists, rate every movie, and become a Journey Expert.</p></div>
     @if(auth.token){<button type="button" (click)="creating=!creating">{{ creating ? 'Cancel' : 'Create Movie Journey' }}</button>}</header>
-  @if (auth.token && creating) { <form class="course-form" (ngSubmit)="create()"><label>Header<input name="header" [(ngModel)]="header" maxlength="200" required placeholder="The main journey heading"></label><label>Title<input name="title" [(ngModel)]="title" maxlength="200" required placeholder="A concise journey subtitle"></label>
+  @if (auth.token && creating) { <form class="course-form" (ngSubmit)="create()"><label>Type<select name="type" [(ngModel)]="type">@for(journeyType of journeyTypes;track journeyType.value){<option [value]="journeyType.value">{{journeyType.label}}</option>}</select></label><label>Header<input name="header" [(ngModel)]="header" maxlength="200" required placeholder="The main journey heading"></label><label>Title<input name="title" [(ngModel)]="title" maxlength="200" required placeholder="A concise journey subtitle"></label>
     <label>Description<textarea name="description" [(ngModel)]="description" rows="4"></textarea></label><button [disabled]="busy">Create Journey</button></form> }
   @if (errorMessage) { <p class="error">{{errorMessage}}</p> }
   @if (loading) { <p>Loading Movie Journeys…</p> } @else { <div class="course-grid">
-    @for (course of courses; track course.id) { <article><h2><a [routerLink]="['/movie-journeys',course.id]">{{course.header}}</a></h2><h3>{{course.title}}</h3>
+    @for (course of courses; track course.id) { <article><p class="journey-card-type">{{course.typeDescription}}</p><h2><a [routerLink]="['/movie-journeys',course.id]">{{course.header}}</a></h2><h3>{{course.title}}</h3>
       <p>{{course.description || 'No description yet.'}}</p><dl><div><dt>Movies</dt><dd>{{course.movieCount}}</dd></div>@if(auth.token){<div><dt>Your Average Rating</dt><dd>{{course.averageRating | number:'1.2-2'}}</dd></div>}</dl>
       <div class="actions">
         @if (!auth.token) {
