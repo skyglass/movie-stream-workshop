@@ -47,7 +47,7 @@ describe('MovieSearchComponent', () => {
     component.recommendSelectedMovie();
 
     expect(moviesApi.recommendMovieFromSearch).toHaveBeenCalled();
-    expect(moviesApi.listSuggestedMovieChallenges).toHaveBeenCalledOnceWith(1, 12, false);
+    expect(moviesApi.listSuggestedMovieChallenges).toHaveBeenCalledOnceWith(1, 12, false, false, false);
   });
 
   it('reloads suggested challenges with higher ranked first enabled', () => {
@@ -56,7 +56,34 @@ describe('MovieSearchComponent', () => {
     component.toggleHigherRankedFirst({ target: { checked: true } } as unknown as Event);
 
     expect(component.higherRankedFirst).toBeTrue();
-    expect(moviesApi.listSuggestedMovieChallenges).toHaveBeenCalledOnceWith(1, 12, true);
+    expect(component.boostHigherRanks).toBeFalse();
+    expect(component.moreInterestingFirst).toBeFalse();
+    expect(moviesApi.listSuggestedMovieChallenges).toHaveBeenCalledOnceWith(1, 12, true, false, false);
+  });
+
+  it('enables boost higher ranks and disables higher ranked first', () => {
+    component.higherRankedFirst = true;
+    moviesApi.listSuggestedMovieChallenges.calls.reset();
+
+    component.toggleBoostHigherRanks({ target: { checked: true } } as unknown as Event);
+
+    expect(component.boostHigherRanks).toBeTrue();
+    expect(component.higherRankedFirst).toBeFalse();
+    expect(component.moreInterestingFirst).toBeFalse();
+    expect(moviesApi.listSuggestedMovieChallenges).toHaveBeenCalledOnceWith(1, 12, false, true, false);
+  });
+
+  it('enables more interesting first and disables both rank modes', () => {
+    component.higherRankedFirst = true;
+    component.boostHigherRanks = true;
+    moviesApi.listSuggestedMovieChallenges.calls.reset();
+
+    component.toggleMoreInterestingFirst({ target: { checked: true } } as unknown as Event);
+
+    expect(component.moreInterestingFirst).toBeTrue();
+    expect(component.higherRankedFirst).toBeFalse();
+    expect(component.boostHigherRanks).toBeFalse();
+    expect(moviesApi.listSuggestedMovieChallenges).toHaveBeenCalledOnceWith(1, 12, false, false, true);
   });
 
   it('toggles rank help independently from probability help', () => {
@@ -118,7 +145,7 @@ describe('MovieSearchComponent', () => {
         director: 'Director One',
         winProbabilityPercent: 55,
         rankPosition: 1,
-        confidencePercent: 60
+        rating: 9.46
       },
       movie2: {
         imdbId: 'tt102',
@@ -128,7 +155,7 @@ describe('MovieSearchComponent', () => {
         director: 'Director Two',
         winProbabilityPercent: 45,
         rankPosition: 2,
-        confidencePercent: 40
+        rating: 7.25
       }
     };
   }

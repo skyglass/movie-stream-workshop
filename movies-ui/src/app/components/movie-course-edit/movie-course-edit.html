@@ -1,7 +1,7 @@
 <section class="edit-page">@if(loading){<p>Loading Movie Course…</p>}@else if(course){
   <header><div><p class="eyebrow">Creator tools</p><h1>Edit Movie Course</h1></div><a class="button secondary" [routerLink]="['/movie-courses',course.id]">View Course</a></header>
   @if(errorMessage){<p class="error">{{errorMessage}}</p>}
-  <form class="panel" (ngSubmit)="saveCourse()"><label>Title<input name="title" [(ngModel)]="title" maxlength="200" required></label><label>Course description<textarea name="description" [(ngModel)]="description" rows="5"></textarea></label><button [disabled]="busy">Save Course</button></form>
+  <form class="panel" (ngSubmit)="saveCourse()"><label>Header<input name="header" [(ngModel)]="header" maxlength="200" required></label><label>Title<input name="title" [(ngModel)]="title" maxlength="200" required></label><label>Course description<textarea name="description" [(ngModel)]="description" rows="5"></textarea></label><button [disabled]="busy">Save Course</button></form>
   <section class="panel"><h2>Add a movie</h2><p>Search the internal movie catalog.</p><form class="search" (ngSubmit)="search()"><input name="filter" [(ngModel)]="filter" placeholder="Title, director, writer, year or genre"><button>Search</button></form>
     @for(movie of results;track movie.imdbId){<div class="result"><div><strong>{{movie.title}}</strong><span>{{movie.year}} · {{movie.director}} · {{movie.genre}}</span></div><button [disabled]="busy" (click)="add(movie)">Add to Course</button></div>}</section>
   <section><h2>Course movies</h2><p>Watching order is unique within the course. “Add description” saves course-specific context for the movie.</p>

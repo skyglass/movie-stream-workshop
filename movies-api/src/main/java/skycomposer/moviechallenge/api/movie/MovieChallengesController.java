@@ -44,11 +44,15 @@ public class MovieChallengesController {
     public SuggestedMovieChallengePageDto suggestedChallenges(@AuthenticationPrincipal Jwt jwt,
                                                              @RequestParam(required = false) Integer page,
                                                              @RequestParam(required = false) Integer pageSize,
-                                                             @RequestParam(defaultValue = "false") boolean higherRankedFirst) {
+                                                             @RequestParam(defaultValue = "false") boolean higherRankedFirst,
+                                                             @RequestParam(defaultValue = "false") boolean boostHigherRanks,
+                                                             @RequestParam(defaultValue = "false") boolean moreInterestingFirst) {
         return movieChallengeUseCase.suggestedChallenges(
                 jwt,
                 moviePaging.pageable(page, pageSize),
-                higherRankedFirst);
+                higherRankedFirst,
+                boostHigherRanks,
+                moreInterestingFirst);
     }
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})

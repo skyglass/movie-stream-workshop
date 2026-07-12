@@ -81,7 +81,7 @@ export interface SuggestedMovieChallengeMovie {
   director: string;
   winProbabilityPercent: number;
   rankPosition: number | null;
-  confidencePercent: number;
+  rating: number | null;
 }
 
 export interface SuggestedMovieChallenge {
@@ -182,11 +182,11 @@ export interface CourseMovie {
   imdbId: string; title: string; description: string; year: string; director: string;
   writer: string; genre: string; poster: string; watchOrder: number;
   linkedCourseId: number | null; linkedCourseTitle: string | null;
-  liked: boolean; disliked: boolean; rating: number | null;
+  liked: boolean; disliked: boolean; rankPosition: number | null; rating: number | null;
 }
 
 export interface MovieCourse {
-  id: number; title: string; description: string; creator: string; owner: boolean;
+  id: number; header: string; title: string; description: string; creator: string; owner: boolean;
   applied: boolean; expert: boolean; averageRating: number | null; movieCount: number;
   movies: CourseMovie[]; suggestedCourses: { id: number; title: string }[];
 }
@@ -218,7 +218,7 @@ export class MoviesApiService {
     this.usersRecommendedMoviesBase = `${c.apiBaseUrl}${c.usersRecommendedMoviesPath}`;
     this.userExtrasBase = `${c.apiBaseUrl}${c.userExtrasPath}`;
     this.usersBase = `${c.apiBaseUrl}${c.usersApiPath}`;
-    this.movieCoursesBase = `${c.apiBaseUrl}/api/movie-courses`;
+    this.movieCoursesBase = `${c.apiBaseUrl}/api/movies/movie-courses`;
   }
 
   get moviePageSize(): number {
@@ -232,11 +232,11 @@ export class MoviesApiService {
   listMovieCourses(): Observable<MovieCourse[]> { return this.http.get<MovieCourse[]>(this.movieCoursesBase); }
   getMovieCourse(id: number): Observable<MovieCourse> { return this.http.get<MovieCourse>(`${this.movieCoursesBase}/${id}`); }
   manageMovieCourse(id: number): Observable<MovieCourse> { return this.http.get<MovieCourse>(`${this.movieCoursesBase}/${id}/manage`); }
-  createMovieCourse(title: string, description: string): Observable<MovieCourse> {
-    return this.http.post<MovieCourse>(this.movieCoursesBase, { title, description });
+  createMovieCourse(header: string, title: string, description: string): Observable<MovieCourse> {
+    return this.http.post<MovieCourse>(this.movieCoursesBase, { header, title, description });
   }
-  updateMovieCourse(id: number, title: string, description: string): Observable<MovieCourse> {
-    return this.http.put<MovieCourse>(`${this.movieCoursesBase}/${id}`, { title, description });
+  updateMovieCourse(id: number, header: string, title: string, description: string): Observable<MovieCourse> {
+    return this.http.put<MovieCourse>(`${this.movieCoursesBase}/${id}`, { header, title, description });
   }
   deleteMovieCourse(id: number): Observable<void> { return this.http.delete<void>(`${this.movieCoursesBase}/${id}`); }
   applyToMovieCourse(id: number): Observable<MovieCourse> {
@@ -343,11 +343,19 @@ export class MoviesApiService {
   listSuggestedMovieChallenges(
     page = 1,
     pageSize = this.moviePageSize,
-    higherRankedFirst = false
+    higherRankedFirst = false,
+    boostHigherRanks = false,
+    moreInterestingFirst = false
   ): Observable<SuggestedMovieChallengePage> {
     const params = this.pageParams(page, pageSize);
     if (higherRankedFirst) {
       params['higherRankedFirst'] = 'true';
+    }
+    if (boostHigherRanks) {
+      params['boostHigherRanks'] = 'true';
+    }
+    if (moreInterestingFirst) {
+      params['moreInterestingFirst'] = 'true';
     }
     return this.http.get<SuggestedMovieChallengePage>(`${this.movieChallengesBase}/suggested`, {
       params

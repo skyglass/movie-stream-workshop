@@ -1,13 +1,13 @@
 <section class="courses-page">
   <header><div><p class="eyebrow">Learn through film</p><h1>Movie Courses</h1><p>Follow curated watch lists, rate every movie, and become a course expert.</p></div>
     <button type="button" (click)="creating=!creating">{{ creating ? 'Cancel' : 'Create Movie Course' }}</button></header>
-  @if (creating) { <form class="course-form" (ngSubmit)="create()"><label>Title<input name="title" [(ngModel)]="title" maxlength="200" required></label>
+  @if (creating) { <form class="course-form" (ngSubmit)="create()"><label>Header<input name="header" [(ngModel)]="header" maxlength="200" required placeholder="The main course heading"></label><label>Title<input name="title" [(ngModel)]="title" maxlength="200" required placeholder="A concise course subtitle"></label>
     <label>Description<textarea name="description" [(ngModel)]="description" rows="4"></textarea></label><button [disabled]="busy">Create Course</button></form> }
   @if (errorMessage) { <p class="error">{{errorMessage}}</p> }
   @if (loading) { <p>Loading Movie Courses…</p> } @else { <div class="course-grid">
-    @for (course of courses; track course.id) { <article><h2><a [routerLink]="['/movie-courses',course.id]">{{course.title}}</a></h2>
+    @for (course of courses; track course.id) { <article><h2><a [routerLink]="['/movie-courses',course.id]">{{course.header}}</a></h2><h3>{{course.title}}</h3>
       <p>{{course.description || 'No description yet.'}}</p><dl><div><dt>Movies</dt><dd>{{course.movieCount}}</dd></div><div><dt>Average rating</dt><dd>{{course.averageRating | number:'1.2-2'}}</dd></div></dl>
       <div class="actions">@if (course.owner) { <a class="button" [routerLink]="['/movie-courses',course.id,'edit']">Edit</a> }
-      @if (course.applied) { <a class="button secondary" [routerLink]="['/movie-courses',course.id]">Continue Course</a> } @else { <button [disabled]="busy" (click)="apply(course)">Apply</button> }</div></article> }
+      @if (course.applied) { <a class="button secondary view-button" [routerLink]="['/movie-courses',course.id]" title="View Movie Course" aria-label="View Movie Course"><span class="material-icons" aria-hidden="true">visibility</span> View</a> } @else { <button [disabled]="busy" (click)="apply(course)">Apply</button> }</div></article> }
   </div> }
 </section>

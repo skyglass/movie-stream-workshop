@@ -103,7 +103,7 @@ Feature: movie-challenge
     And the suggested movie challenge list contains 1 challenge
     And suggested movie challenge 1 is movie "tt101" against movie "tt102"
 
-  Scenario: Higher ranks first refinement uses the best rank in either movie
+  Scenario: Higher ranks first refinement uses the ten-bucket category of the best rank in either movie
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"
     And movie "tt103" exists with title "Movie Three"
@@ -145,11 +145,7 @@ Feature: movie-challenge
     Then the suggested movie challenge total count is 3
     And the suggested movie challenge list contains 3 challenges
     And suggested movie challenge 1 is movie "tt103" against movie "tt104"
-    And suggested movie challenge 1 movie "tt103" has confidence 0 percent
-    And suggested movie challenge 1 movie "tt104" has confidence 0 percent
     And suggested movie challenge 3 is movie "tt101" against movie "tt102"
-    And suggested movie challenge 3 movie "tt101" has confidence 100 percent
-    And suggested movie challenge 3 movie "tt102" has confidence 100 percent
 
   Scenario: Suggested refinement challenges use Movie 1 rank and rank distance after pair information
     Given movie "tt101" exists with title "Movie One"

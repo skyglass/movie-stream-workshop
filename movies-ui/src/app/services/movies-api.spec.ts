@@ -270,6 +270,32 @@ describe('MoviesApiService', () => {
     request.flush({ challenges: [], totalCount: 0 });
   });
 
+  it('requests suggested movie challenges with higher ranks boosted', (done) => {
+    service.listSuggestedMovieChallenges(3, 7, false, true).subscribe(page => {
+      expect(page.challenges).toEqual([]);
+      expect(page.totalCount).toBe(0);
+      done();
+    });
+
+    const request = http.expectOne(
+      `${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested?page=3&pageSize=7&boostHigherRanks=true`
+    );
+    request.flush({ challenges: [], totalCount: 0 });
+  });
+
+  it('requests suggested movie challenges with more interesting pairs first', (done) => {
+    service.listSuggestedMovieChallenges(3, 7, false, false, true).subscribe(page => {
+      expect(page.challenges).toEqual([]);
+      expect(page.totalCount).toBe(0);
+      done();
+    });
+
+    const request = http.expectOne(
+      `${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested?page=3&pageSize=7&moreInterestingFirst=true`
+    );
+    request.flush({ challenges: [], totalCount: 0 });
+  });
+
   it('submits selected movie challenges in a batch', (done) => {
     service.submitMovieChallengeSelections([
       { movie1Id: 'tt101', movie2Id: 'tt102', selectedMovieId: 'tt101' },

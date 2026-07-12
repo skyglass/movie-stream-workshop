@@ -40,8 +40,20 @@ public class MovieChallengeUseCase {
 
     @Transactional(readOnly = true)
     public SuggestedMovieChallengePageDto suggestedChallenges(Jwt jwt, Pageable pageable, boolean higherRankedFirst) {
+        return suggestedChallenges(jwt, pageable, higherRankedFirst, false);
+    }
+
+    @Transactional(readOnly = true)
+    public SuggestedMovieChallengePageDto suggestedChallenges(Jwt jwt, Pageable pageable, boolean higherRankedFirst,
+                                                               boolean boostHigherRanks) {
+        return suggestedChallenges(jwt, pageable, higherRankedFirst, boostHigherRanks, false);
+    }
+
+    @Transactional(readOnly = true)
+    public SuggestedMovieChallengePageDto suggestedChallenges(Jwt jwt, Pageable pageable, boolean higherRankedFirst,
+                                                               boolean boostHigherRanks, boolean moreInterestingFirst) {
         UserExtra userExtra = userExtraService.syncFromJwt(jwt);
-        return suggestedChallenges(userExtra.getUsername(), pageable, higherRankedFirst);
+        return suggestedChallenges(userExtra.getUsername(), pageable, higherRankedFirst, boostHigherRanks, moreInterestingFirst);
     }
 
     @Transactional(readOnly = true)
@@ -51,7 +63,20 @@ public class MovieChallengeUseCase {
 
     @Transactional(readOnly = true)
     public SuggestedMovieChallengePageDto suggestedChallenges(String username, Pageable pageable, boolean higherRankedFirst) {
-        return movieChallengeRepository.findSuggestedChallenges(username, pageable, higherRankedFirst);
+        return suggestedChallenges(username, pageable, higherRankedFirst, false);
+    }
+
+    @Transactional(readOnly = true)
+    public SuggestedMovieChallengePageDto suggestedChallenges(String username, Pageable pageable, boolean higherRankedFirst,
+                                                               boolean boostHigherRanks) {
+        return suggestedChallenges(username, pageable, higherRankedFirst, boostHigherRanks, false);
+    }
+
+    @Transactional(readOnly = true)
+    public SuggestedMovieChallengePageDto suggestedChallenges(String username, Pageable pageable, boolean higherRankedFirst,
+                                                               boolean boostHigherRanks, boolean moreInterestingFirst) {
+        return movieChallengeRepository.findSuggestedChallenges(username, pageable, higherRankedFirst, boostHigherRanks,
+                moreInterestingFirst);
     }
 
     @Transactional

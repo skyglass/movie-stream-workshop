@@ -60,9 +60,28 @@ public class MovieChallengeRepository {
     public SuggestedMovieChallengePageDto findSuggestedChallenges(String username,
                                                                   Pageable pageable,
                                                                   boolean higherRankedFirst) {
+        return findSuggestedChallenges(username, pageable, higherRankedFirst, false);
+    }
+
+    public SuggestedMovieChallengePageDto findSuggestedChallenges(String username,
+                                                                  Pageable pageable,
+                                                                  boolean higherRankedFirst,
+                                                                  boolean boostHigherRanks) {
+        return findSuggestedChallenges(username, pageable, higherRankedFirst, boostHigherRanks, false);
+    }
+
+    public SuggestedMovieChallengePageDto findSuggestedChallenges(String username,
+                                                                  Pageable pageable,
+                                                                  boolean higherRankedFirst,
+                                                                  boolean boostHigherRanks,
+                                                                  boolean moreInterestingFirst) {
         SuggestedChallengeOrdering ordering = higherRankedFirst
                 ? SuggestedChallengeOrdering.HIGHER_RANKED_FIRST
-                : SuggestedChallengeOrdering.PAIR_INFORMATION_FIRST;
+                : boostHigherRanks
+                    ? SuggestedChallengeOrdering.BOOST_HIGHER_RANKS
+                    : moreInterestingFirst
+                        ? SuggestedChallengeOrdering.MORE_INTERESTING_FIRST
+                        : SuggestedChallengeOrdering.PAIR_INFORMATION_FIRST;
         if (ordering.preferRankedRefinement()) {
             Map<String, Object> refinementParams = refinementParams(username);
             long refinementCount = countChallenges(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
@@ -307,7 +326,7 @@ public class MovieChallengeRepository {
                     movie1.director as movie1_director,
                     selected_pair.movie1_rank_position,
                     selected_pair.movie1_mu,
-                    %s as movie1_confidence_percent,
+                    movie1_rating.rating as movie1_rating,
                     selected_pair.movie2_id,
                     movie2.title as movie2_title,
                     movie2.poster as movie2_poster,
@@ -315,7 +334,7 @@ public class MovieChallengeRepository {
                     movie2.director as movie2_director,
                     selected_pair.movie2_rank_position,
                     selected_pair.movie2_mu,
-                    %s as movie2_confidence_percent,
+                    movie2_rating.rating as movie2_rating,
                     %s as pair_confidence_percent,
                     selected_pair.lower_direct_comparisons,
                     selected_pair.higher_direct_comparisons,
@@ -332,10 +351,14 @@ public class MovieChallengeRepository {
                     on movie1.imdb_id = selected_pair.movie1_id
                 join movies movie2
                     on movie2.imdb_id = selected_pair.movie2_id
+                left join user_movie_rating movie1_rating
+                    on movie1_rating.user_id = selected_pair.user_id
+                    and movie1_rating.movie_id = selected_pair.movie1_id
+                left join user_movie_rating movie2_rating
+                    on movie2_rating.user_id = selected_pair.user_id
+                    and movie2_rating.movie_id = selected_pair.movie2_id
                 """.formatted(pairInformationSql,
                 candidatePairPriorityOrder,
-                pairConfidenceSql,
-                pairConfidenceSql,
                 pairConfidenceSql,
                 suggestedListFilters);
     }
@@ -369,8 +392,9 @@ public class MovieChallengeRepository {
                         movie2_id
                     """;
         }
+        String interestDirection = ordering.moreInterestingFirst() ? "desc" : "asc";
         return """
-                order by pair_confidence_percent,
+                order by pair_confidence_percent %s,
                     case
                         when movie1_rank_position is null then 0
                         else movie1_rank_position
@@ -381,7 +405,7 @@ public class MovieChallengeRepository {
                     coalesce(abs(movie1_mu - movie2_mu), 0),
                     movie1_id,
                     movie2_id
-                """;
+                """.formatted(interestDirection);
     }
 
     private Map<String, Object> explorationParams(String username) {
@@ -438,13 +462,20 @@ public class MovieChallengeRepository {
                     and abs(eligible_pair.movie1_mu - eligible_pair.movie2_mu) < :suggestedMaxMuDistance
                 """
                 : "";
-        String pairConfidenceSql = pairInformationConfidencePercentSql();
         String pairInformationPrioritySql = pairInformationSortingPrioritySql();
         return """
                 with ranked_recommendation as (
                     select movie_rank.user_id,
                         movie_rank.movie_id,
                         movie_rank.rank_position,
+                        case
+                            when max(movie_rank.rank_position) over (partition by movie_rank.user_id) <= 1 then 1
+                            else 1 + cast(floor(
+                                cast(movie_rank.rank_position - 1 as numeric(12, 6)) * 9
+                                    / cast(max(movie_rank.rank_position) over (partition by movie_rank.user_id) - 1
+                                        as numeric(12, 6))
+                            ) as integer)
+                        end as rank_bucket,
                         movie_rank.score,
                         movie_rank.direct_comparisons,
                         movie_rank.mu,
@@ -516,6 +547,8 @@ public class MovieChallengeRepository {
                             as lower_direct_comparisons,
                         greatest(first_rank.direct_comparisons, second_rank.direct_comparisons)
                             as higher_direct_comparisons,
+                        least(first_rank.rank_bucket, second_rank.rank_bucket)
+                            as highest_rank_bucket,
                         second_rank.rank_position - first_rank.rank_position as rank_distance,
                         abs(first_rank.score - second_rank.score) as score_distance,
                         %s as pair_information,
@@ -551,7 +584,7 @@ public class MovieChallengeRepository {
                     movie1.director as movie1_director,
                     selected_pair.movie1_rank_position,
                     selected_pair.movie1_mu,
-                    %s as movie1_confidence_percent,
+                    movie1_rating.rating as movie1_rating,
                     selected_pair.movie2_id,
                     movie2.title as movie2_title,
                     movie2.poster as movie2_poster,
@@ -559,9 +592,10 @@ public class MovieChallengeRepository {
                     movie2.director as movie2_director,
                     selected_pair.movie2_rank_position,
                     selected_pair.movie2_mu,
-                    %s as movie2_confidence_percent,
+                    movie2_rating.rating as movie2_rating,
                     selected_pair.lower_direct_comparisons,
                     selected_pair.higher_direct_comparisons,
+                    selected_pair.highest_rank_bucket,
                     selected_pair.rank_distance,
                     selected_pair.pair_information,
                     %s as pair_information_priority
@@ -578,11 +612,15 @@ public class MovieChallengeRepository {
                     on movie1.imdb_id = selected_pair.movie1_id
                 join movies movie2
                     on movie2.imdb_id = selected_pair.movie2_id
+                left join user_movie_rating movie1_rating
+                    on movie1_rating.user_id = selected_pair.user_id
+                    and movie1_rating.movie_id = selected_pair.movie1_id
+                left join user_movie_rating movie2_rating
+                    on movie2_rating.user_id = selected_pair.user_id
+                    and movie2_rating.movie_id = selected_pair.movie2_id
                 """.formatted(pairInformationSql,
                 candidatePairPriorityOrder,
                 closeRankJoinFilter,
-                pairConfidenceSql,
-                pairConfidenceSql,
                 pairInformationPrioritySql,
                 stopFilters,
                 suggestedListFilters);
@@ -603,8 +641,11 @@ public class MovieChallengeRepository {
 
     private String suggestedRefinementChallengeOrderSql(SuggestedChallengeOrdering ordering) {
         if (ordering.prioritizeHigherRanks()) {
+            String primaryRankOrder = ordering.useRawBestRank()
+                    ? "least(movie1_rank_position, movie2_rank_position)"
+                    : "highest_rank_bucket";
             return """
-                    order by least(movie1_rank_position, movie2_rank_position),
+                    order by %s,
                         rank_distance,
                         pair_information desc,
                         movie2_rank_position,
@@ -612,10 +653,11 @@ public class MovieChallengeRepository {
                         lower_direct_comparisons,
                         movie1_id,
                         movie2_id
-                    """;
+                    """.formatted(primaryRankOrder);
         }
+        String interestDirection = ordering.moreInterestingFirst() ? "desc" : "asc";
         return """
-                order by pair_information_priority,
+                order by pair_information_priority %s,
                     movie1_rank_position,
                     rank_distance,
                     higher_direct_comparisons,
@@ -623,7 +665,7 @@ public class MovieChallengeRepository {
                     movie2_rank_position,
                     movie1_id,
                     movie2_id
-                """;
+                """.formatted(interestDirection);
     }
 
     private String pairInformationConfidencePercentSql() {
@@ -703,15 +745,22 @@ public class MovieChallengeRepository {
     }
 
     private enum SuggestedChallengeOrdering {
-        PAIR_INFORMATION_FIRST(false, false),
-        HIGHER_RANKED_FIRST(true, true);
+        PAIR_INFORMATION_FIRST(false, false, false, false),
+        MORE_INTERESTING_FIRST(false, false, false, true),
+        HIGHER_RANKED_FIRST(true, true, false, false),
+        BOOST_HIGHER_RANKS(true, true, true, false);
 
         private final boolean prioritizeHigherRanks;
         private final boolean preferRankedRefinement;
+        private final boolean useRawBestRank;
+        private final boolean moreInterestingFirst;
 
-        SuggestedChallengeOrdering(boolean prioritizeHigherRanks, boolean preferRankedRefinement) {
+        SuggestedChallengeOrdering(boolean prioritizeHigherRanks, boolean preferRankedRefinement,
+                                   boolean useRawBestRank, boolean moreInterestingFirst) {
             this.prioritizeHigherRanks = prioritizeHigherRanks;
             this.preferRankedRefinement = preferRankedRefinement;
+            this.useRawBestRank = useRawBestRank;
+            this.moreInterestingFirst = moreInterestingFirst;
         }
 
         private boolean prioritizeHigherRanks() {
@@ -720,6 +769,14 @@ public class MovieChallengeRepository {
 
         private boolean preferRankedRefinement() {
             return preferRankedRefinement;
+        }
+
+        private boolean useRawBestRank() {
+            return useRawBestRank;
+        }
+
+        private boolean moreInterestingFirst() {
+            return moreInterestingFirst;
         }
     }
 
@@ -757,7 +814,7 @@ public class MovieChallengeRepository {
                             rs.getString("movie1_director"),
                             movie1WinProbability,
                             nullableInteger(rs, "movie1_rank_position"),
-                            rs.getInt("movie1_confidence_percent")),
+                            rs.getBigDecimal("movie1_rating")),
                     new SuggestedMovieChallengeMovieDto(
                             rs.getString("movie2_id"),
                             rs.getString("movie2_title"),
@@ -766,7 +823,7 @@ public class MovieChallengeRepository {
                             rs.getString("movie2_director"),
                             movie2WinProbability,
                             nullableInteger(rs, "movie2_rank_position"),
-                            rs.getInt("movie2_confidence_percent")));
+                            rs.getBigDecimal("movie2_rating")));
         });
         return new SuggestedMovieChallengePageDto(challenges, totalCount);
     }

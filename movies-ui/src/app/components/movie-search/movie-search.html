@@ -200,6 +200,22 @@
               (change)="toggleHigherRankedFirst($event)" />
             <span>Higher Ranked First</span>
           </label>
+          <label class="suggested-order-toggle">
+            <input
+              type="checkbox"
+              [checked]="boostHigherRanks"
+              [disabled]="suggestedLoading || suggestedSaving"
+              (change)="toggleBoostHigherRanks($event)" />
+            <span>Boost Higher Ranks</span>
+          </label>
+          <label class="suggested-order-toggle">
+            <input
+              type="checkbox"
+              [checked]="moreInterestingFirst"
+              [disabled]="suggestedLoading || suggestedSaving"
+              (change)="toggleMoreInterestingFirst($event)" />
+            <span>More Interesting First</span>
+          </label>
         </div>
       }
     </header>
@@ -242,7 +258,7 @@
                   </div>
                   <div>
                     <dt>
-                      Rank:
+                      Your Rank:
                       <button
                         type="button"
                         class="probability-info"
@@ -257,7 +273,9 @@
                       } @else {
                         N/A
                       }
-                      ({{ challenge.movie1.confidencePercent }}%)
+                      @if (challenge.movie1.rating !== null) {
+                        ({{ challenge.movie1.rating | number:'1.2-2' }})
+                      }
                     </dd>
                   </div>
                   <div>
@@ -313,7 +331,7 @@
                   </div>
                   <div>
                     <dt>
-                      Rank:
+                      Your Rank:
                       <button
                         type="button"
                         class="probability-info"
@@ -328,7 +346,9 @@
                       } @else {
                         N/A
                       }
-                      ({{ challenge.movie2.confidencePercent }}%)
+                      @if (challenge.movie2.rating !== null) {
+                        ({{ challenge.movie2.rating | number:'1.2-2' }})
+                      }
                     </dd>
                   </div>
                   <div>

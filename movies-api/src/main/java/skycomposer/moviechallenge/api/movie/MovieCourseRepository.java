@@ -21,35 +21,36 @@ public class MovieCourseRepository {
 
     public List<MovieCourseDto> findAll(String user) {
         return jdbc.sql("""
-                select c.id, c.title, c.description, c.creator_id,
-                       exists(select 1 from user_movie_course uc where uc.course_id=c.id and uc.user_id=:user) applied,
+                select c.id, c.header, c.title, c.description, c.course_creator,
+                       exists(select 1 from user_movie_course uc where uc.movie_course_id=c.id and uc.user_id=:user) applied,
                        count(distinct cm.movie_id) movie_count,
                        coalesce(avg(case when r.positive=false then 0 else ur.rating end), 0) average_rating
                 from movie_course c
                 left join movie_course_movie cm on cm.course_id=c.id
-                left join user_movie_course students on students.course_id=c.id
+                left join user_movie_course students on students.movie_course_id=c.id
                 left join movie_recommendations r on r.user_id=students.user_id and r.movie_id=cm.movie_id
                 left join user_movie_rating ur on ur.user_id=students.user_id and ur.movie_id=cm.movie_id and r.positive=true
                 group by c.id
                 order by average_rating desc, lower(c.title), c.id
                 """).param("user", user).query((rs, n) -> new MovieCourseDto(
-                rs.getLong("id"), rs.getString("title"), rs.getString("description"), rs.getString("creator_id"),
-                user.equals(rs.getString("creator_id")), rs.getBoolean("applied"), false,
+                rs.getLong("id"), rs.getString("header"), rs.getString("title"), rs.getString("description"), rs.getString("course_creator"),
+                user.equals(rs.getString("course_creator")), rs.getBoolean("applied"), false,
                 rs.getBigDecimal("average_rating"), rs.getInt("movie_count"), List.of(), List.of())).list();
     }
 
     public MovieCourseDto find(long id, String user) {
         MovieCourseDto course = jdbc.sql("""
-                select c.*, exists(select 1 from user_movie_course uc where uc.course_id=c.id and uc.user_id=:user) applied
+                select c.*, exists(select 1 from user_movie_course uc where uc.movie_course_id=c.id and uc.user_id=:user) applied
                 from movie_course c where c.id=:id
                 """).param("id", id).param("user", user).query((rs, n) -> new MovieCourseDto(
-                rs.getLong("id"), rs.getString("title"), rs.getString("description"), rs.getString("creator_id"),
-                user.equals(rs.getString("creator_id")), rs.getBoolean("applied"), false, null, 0, List.of(), List.of()))
+                rs.getLong("id"), rs.getString("header"), rs.getString("title"), rs.getString("description"), rs.getString("course_creator"),
+                user.equals(rs.getString("course_creator")), rs.getBoolean("applied"), false, null, 0, List.of(), List.of()))
                 .optional().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie Course not found"));
         List<MovieCourseDto.CourseMovieDto> movies = jdbc.sql("""
                 select m.imdb_id, m.title, cm.description, m.release_year, m.director, m.writer, m.genre, m.poster,
                        cm.watch_order, cm.linked_course_id, linked.title linked_course_title,
-                       coalesce(r.positive=false, false) disliked, coalesce(r.positive=true, false) liked, ur.rating
+                       coalesce(r.positive=false, false) disliked, coalesce(r.positive=true, false) liked,
+                       ur.rank_position, ur.rating
                 from movie_course_movie cm join movies m on m.imdb_id=cm.movie_id
                 left join movie_course linked on linked.id=cm.linked_course_id
                 left join movie_recommendations r on r.movie_id=m.imdb_id and r.user_id=:user
@@ -60,38 +61,41 @@ public class MovieCourseRepository {
                 rs.getString("release_year"), rs.getString("director"), rs.getString("writer"),
                 rs.getString("genre"), rs.getString("poster"), rs.getInt("watch_order"),
                 (Long) rs.getObject("linked_course_id"), rs.getString("linked_course_title"),
-                rs.getBoolean("liked"), rs.getBoolean("disliked"), rs.getBigDecimal("rating"))).list();
+                rs.getBoolean("liked"), rs.getBoolean("disliked"), (Integer) rs.getObject("rank_position"),
+                rs.getBigDecimal("rating"))).list();
         boolean expert = course.applied() && !movies.isEmpty() && movies.stream().allMatch(m -> m.liked() || m.disliked());
         List<MovieCourseDto.CourseSuggestionDto> suggestions = expert ? jdbc.sql("""
                 select distinct linked.id, linked.title from movie_course_movie cm
                 join movie_course linked on linked.id=cm.linked_course_id
                 where cm.course_id=:id and not exists (
-                    select 1 from user_movie_course uc where uc.course_id=linked.id and uc.user_id=:user)
+                    select 1 from user_movie_course uc where uc.movie_course_id=linked.id and uc.user_id=:user)
                 order by linked.title
                 """).param("id", id).param("user", user).query((rs, n) ->
                 new MovieCourseDto.CourseSuggestionDto(rs.getLong("id"), rs.getString("title"))).list() : List.of();
-        return new MovieCourseDto(course.id(), course.title(), course.description(), course.creator(), course.owner(),
+        return new MovieCourseDto(course.id(), course.header(), course.title(), course.description(), course.creator(), course.owner(),
                 course.applied(), expert, course.averageRating(), movies.size(), movies, suggestions);
     }
 
     @Transactional
     public MovieCourseDto create(CreateMovieCourseRequest request, String user) {
-        long id = jdbc.sql("insert into movie_course(title, description, creator_id) values (:title,:description,:user) returning id")
-                .param("title", request.title().trim()).param("description", text(request.description())).param("user", user)
+        long id = jdbc.sql("insert into movie_course(header, title, description, course_creator) values (:header,:title,:description,:user) returning id")
+                .param("header", request.header().trim()).param("title", request.title().trim())
+                .param("description", text(request.description())).param("user", user)
                 .query(Long.class).single();
         return find(id, user);
     }
 
     public void requireOwner(long id, String user) {
-        String owner = jdbc.sql("select creator_id from movie_course where id=:id").param("id", id).query(String.class)
+        String owner = jdbc.sql("select course_creator from movie_course where id=:id").param("id", id).query(String.class)
                 .optional().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie Course not found"));
         if (!owner.equals(user)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the course creator can edit it");
     }
 
     public MovieCourseDto update(long id, CreateMovieCourseRequest request, String user) {
         requireOwner(id, user);
-        jdbc.sql("update movie_course set title=:title, description=:description where id=:id")
-                .param("title", request.title().trim()).param("description", text(request.description())).param("id", id).update();
+        jdbc.sql("update movie_course set header=:header, title=:title, description=:description where id=:id")
+                .param("header", request.header().trim()).param("title", request.title().trim())
+                .param("description", text(request.description())).param("id", id).update();
         return find(id, user);
     }
 
@@ -103,20 +107,24 @@ public class MovieCourseRepository {
 
     public MovieCourseDto apply(long id, String user) {
         find(id, user);
-        jdbc.sql("insert into user_movie_course(user_id,course_id) values (:user,:id) on conflict do nothing")
+        jdbc.sql("insert into user_movie_course(user_id,movie_course_id) values (:user,:id) on conflict do nothing")
                 .param("user", user).param("id", id).update();
         return find(id, user);
     }
 
+    @Transactional
     public MovieCourseDto addMovie(long id, AddCourseMovieRequest request, String user) {
         requireOwner(id, user);
         validateLinkedCourse(request.linkedCourseId());
+        jdbc.sql("select id from movie_course where id=:id for update").param("id", id).query(Long.class).single();
+        int nextWatchOrder = jdbc.sql("select coalesce(max(watch_order), 0) + 1 from movie_course_movie where course_id=:id")
+                .param("id", id).query(Integer.class).single();
         try {
             jdbc.sql("""
                     insert into movie_course_movie(course_id,movie_id,description,watch_order,linked_course_id)
                     values (:id,:movie,:description,:watchOrder,:linkedCourse)
                     """).param("id", id).param("movie", request.movieId()).param("description", text(request.description()))
-                    .param("watchOrder", request.watchOrder()).param("linkedCourse", request.linkedCourseId()).update();
+                    .param("watchOrder", nextWatchOrder).param("linkedCourse", request.linkedCourseId()).update();
         } catch (DuplicateKeyException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Movie or watch order is already in this course");
         }

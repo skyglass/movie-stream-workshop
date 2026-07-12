@@ -63,12 +63,14 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
   suggestedCurrentPage = 1;
   suggestedTotalCount = 0;
   higherRankedFirst = false;
+  boostHigherRanks = false;
+  moreInterestingFirst = false;
   selectedSuggestedMovieIds: Record<string, string> = {};
   visibleProbabilityHelpKey = '';
   visibleRankHelpKey = '';
   readonly suggestedPageSize = this.moviesApi.moviePageSize;
   readonly probabilityHelpText = 'Chance of winning, based on previous comparisons';
-  readonly rankHelpText = 'Movie Rank and Rank Confidence, based on previous comparisons';
+  readonly rankHelpText = 'Your movie rank and rating, based on previous comparisons';
   private lastSearchKey = '';
 
   ngOnInit(): void {
@@ -195,7 +197,9 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
     this.suggestedSub = this.moviesApi.listSuggestedMovieChallenges(
       page,
       this.suggestedPageSize,
-      this.higherRankedFirst
+      this.higherRankedFirst,
+      this.boostHigherRanks,
+      this.moreInterestingFirst
     ).subscribe({
       next: challengePage => {
         this.suggestedChallenges = challengePage.challenges;
@@ -216,6 +220,19 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
 
   toggleHigherRankedFirst(event: Event): void {
     this.higherRankedFirst = (event.target as HTMLInputElement).checked;
+    if (this.higherRankedFirst) { this.boostHigherRanks = false; this.moreInterestingFirst = false; }
+    this.loadSuggestedChallenges(1);
+  }
+
+  toggleBoostHigherRanks(event: Event): void {
+    this.boostHigherRanks = (event.target as HTMLInputElement).checked;
+    if (this.boostHigherRanks) { this.higherRankedFirst = false; this.moreInterestingFirst = false; }
+    this.loadSuggestedChallenges(1);
+  }
+
+  toggleMoreInterestingFirst(event: Event): void {
+    this.moreInterestingFirst = (event.target as HTMLInputElement).checked;
+    if (this.moreInterestingFirst) { this.higherRankedFirst = false; this.boostHigherRanks = false; }
     this.loadSuggestedChallenges(1);
   }
 
@@ -420,6 +437,8 @@ export class MovieSearchComponent implements OnInit, OnDestroy {
     this.suggestedCurrentPage = 1;
     this.suggestedTotalCount = 0;
     this.higherRankedFirst = false;
+    this.boostHigherRanks = false;
+    this.moreInterestingFirst = false;
     this.selectedSuggestedMovieIds = {};
     this.visibleProbabilityHelpKey = '';
     this.visibleRankHelpKey = '';

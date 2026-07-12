@@ -52,7 +52,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/movies/*/recommendation/replay").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/movies/*/recommendation/dislike").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/movie-challenges", "/api/movie-challenges/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
-                        .requestMatchers("/api/movie-courses", "/api/movie-courses/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
+                        .requestMatchers("/api/movie-courses", "/api/movie-courses/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER, USER)
                         .requestMatchers("/api/favorite-movies", "/api/favorite-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/users-favorite-movies", "/api/users-favorite-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/users-recommended-movies", "/api/users-recommended-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
@@ -102,4 +102,5 @@ public class SecurityConfig {
 
     public static final String MOVIES_ADMIN = "MOVIES_ADMIN";
     public static final String MOVIES_USER = "MOVIES_USER";
+    public static final String USER = "USER";
 }
