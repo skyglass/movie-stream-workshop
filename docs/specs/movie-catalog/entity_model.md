@@ -12,6 +12,11 @@ stores per-user switches for publishing a user's own favorite movies list. The s
 in both directions, prioritizes the first movie by direct-comparison need, and then chooses the second movie from the
 comparison-step window before using rank distance.
 
+The movie catalog keeps every movie and places unrated movies after rated movies. Rated movies use a Bayesian weighted
+community rating with prior strength `10`: `catalog_average + voter_count / (voter_count + 10) *
+(movie_average - catalog_average)`. The catalog average first averages each user's ratings and then averages those user
+averages so prolific users do not dominate the prior. `voter_count` counts distinct users, not challenge comparisons.
+
 ## Aggregate Boundary Diagram
 
 ```mermaid

@@ -5,6 +5,33 @@ Feature: view-movie-catalog
     When the viewer requests the movie catalog
     Then the catalog discovery list shows "Alien" before "Blade Runner"
 
+  Scenario: Catalog confidence-weights ratings by distinct user support
+    Given movie "tt101" exists with title "One User Favorite"
+    And movie "tt102" exists with title "Community Favorite"
+    And movie "tt103" exists with title "Shared Top Anchor"
+    And movie "tt104" exists with title "Shared Bottom Anchor"
+    And movie "tt105" exists with title "Unrated Movie"
+    And movie "tt101" has rank 1 and 4 direct comparisons for "solo-user"
+    And movie "tt103" has rank 1 and 4 direct comparisons for "alice"
+    And movie "tt102" has rank 2 and 4 direct comparisons for "alice"
+    And movie "tt104" has rank 10 and 4 direct comparisons for "alice"
+    And movie "tt103" has rank 1 and 4 direct comparisons for "bob"
+    And movie "tt102" has rank 2 and 4 direct comparisons for "bob"
+    And movie "tt104" has rank 10 and 4 direct comparisons for "bob"
+    And movie "tt103" has rank 1 and 4 direct comparisons for "carol"
+    And movie "tt102" has rank 2 and 4 direct comparisons for "carol"
+    And movie "tt104" has rank 10 and 4 direct comparisons for "carol"
+    And movie "tt103" has rank 1 and 4 direct comparisons for "dave"
+    And movie "tt102" has rank 2 and 4 direct comparisons for "dave"
+    And movie "tt104" has rank 10 and 4 direct comparisons for "dave"
+    And movie "tt103" has rank 1 and 4 direct comparisons for "erin"
+    And movie "tt102" has rank 2 and 4 direct comparisons for "erin"
+    And movie "tt104" has rank 10 and 4 direct comparisons for "erin"
+    When the viewer requests the movie catalog
+    Then the catalog discovery list shows "Community Favorite" before "One User Favorite"
+    And the catalog discovery list shows "One User Favorite" before "Unrated Movie"
+    And the catalog discovery list contains 5 movies
+
   Scenario: Empty catalog is available
     Given the movie catalog is empty
     When the viewer requests the movie catalog

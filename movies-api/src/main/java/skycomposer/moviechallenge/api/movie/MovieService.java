@@ -14,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class MovieService {
 
+    private static final int HOMEPAGE_RATING_PRIOR_WEIGHT = 10;
+
     private final MovieRepository movieRepository;
 
     @Transactional(readOnly = true)
@@ -29,7 +31,10 @@ public class MovieService {
     @Transactional(readOnly = true)
     public Page<Movie> getMovies(Pageable pageable, String filter) {
         Pageable pageRequest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
-        return movieRepository.findAllByUsersFavoritePopularity(normalizedFilter(filter), pageRequest);
+        return movieRepository.findAllByUsersFavoritePopularity(
+                normalizedFilter(filter),
+                HOMEPAGE_RATING_PRIOR_WEIGHT,
+                pageRequest);
     }
 
     @Transactional

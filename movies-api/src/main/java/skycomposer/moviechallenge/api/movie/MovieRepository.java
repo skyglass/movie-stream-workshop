@@ -12,31 +12,56 @@ import org.springframework.stereotype.Repository;
 public interface MovieRepository extends JpaRepository<Movie, String> {
 
     @Query(value = """
+            with user_rating_average as (
+                select rating.user_id,
+                    avg(rating.rating) as user_average
+                from user_movie_rating rating
+                group by rating.user_id
+            ),
+            catalog_prior as (
+                select avg(user_rating_average.user_average) as catalog_average
+                from user_rating_average
+            ),
+            movie_rating_stats as (
+                select rating.movie_id,
+                    avg(rating.rating) as average_rating,
+                    count(distinct rating.user_id) as voter_count
+                from user_movie_rating rating
+                group by rating.movie_id
+            )
             select m.*
             from movies m
-            left join user_movie_rating rating
-                on rating.movie_id = m.imdb_id
+            left join movie_rating_stats
+                on movie_rating_stats.movie_id = m.imdb_id
+            cross join catalog_prior
             where (:filter is null
                 or trim(:filter) = ''
                 or lower(m.title) like concat('%', lower(:filter), '%')
                 or lower(m.director) like concat('%', lower(:filter), '%')
                 or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
-            group by m.imdb_id, m.title, m.director, m.writer, m.release_year, m.poster, m.genre, m.country, m.type
-            order by coalesce(avg(rating.rating), 0) desc,
-                count(distinct rating.user_id) desc,
+            order by case when movie_rating_stats.voter_count is null then 1 else 0 end asc,
+                catalog_prior.catalog_average
+                    + (cast(movie_rating_stats.voter_count as numeric(12, 6))
+                        / cast(movie_rating_stats.voter_count + :priorWeight as numeric(12, 6)))
+                    * (movie_rating_stats.average_rating - catalog_prior.catalog_average) desc,
+                movie_rating_stats.voter_count desc,
+                movie_rating_stats.average_rating desc,
                 regexp_replace(lower(m.title), '^(the|a)[[:space:]]+', '') asc,
                 lower(m.title) asc,
                 m.imdb_id asc
             """, countQuery = """
             select count(1)
             from movies m
-            where (:filter is null
+            where :priorWeight > 0
+                and (:filter is null
                 or trim(:filter) = ''
                 or lower(m.title) like concat('%', lower(:filter), '%')
                 or lower(m.director) like concat('%', lower(:filter), '%')
                 or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
             """, nativeQuery = true)
-    Page<Movie> findAllByUsersFavoritePopularity(@Param("filter") String filter, Pageable pageable);
+    Page<Movie> findAllByUsersFavoritePopularity(@Param("filter") String filter,
+                                                 @Param("priorWeight") int priorWeight,
+                                                 Pageable pageable);
 
     @Query(value = """
             select m.*
