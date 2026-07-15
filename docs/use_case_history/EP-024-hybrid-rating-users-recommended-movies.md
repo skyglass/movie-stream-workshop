@@ -1,4 +1,4 @@
-# Epic EP-024: Hybrid Rating Users Recommended Movies
+# Epic EP-024: Pearson Rating Users Recommended Movies
 
 **Use Case ID:** view-users-recommended-movies  
 **Use Case Name:** Users Recommended Movies  
@@ -11,17 +11,21 @@
 Users Recommended Movies no longer treats matching direct vote count as the movie score. Candidate movie value comes
 from `user_movie_rating.rating`, which is the calculated `0-10` rating derived from Movie Challenge rank.
 
-The read model still uses direct Movie Challenge votes, but only as part of user similarity. Similarity is now hybrid:
+The read model derives user similarity only from the calculated ratings produced by Movie Challenge ranking:
 
-1. `70%` from shared calculated movie ratings.
-2. `30%` from same winner choices on shared direct challenge pairs.
-3. Both signals are capped by confidence, so large vote volume cannot dominate by itself.
+1. Pearson correlation is calculated over at least two shared calculated movie ratings.
+2. Correlation is smoothly confidence-weighted as `shared_count / (shared_count + 8)`.
+3. Users with a non-positive confidence-weighted correlation do not contribute candidates.
 
-Recommended movie score is a normalized weighted average:
+Direct challenge choices already feed the Bradley-Terry rating projection and are not counted a second time as a
+separate similarity component.
 
-`recommended_score = sum(candidate_rating * similarity) / sum(similarity)`
+Recommended movie score uses a catalog-wide average rating as a prior with strength `1`:
 
-The list is ordered by recommended score, then total similarity weight, then similar user count, title, and IMDb id.
+`recommended_score = (catalog_average + sum(candidate_rating * similarity)) / (1 + sum(similarity))`
+
+This keeps a weak sole contributor from passing through their full rating unchanged. The list is ordered by recommended
+score, then total similarity weight, then similar user count, title, and IMDb id.
 
 ## Acceptance Criteria
 

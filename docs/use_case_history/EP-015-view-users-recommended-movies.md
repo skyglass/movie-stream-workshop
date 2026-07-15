@@ -4,10 +4,11 @@
 **Use Case Name:** View Users Recommended Movies  
 **Primary Actor:** Authenticated User  
 **Goal:** Show movies recommended by similar users, excluding movies the current user has already recommended or disliked.  
-**Status:** Implemented; superseded by EP-024 for hybrid rating similarity and rating-weighted recommendations.
+**Status:** Implemented; superseded by EP-024 for Pearson rating similarity and regularized recommendations.
 
-> Current behavior uses a hybrid similarity score from shared calculated ratings and direct vote agreement, then weights
-> other users' `user_movie_rating` rows. This earlier epic describes the original transitive-win implementation.
+> Current behavior uses confidence-weighted Pearson correlation over shared calculated ratings, then regularizes other
+> users' `user_movie_rating` rows toward the catalog average. This earlier epic describes the original transitive-win
+> implementation.
 
 ## Short Description
 

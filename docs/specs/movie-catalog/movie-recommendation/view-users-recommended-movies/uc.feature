@@ -11,6 +11,36 @@ Feature: view-users-recommended-movies
     When regular user "user" requests users recommended movies
     Then users recommended movies show "tt101" before "tt102"
 
+  Scenario: Strong shared taste outweighs a higher rating from a weak-overlap user
+    Given movie "tt101" exists with title "Strong Match Candidate"
+    And movie "tt102" exists with title "Weak Match Candidate"
+    And movie "tt201" exists with title "Shared One"
+    And movie "tt202" exists with title "Shared Two"
+    And movie "tt203" exists with title "Shared Three"
+    And movie "tt204" exists with title "Shared Four"
+    And movie "tt205" exists with title "Shared Five"
+    And movie "tt206" exists with title "Shared Six"
+    And movie "tt207" exists with title "Shared Seven"
+    And movie "tt208" exists with title "Shared Eight"
+    And user "user" has already ranked movies "tt201,tt202,tt203,tt204,tt205,tt206,tt207,tt208" from best to worst
+    And user "alice" has already ranked movies "tt201,tt202,tt101,tt203,tt204,tt205,tt206,tt207,tt208" from best to worst
+    And user "bob" has already ranked movies "tt102,tt201,tt202" from best to worst
+    When regular user "user" requests users recommended movies
+    Then users recommended movies show "tt101" before "tt102"
+
+  Scenario: Consistently opposite taste does not contribute recommendations
+    Given movie "tt101" exists with title "Similar User Candidate"
+    And movie "tt102" exists with title "Opposite User Candidate"
+    And movie "tt201" exists with title "Shared One"
+    And movie "tt202" exists with title "Shared Two"
+    And movie "tt203" exists with title "Shared Three"
+    And user "user" has already ranked movies "tt201,tt202,tt203" from best to worst
+    And user "alice" has already ranked movies "tt101,tt201,tt202,tt203" from best to worst
+    And user "bob" has already ranked movies "tt102,tt203,tt202,tt201" from best to worst
+    When regular user "user" requests users recommended movies
+    Then users recommended movies contain movie "tt101"
+    And users recommended movies do not contain "tt102"
+
   Scenario: Users recommended movies exclude movies already recommended by the current user
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"

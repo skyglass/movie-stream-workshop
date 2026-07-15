@@ -116,57 +116,29 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
     Page<Movie> findUsersFavoriteMovies(@Param("filter") String filter, Pageable pageable);
 
     @Query(value = """
-            with rating_similarity as (
+            with catalog_prior as (
+                select avg(rating) as catalog_average
+                from user_movie_rating
+            ),
+            rating_similarity as (
                 select other_rating.user_id,
-                    avg(cast(1 as numeric(12, 6))
-                        - (abs(current_rating.rating - other_rating.rating) / cast(10 as numeric(12, 6)))) as rating_similarity,
-                    least(cast(1 as numeric(12, 6)),
-                        cast(count(1) as numeric(12, 6)) / cast(8 as numeric(12, 6))) as rating_confidence
+                    corr(current_rating.rating, other_rating.rating) as rating_similarity,
+                    count(1) as shared_rating_count
                 from user_movie_rating current_rating
                 join user_movie_rating other_rating
                     on other_rating.movie_id = current_rating.movie_id
                     and other_rating.user_id <> current_rating.user_id
                 where current_rating.user_id = :username
                 group by other_rating.user_id
-            ),
-            direct_vote_similarity as (
-                select other_vote.user_id,
-                    avg(case
-                        when other_vote.winner_id = current_vote.winner_id
-                            and other_vote.loser_id = current_vote.loser_id
-                        then cast(1 as numeric(12, 6))
-                        else cast(0 as numeric(12, 6))
-                    end) as direct_agreement,
-                    least(cast(1 as numeric(12, 6)),
-                        cast(count(1) as numeric(12, 6)) / cast(8 as numeric(12, 6))) as direct_confidence
-                from user_movie_challenge_vote current_vote
-                join user_movie_challenge_vote other_vote
-                    on other_vote.user_id <> current_vote.user_id
-                    and (
-                        (other_vote.winner_id = current_vote.winner_id
-                            and other_vote.loser_id = current_vote.loser_id)
-                        or (other_vote.winner_id = current_vote.loser_id
-                            and other_vote.loser_id = current_vote.winner_id)
-                    )
-                where current_vote.user_id = :username
-                group by other_vote.user_id
-            ),
-            similar_user_ids as (
-                select user_id from rating_similarity
-                union
-                select user_id from direct_vote_similarity
+                having count(1) >= 2
             ),
             weighted_similar_users as (
-                select similar_user_ids.user_id,
-                    (coalesce(rating_similarity.rating_similarity * rating_similarity.rating_confidence,
-                        cast(0 as numeric(12, 6))) * cast(0.70 as numeric(12, 6))
-                    + coalesce(direct_vote_similarity.direct_agreement * direct_vote_similarity.direct_confidence,
-                        cast(0 as numeric(12, 6))) * cast(0.30 as numeric(12, 6))) as similarity
-                from similar_user_ids
-                left join rating_similarity
-                    on rating_similarity.user_id = similar_user_ids.user_id
-                left join direct_vote_similarity
-                    on direct_vote_similarity.user_id = similar_user_ids.user_id
+                select rating_similarity.user_id,
+                    coalesce(rating_similarity.rating_similarity
+                            * cast(rating_similarity.shared_rating_count as numeric(12, 6))
+                            / cast(rating_similarity.shared_rating_count + 8 as numeric(12, 6)),
+                        cast(0 as numeric(12, 6))) as similarity
+                from rating_similarity
             ),
             similar_users as (
                 select user_id, similarity
@@ -175,23 +147,24 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
             ),
             recommended_movies as (
                 select candidate_rating.movie_id,
-                    sum(candidate_rating.rating * similar_users.similarity)
-                        / sum(similar_users.similarity) as recommended_score,
+                    (catalog_prior.catalog_average
+                        + sum(candidate_rating.rating * similar_users.similarity))
+                        / (cast(1 as numeric(12, 6))
+                            + sum(similar_users.similarity)) as recommended_score,
                     sum(similar_users.similarity) as similarity_weight,
                     count(distinct candidate_rating.user_id) as similar_user_count
                 from user_movie_rating candidate_rating
                 join similar_users
                     on similar_users.user_id = candidate_rating.user_id
+                cross join catalog_prior
                 where not exists (
                         select 1
                         from movie_recommendations recommendation
                         where recommendation.user_id = :username
                             and recommendation.movie_id = candidate_rating.movie_id
                     )
-                group by candidate_rating.movie_id
+                group by candidate_rating.movie_id, catalog_prior.catalog_average
                 having sum(similar_users.similarity) > 0
-                    and sum(candidate_rating.rating * similar_users.similarity)
-                        / sum(similar_users.similarity) > 0
             )
             select m.*
             from recommended_movies
@@ -210,55 +183,23 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
             """, countQuery = """
             with rating_similarity as (
                 select other_rating.user_id,
-                    avg(cast(1 as numeric(12, 6))
-                        - (abs(current_rating.rating - other_rating.rating) / cast(10 as numeric(12, 6)))) as rating_similarity,
-                    least(cast(1 as numeric(12, 6)),
-                        cast(count(1) as numeric(12, 6)) / cast(8 as numeric(12, 6))) as rating_confidence
+                    corr(current_rating.rating, other_rating.rating) as rating_similarity,
+                    count(1) as shared_rating_count
                 from user_movie_rating current_rating
                 join user_movie_rating other_rating
                     on other_rating.movie_id = current_rating.movie_id
                     and other_rating.user_id <> current_rating.user_id
                 where current_rating.user_id = :username
                 group by other_rating.user_id
-            ),
-            direct_vote_similarity as (
-                select other_vote.user_id,
-                    avg(case
-                        when other_vote.winner_id = current_vote.winner_id
-                            and other_vote.loser_id = current_vote.loser_id
-                        then cast(1 as numeric(12, 6))
-                        else cast(0 as numeric(12, 6))
-                    end) as direct_agreement,
-                    least(cast(1 as numeric(12, 6)),
-                        cast(count(1) as numeric(12, 6)) / cast(8 as numeric(12, 6))) as direct_confidence
-                from user_movie_challenge_vote current_vote
-                join user_movie_challenge_vote other_vote
-                    on other_vote.user_id <> current_vote.user_id
-                    and (
-                        (other_vote.winner_id = current_vote.winner_id
-                            and other_vote.loser_id = current_vote.loser_id)
-                        or (other_vote.winner_id = current_vote.loser_id
-                            and other_vote.loser_id = current_vote.winner_id)
-                    )
-                where current_vote.user_id = :username
-                group by other_vote.user_id
-            ),
-            similar_user_ids as (
-                select user_id from rating_similarity
-                union
-                select user_id from direct_vote_similarity
+                having count(1) >= 2
             ),
             weighted_similar_users as (
-                select similar_user_ids.user_id,
-                    (coalesce(rating_similarity.rating_similarity * rating_similarity.rating_confidence,
-                        cast(0 as numeric(12, 6))) * cast(0.70 as numeric(12, 6))
-                    + coalesce(direct_vote_similarity.direct_agreement * direct_vote_similarity.direct_confidence,
-                        cast(0 as numeric(12, 6))) * cast(0.30 as numeric(12, 6))) as similarity
-                from similar_user_ids
-                left join rating_similarity
-                    on rating_similarity.user_id = similar_user_ids.user_id
-                left join direct_vote_similarity
-                    on direct_vote_similarity.user_id = similar_user_ids.user_id
+                select rating_similarity.user_id,
+                    coalesce(rating_similarity.rating_similarity
+                            * cast(rating_similarity.shared_rating_count as numeric(12, 6))
+                            / cast(rating_similarity.shared_rating_count + 8 as numeric(12, 6)),
+                        cast(0 as numeric(12, 6))) as similarity
+                from rating_similarity
             ),
             similar_users as (
                 select user_id, similarity
@@ -278,8 +219,6 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                     )
                 group by candidate_rating.movie_id
                 having sum(similar_users.similarity) > 0
-                    and sum(candidate_rating.rating * similar_users.similarity)
-                        / sum(similar_users.similarity) > 0
             )
             select count(1)
             from recommended_movies

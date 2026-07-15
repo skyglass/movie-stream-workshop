@@ -54,7 +54,7 @@ but controllers delegate use-case behavior to services named after the use case.
 | `view-favorite-movies` | `GET /api/favorite-movies` | `ViewFavoriteMoviesUseCase` | `USER_MOVIE_RATING` read model |
 | `share-my-favorite-movies` | `GET/POST/DELETE /api/favorite-movies/share`, `GET /api/my-favorite-movies/{encodedUsername}` | `ShareMyFavoriteMoviesUseCase` | `USER_SETTINGS`, `USER_MOVIE_RATING` read model |
 | `view-users-favorite-movies` | `GET /api/users-favorite-movies` | `ViewUsersFavoriteMoviesUseCase` | `USER_MOVIE_RATING` aggregate read model |
-| `view-users-recommended-movies` | `GET /api/users-recommended-movies` | `ViewUsersRecommendedMoviesUseCase` | `USER_MOVIE_RATING`, `USER_MOVIE_CHALLENGE_VOTE` hybrid-similarity read model |
+| `view-users-recommended-movies` | `GET /api/users-recommended-movies` | `ViewUsersRecommendedMoviesUseCase` | `USER_MOVIE_RATING` Pearson-similarity read model |
 | `view-own-user-profile` | `GET /api/userextras/me` | `ViewOwnUserProfileUseCase` | `USER_EXTRA` |
 | `change-own-avatar` | `POST /api/userextras/me` | `ChangeOwnAvatarUseCase` | `USER_EXTRA` |
 | `view-registered-users` | `GET /api/users` | `ViewRegisteredUsersUseCase` | `USER_EXTRA` listing |

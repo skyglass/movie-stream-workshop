@@ -127,8 +127,8 @@ Represents the per-user rank mapped onto the 0-10 rating scale.
   read model.
 - `MOVIES_ADMIN` is required for `/api/users` and movie administration endpoints.
 - Authenticated non-admin users can read only their own profile through `GET /api/userextras/me`.
-- Users recommended movies exclude the current user's own recommendations and rank remaining movies by a weighted
-  average of other users' calculated ratings. User similarity is `70%` shared-rating similarity and `30%` capped direct
-  vote agreement.
+- Users recommended movies exclude the current user's own recommendations and rank remaining movies by a regularized
+  average of other users' calculated ratings. User similarity is confidence-weighted Pearson correlation over shared
+  calculated ratings. Non-positive neighbors do not contribute.
 - Movie list cards show the viewer-specific `Your Rating` with rank in parentheses, for example `9.6 (#2)`.
   When rating or rank is absent, the UI renders `-`.

@@ -230,9 +230,8 @@ Read model used by `view-users-recommended-movies`.
 | Attribute | Description | Data Type | Validation Rules |
 |-----------|-------------|-----------|------------------|
 | movies | Movies with a positive weighted rating from similar users | List<MOVIE> | Excludes movies recommended or disliked by the current user |
-| rating_similarity | Similarity from shared calculated movie ratings | Decimal | `70%` of the user-similarity signal, capped by shared-rating confidence |
-| direct_vote_agreement | Similarity from same winner choices on shared direct challenge pairs | Decimal | `30%` of the user-similarity signal, capped by shared-pair confidence |
-| weighted_movie_rating | Weighted score used for descending sort | Decimal | `sum(candidate_rating * similarity) / sum(similarity)` |
+| rating_similarity | Pearson correlation over shared calculated movie ratings | Decimal | Full user-similarity signal; requires two shared ratings and is weighted by `shared_count / (shared_count + 8)` |
+| weighted_movie_rating | Regularized score used for descending sort | Decimal | `(catalog_average + sum(candidate_rating * positive_similarity)) / (1 + sum(positive_similarity))` |
 | recommended | Whether each listed movie is positively recommended by the current user | Boolean | False until the user clicks Like |
 | disliked | Whether each listed movie is disliked by the current user | Boolean | False until the user clicks Dislike; disliked movies are excluded on refresh |
 | your_rank | Current viewer's own rank for each listed movie | Integer / null | List UI shows it as `(#rank)` after rating |

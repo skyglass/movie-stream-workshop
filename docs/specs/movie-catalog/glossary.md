@@ -29,9 +29,8 @@
 | Your Rating | UI label for the current viewer's own 1-10 rating; list cards show `rating (#rank)` or `-`. |
 | Favorite movie | Current user's positive recommendation, ordered by rank when challenge evidence exists. |
 | Users favorite movie | Community favorite movie ordered by average movie rating and voter count. |
-| Rating similarity | Similarity from shared calculated movie ratings between the current user and another user. |
-| Direct vote agreement | Similarity from same winner choices on shared direct Movie Challenge pairs. |
-| Weighted movie rating | Other users' calculated movie ratings averaged with hybrid similarity weights. |
+| Rating similarity | Signed Pearson correlation over shared calculated movie ratings between the current user and another user. |
+| Weighted movie rating | Other users' calculated movie ratings regularized toward the catalog average and weighted by positive confidence-adjusted Pearson similarity. |
 | Users recommended movie | Movie not yet recommended or disliked by the current user, ordered by weighted movie rating from similar users. |
 | Poster fallback | Local placeholder image used when the poster URL is empty or `N/A`.             |
 | Catalog administration | Admin-only ability to view Admin Menu and Registered Users.                     |
