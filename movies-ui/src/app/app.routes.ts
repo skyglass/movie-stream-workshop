@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { MoviesHomeComponent } from './components/movies-home/movies-home';
-import { MovieSearchComponent } from './components/movie-search/movie-search';
 import { MovieChallengePageComponent } from './components/movie-challenge-page/movie-challenge-page';
 import { MovieDetailComponent } from './components/movie-detail/movie-detail';
 import { MovieEditComponent } from './components/movie-edit/movie-edit';
@@ -17,7 +16,6 @@ import { MovieCourseEditComponent } from './components/movie-course-edit/movie-c
 
 export const routes: Routes = [
   { path: 'home', component: MoviesHomeComponent },
-  { path: 'search', component: MovieSearchComponent },
   { path: 'movie-challenge', component: MovieChallengePageComponent, canActivate: [authGuard] },
   { path: 'movies/:imdbId/edit', component: MovieEditComponent, canActivate: [adminGuard] },
   { path: 'movies/:imdbId', component: MovieDetailComponent, canActivate: [authGuard] },

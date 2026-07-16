@@ -43,19 +43,8 @@
   }
 
   <section id="movie-catalog" class="catalog-section" aria-label="Movie Catalog">
-    <div class="filter-row">
-      <label class="filter-control">
-        <span>Filter</span>
-        <input
-          type="text"
-          [value]="filterText"
-          (input)="onFilterInput($event)"
-          aria-label="Filter movies" />
-      </label>
-      @if (filterText) {
-        <button type="button" class="clear-filter-button" (click)="clearFilter()">Clear</button>
-      }
-    </div>
+    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies" (internalSearch)="applyFilter($event)" />
+    <h2>Movie Results</h2>
 
     @if (loading) {
       <div class="state">Loading Movie Catalog</div>

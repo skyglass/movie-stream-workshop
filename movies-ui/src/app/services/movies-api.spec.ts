@@ -66,6 +66,41 @@ describe('MoviesApiService', () => {
     http.verify();
   });
 
+  it('parses only a separate trailing four-digit year after a keyword', () => {
+    expect(service.parseMovieSearch('1984')).toEqual({ keyword: '1984', year: '' });
+    expect(service.parseMovieSearch('1984 1984')).toEqual({ keyword: '1984', year: '1984' });
+    expect(service.parseMovieSearch('The Matrix 1999')).toEqual({ keyword: 'The Matrix', year: '1999' });
+    expect(service.parseMovieSearch('The Matrix1999')).toEqual({ keyword: 'The Matrix1999', year: '' });
+    expect(service.parseMovieSearch('The Matrix 199x')).toEqual({ keyword: 'The Matrix 199x', year: '' });
+    expect(service.parseMovieSearch('The Matrix\t1999')).toEqual({ keyword: 'The Matrix\t1999', year: '' });
+  });
+
+  it('combines year, exact-title and broad OMDb filter searches in order without duplicates', (done) => {
+    service.searchOmdbFromFilter('Matrix 1999').subscribe(movies => {
+      expect(movies.map(movie => movie.imdbId)).toEqual(['tt-year', 'tt-exact', 'tt-broad']);
+      done();
+    });
+
+    const requests = http.match(req => req.urlWithParams.startsWith(appConfig.omdbBaseUrl));
+    expect(requests.length).toBe(3);
+    requests.forEach(request => {
+      const url = new URL(request.request.urlWithParams);
+      if (url.searchParams.get('y') === '1999') {
+        request.flush({ Search: [omdbItem('tt-year', 'Matrix', '1999')], totalResults: '1', Response: 'True' });
+      } else if (url.searchParams.has('t')) {
+        request.flush({
+          imdbID: 'tt-exact', Title: 'Matrix', Director: 'Director', Writer: 'Writer', Year: '2000',
+          Poster: 'N/A', Type: 'movie', Response: 'True'
+        });
+      } else {
+        request.flush({
+          Search: [omdbItem('tt-year', 'Matrix', '1999'), omdbItem('tt-broad', 'Matrix Reloaded', '2003')],
+          totalResults: '2', Response: 'True'
+        });
+      }
+    });
+  });
+
   it('uses only OMDb title lookup for exact-title searches', (done) => {
     service.searchOmdbMovies(exactPiCriteria).subscribe(page => {
       expect(page.totalResults).toBe(1);
@@ -211,6 +246,16 @@ describe('MoviesApiService', () => {
     });
   });
 
+  it('sends the parsed year separately when listing catalog movies', (done) => {
+    service.listMovies(1, 20, 'The Matrix', '1999').subscribe(() => done());
+
+    const request = http.expectOne(req =>
+      req.url === `${appConfig.apiBaseUrl}${appConfig.moviesApiPath}`
+      && req.params.get('filter') === 'The Matrix'
+      && req.params.get('year') === '1999');
+    request.flush({ movies: [], totalCount: 0 });
+  });
+
   it('requests movie rank history', (done) => {
     service.getMovieRankHistory('tt101').subscribe(rankHistory => {
       expect(rankHistory.higherRanks.map(movie => movie.imdbId)).toEqual(['tt100']);
@@ -351,4 +396,8 @@ describe('MoviesApiService', () => {
       sharePath: '/my-favorite-movies/sky%20composer'
     })).toBe('https://ui.example.test/my-favorite-movies/sky%20composer');
   });
+
+  function omdbItem(imdbID: string, Title: string, Year: string) {
+    return { imdbID, Title, Year, Type: 'movie', Poster: 'N/A' };
+  }
 });

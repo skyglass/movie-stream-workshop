@@ -43,6 +43,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorizeHttpRequests -> authorizeHttpRequests
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movies").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/categories", "/api/categories/**").permitAll()
+                        .requestMatchers("/api/categories", "/api/categories/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers(HttpMethod.GET, "/api/my-favorite-movies/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-journeys/*", "/api/movie-courses/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-journeys", "/api/movie-courses").permitAll()

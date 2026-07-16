@@ -7,19 +7,23 @@ import { AuthService } from '../../services/auth';
 import {
   MovieChallenge,
   MovieChallengeMovie,
+  MovieChallengeSelection,
   MoviesApiService,
   OmdbMovieSearchCriteria,
   OmdbMovieSearchResult,
   OmdbSearchType,
-  RecommendMovieFromSearchRequest
+  RecommendMovieFromSearchRequest,
+  SuggestedMovieChallenge,
+  SuggestedMovieChallengeMovie
 } from '../../services/movies-api';
+import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 
 @Component({
   standalone: true,
   selector: 'app-movie-challenge-page',
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, MoviePageNavigatorComponent],
   templateUrl: './movie-challenge-page.html',
-  styleUrl: './movie-challenge-page.css'
+  styleUrls: ['./movie-challenge-page.css', './movie-challenge-extra.css']
 })
 export class MovieChallengePageComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
@@ -30,6 +34,8 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
   private fallbackSearchSub?: Subscription;
   private fallbackSelectionSub?: Subscription;
   private fallbackRecommendSub?: Subscription;
+  private suggestedSub?: Subscription;
+  private suggestedSubmitSub?: Subscription;
 
   readonly searchTypes: { value: OmdbSearchType; label: string }[] = [
     { value: 'movie', label: 'Movie' },
@@ -61,6 +67,22 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
   fallbackHasNext = false;
   private fallbackLastSearchKey = '';
 
+  suggestedChallenges: SuggestedMovieChallenge[] = [];
+  suggestedLoading = false;
+  suggestedSaving = false;
+  suggestedErrorMessage = '';
+  suggestedCurrentPage = 1;
+  suggestedTotalCount = 0;
+  higherRankedFirst = false;
+  boostHigherRanks = false;
+  moreInterestingFirst = false;
+  selectedSuggestedMovieIds: Record<string, string> = {};
+  visibleProbabilityHelpKey = '';
+  visibleRankHelpKey = '';
+  readonly suggestedPageSize = this.moviesApi.moviePageSize;
+  readonly probabilityHelpText = 'Chance of winning, based on previous comparisons';
+  readonly rankHelpText = 'Your movie rank and rating, based on previous comparisons';
+
   ngOnInit(): void {
     this.fallbackValueSub = this.fallbackSearchForm.valueChanges.subscribe(() => {
       if (!this.auth.token) return;
@@ -75,6 +97,8 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
     this.fallbackSearchSub?.unsubscribe();
     this.fallbackSelectionSub?.unsubscribe();
     this.fallbackRecommendSub?.unsubscribe();
+    this.suggestedSub?.unsubscribe();
+    this.suggestedSubmitSub?.unsubscribe();
   }
 
   loadNextChallenge(preserveFallbackSuccess = false): void {
@@ -94,6 +118,7 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
         this.loading = false;
         if (!challenge) {
           this.resetFallbackWizardToSearch(preserveFallbackSuccess);
+          this.loadSuggestedChallenges(1);
         }
       },
       error: err => {
@@ -333,5 +358,142 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
 
   private readyForFallbackSearch(criteria: OmdbMovieSearchCriteria): boolean {
     return !!criteria.title;
+  }
+
+  loadSuggestedChallenges(page = this.suggestedCurrentPage): void {
+    if (!this.auth.token) return;
+
+    this.suggestedSub?.unsubscribe();
+    this.suggestedLoading = true;
+    this.suggestedErrorMessage = '';
+    this.visibleProbabilityHelpKey = '';
+    this.visibleRankHelpKey = '';
+    this.suggestedSub = this.moviesApi.listSuggestedMovieChallenges(
+      page,
+      this.suggestedPageSize,
+      this.higherRankedFirst,
+      this.boostHigherRanks,
+      this.moreInterestingFirst
+    ).subscribe({
+      next: challengePage => {
+        this.suggestedChallenges = challengePage.challenges;
+        this.suggestedTotalCount = challengePage.totalCount;
+        this.suggestedCurrentPage = page;
+        this.selectedSuggestedMovieIds = {};
+        this.suggestedLoading = false;
+      },
+      error: err => {
+        this.suggestedChallenges = [];
+        this.suggestedTotalCount = 0;
+        this.suggestedErrorMessage = err?.error?.message ?? err?.message ?? 'Could not load extra challenges';
+        this.selectedSuggestedMovieIds = {};
+        this.suggestedLoading = false;
+      }
+    });
+  }
+
+  toggleHigherRankedFirst(event: Event): void {
+    this.higherRankedFirst = (event.target as HTMLInputElement).checked;
+    if (this.higherRankedFirst) { this.boostHigherRanks = false; this.moreInterestingFirst = false; }
+    this.loadSuggestedChallenges(1);
+  }
+
+  toggleBoostHigherRanks(event: Event): void {
+    this.boostHigherRanks = (event.target as HTMLInputElement).checked;
+    if (this.boostHigherRanks) { this.higherRankedFirst = false; this.moreInterestingFirst = false; }
+    this.loadSuggestedChallenges(1);
+  }
+
+  toggleMoreInterestingFirst(event: Event): void {
+    this.moreInterestingFirst = (event.target as HTMLInputElement).checked;
+    if (this.moreInterestingFirst) { this.higherRankedFirst = false; this.boostHigherRanks = false; }
+    this.loadSuggestedChallenges(1);
+  }
+
+  selectSuggestedMovie(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): void {
+    if (this.suggestedSaving) return;
+
+    const key = this.challengeKey(challenge);
+    if (this.selectedSuggestedMovieIds[key] === movie.imdbId) {
+      delete this.selectedSuggestedMovieIds[key];
+    } else {
+      this.selectedSuggestedMovieIds[key] = movie.imdbId;
+    }
+    this.suggestedErrorMessage = '';
+  }
+
+  isSuggestedMovieSelected(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): boolean {
+    return this.selectedSuggestedMovieIds[this.challengeKey(challenge)] === movie.imdbId;
+  }
+
+  isSuggestedMovieLoser(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): boolean {
+    const selectedMovieId = this.selectedSuggestedMovieIds[this.challengeKey(challenge)];
+    return !!selectedMovieId && selectedMovieId !== movie.imdbId;
+  }
+
+  hasSuggestedSelections(): boolean {
+    return Object.keys(this.selectedSuggestedMovieIds).length > 0;
+  }
+
+  selectedSuggestedCount(): number {
+    return Object.keys(this.selectedSuggestedMovieIds).length;
+  }
+
+  submitSuggestedSelections(): void {
+    if (!this.hasSuggestedSelections() || this.suggestedSaving) return;
+
+    this.suggestedSaving = true;
+    this.suggestedErrorMessage = '';
+    this.suggestedSubmitSub?.unsubscribe();
+    this.suggestedSubmitSub = this.moviesApi.submitMovieChallengeSelections(this.selectedSuggestedRequests()).subscribe({
+      next: () => {
+        this.suggestedSaving = false;
+        this.selectedSuggestedMovieIds = {};
+        this.loadSuggestedChallenges(this.suggestedCurrentPage);
+      },
+      error: err => {
+        this.suggestedSaving = false;
+        this.suggestedErrorMessage = err?.error?.message ?? err?.message ?? 'Could not submit extra challenges';
+      }
+    });
+  }
+
+  discardSuggestedSelections(): void {
+    if (this.suggestedSaving) return;
+
+    this.selectedSuggestedMovieIds = {};
+    this.loadSuggestedChallenges(this.suggestedCurrentPage);
+  }
+
+  toggleProbabilityHelp(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): void {
+    const key = `${this.challengeKey(challenge)}:${movie.imdbId}`;
+    this.visibleProbabilityHelpKey = this.visibleProbabilityHelpKey === key ? '' : key;
+  }
+
+  probabilityHelpVisible(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): boolean {
+    return this.visibleProbabilityHelpKey === `${this.challengeKey(challenge)}:${movie.imdbId}`;
+  }
+
+  toggleRankHelp(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): void {
+    const key = `${this.challengeKey(challenge)}:${movie.imdbId}`;
+    this.visibleRankHelpKey = this.visibleRankHelpKey === key ? '' : key;
+  }
+
+  rankHelpVisible(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): boolean {
+    return this.visibleRankHelpKey === `${this.challengeKey(challenge)}:${movie.imdbId}`;
+  }
+
+  private selectedSuggestedRequests(): MovieChallengeSelection[] {
+    return this.suggestedChallenges
+      .map(challenge => ({
+        movie1Id: challenge.movie1.imdbId,
+        movie2Id: challenge.movie2.imdbId,
+        selectedMovieId: this.selectedSuggestedMovieIds[this.challengeKey(challenge)]
+      }))
+      .filter(selection => !!selection.selectedMovieId);
+  }
+
+  private challengeKey(challenge: SuggestedMovieChallenge): string {
+    return `${challenge.movie1.imdbId}:${challenge.movie2.imdbId}`;
   }
 }

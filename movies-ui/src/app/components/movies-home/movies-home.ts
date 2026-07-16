@@ -3,14 +3,15 @@ import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { AuthService } from '../../services/auth';
-import { MoviesApiService, Movie } from '../../services/movies-api';
+import { MoviesApiService, Movie, ParsedMovieSearch } from '../../services/movies-api';
 import { Subscription } from 'rxjs';
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
+import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
 
 @Component({
   standalone: true,
   selector: 'app-movies-home',
-  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent],
+  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent],
   templateUrl: './movies-home.html',
   styleUrl: './movies-home.css'
 })
@@ -29,8 +30,9 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   recommendationBusy: Record<string, boolean> = {};
   filterText = '';
   activeFilter = '';
+  activeYear = '';
+  activeCategories: number[] = [];
   private authSub?: Subscription;
-  private filterTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit(): void {
     this.applySeoMetadata();
@@ -41,13 +43,12 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.authSub?.unsubscribe();
-    this.clearFilterTimer();
   }
 
   loadMovies(page = this.currentPage): void {
     this.loading = true;
     this.errorMessage = '';
-    this.moviesApi.listMovies(page, this.pageSize, this.activeFilter).subscribe({
+    this.moviesApi.listMovies(page, this.pageSize, this.activeFilter, this.activeYear, this.activeCategories).subscribe({
       next: moviePage => {
         this.movies = moviePage.movies;
         this.totalCount = moviePage.totalCount;
@@ -61,40 +62,13 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  onFilterInput(event: Event): void {
-    this.filterText = (event.target as HTMLInputElement).value;
-    this.clearFilterTimer();
-
-    const filter = this.filterText.trim();
-    if (!filter) {
-      if (this.activeFilter) {
-        this.activeFilter = '';
-        this.loadMovies(1);
-      }
-      return;
-    }
-
-    if (filter.length <= 3) {
-      return;
-    }
-
-    this.filterTimer = setTimeout(() => {
-      const nextFilter = this.filterText.trim();
-      if (nextFilter.length > 3 && nextFilter !== this.activeFilter) {
-        this.activeFilter = nextFilter;
-        this.loadMovies(1);
-      }
-    }, 300);
-  }
-
-  clearFilter(): void {
-    this.clearFilterTimer();
-    const shouldReload = !!this.activeFilter || !!this.filterText;
-    this.filterText = '';
-    this.activeFilter = '';
-    if (shouldReload) {
-      this.loadMovies(1);
-    }
+  applyFilter(search: ParsedMovieSearch): void {
+    const categories = search.selectedCategories ?? [];
+    if (search.keyword === this.activeFilter && search.year === this.activeYear && categories.join() === this.activeCategories.join()) return;
+    this.activeFilter = search.keyword;
+    this.activeYear = search.year;
+    this.activeCategories = categories;
+    this.loadMovies(1);
   }
 
   poster(movie: Movie): string {
@@ -124,17 +98,17 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
 
   recommendationTitle(movie: Movie): string {
     if (movie.disliked) return 'Clear dislike';
-    return movie.recommended ? 'Unrecommend' : 'Recommend';
+    return movie.recommended ? 'Unrecommend' : 'Like';
   }
 
   recommendationIcon(movie: Movie): string {
     if (movie.disliked) return 'thumb_down';
-    return movie.recommended ? 'check_circle' : 'favorite_border';
+    return movie.recommended ? 'check_circle' : 'thumb_up';
   }
 
   recommendationLabel(movie: Movie): string {
     if (movie.disliked) return 'Disliked';
-    return movie.recommended ? 'Recommended' : 'Recommend';
+    return movie.recommended ? 'Recommended' : 'Like';
   }
 
   private applySeoMetadata(): void {
@@ -149,10 +123,4 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
     this.meta.updateTag({ name: 'twitter:description', content: description });
   }
 
-  private clearFilterTimer(): void {
-    if (this.filterTimer) {
-      clearTimeout(this.filterTimer);
-      this.filterTimer = undefined;
-    }
-  }
 }

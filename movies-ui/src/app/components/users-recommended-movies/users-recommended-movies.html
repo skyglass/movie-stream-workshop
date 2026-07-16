@@ -2,19 +2,8 @@
   @if (!auth.token) {
     <div class="empty">Sign in to see users recommended movies</div>
   } @else {
-    <div class="filter-row">
-      <label class="filter-control">
-        <span>Filter</span>
-        <input
-          type="text"
-          [value]="filterText"
-          (input)="onFilterInput($event)"
-          aria-label="Filter users recommended movies" />
-      </label>
-      @if (filterText) {
-        <button type="button" class="clear-filter-button" (click)="clearFilter()">Clear</button>
-      }
-    </div>
+    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter users recommended movies" (internalSearch)="applyFilter($event)" />
+    <h2>Movie Results</h2>
   }
 
   @if (auth.token && loading) {
@@ -32,11 +21,11 @@
             <button
               type="button"
               class="recommend-button recommended"
-              title="Clear like"
+              title="Clear recommendation"
               [disabled]="recommendationBusy[movie.imdbId]"
               (click)="clearRecommendation(movie)">
               <span class="material-icons" aria-hidden="true">thumb_up</span>
-              Liked
+              Recommended
             </button>
           } @else if (movie.disliked) {
             <button

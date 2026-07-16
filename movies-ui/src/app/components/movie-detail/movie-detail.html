@@ -6,6 +6,7 @@
   } @else if (errorMessage && !movie) {
     <div class="state error">{{ errorMessage }}</div>
   } @else if (movie) {
+    <app-back-button />
     <div class="detail-layout">
       <article class="movie-card">
         <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
@@ -13,11 +14,11 @@
           type="button"
           class="recommend-button"
           [class.recommended]="movie.recommended"
-          [title]="movie.recommended ? 'Unrecommend' : 'Recommend'"
+          [title]="movie.recommended ? 'Unrecommend' : 'Like'"
           [disabled]="recommendationSaving"
           (click)="toggleRecommendation()">
-          <span class="material-icons" aria-hidden="true">{{ movie.recommended ? 'check_circle' : 'favorite_border' }}</span>
-          {{ movie.recommended ? 'Recommended' : 'Recommend' }}
+          <span class="material-icons" aria-hidden="true">{{ movie.recommended ? 'check_circle' : 'thumb_up' }}</span>
+          {{ movie.recommended ? 'Recommended' : 'Like' }}
         </button>
         @if (auth.isAdmin) {
           <a class="edit-button" [routerLink]="['/movies', movie.imdbId, 'edit']">
@@ -107,6 +108,28 @@
               }
             </div>
           </section>
+        }
+
+        <section class="categories-panel" aria-labelledby="categories-title">
+          <div class="categories-header">
+            <h2 id="categories-title">Categories</h2>
+            <button type="button" class="edit-categories-button" (click)="openEditCategories()">
+              <span class="material-icons" aria-hidden="true">category</span>
+              Edit Categories
+            </button>
+          </div>
+          @if (categoriesLoading) {
+            <div class="state">Loading categories</div>
+          } @else if (categoriesErrorMessage) {
+            <div class="state error">{{ categoriesErrorMessage }}</div>
+          } @else if (hasCategoryPath()) {
+            <app-movie-category-path-view [categories]="categories" />
+          } @else {
+            <div class="empty">Not assigned to any category yet</div>
+          }
+        </section>
+        @if (editCategoriesOpen) {
+          <app-category-tree-dialog mode="assign" [movieId]="movie.imdbId" (closed)="closeEditCategories()" (assignmentsSaved)="onCategoriesSaved()" />
         }
 
         <section class="rank-history-panel" aria-labelledby="rank-history-title">

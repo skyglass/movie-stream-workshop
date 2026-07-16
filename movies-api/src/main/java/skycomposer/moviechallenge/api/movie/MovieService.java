@@ -9,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
 
 @RequiredArgsConstructor
 @Service
@@ -30,9 +31,23 @@ public class MovieService {
 
     @Transactional(readOnly = true)
     public Page<Movie> getMovies(Pageable pageable, String filter) {
+        return getMovies(pageable, filter, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getMovies(Pageable pageable, String filter, String year) {
+        return getMovies(pageable, filter, year, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getMovies(Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+        List<Long> categories = categoryParameters(selectedCategories);
         Pageable pageRequest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
         return movieRepository.findAllByUsersFavoritePopularity(
                 normalizedFilter(filter),
+                normalizedFilter(year),
+                categoryCount(selectedCategories),
+                categories,
                 HOMEPAGE_RATING_PRIOR_WEIGHT,
                 pageRequest);
     }
@@ -50,7 +65,18 @@ public class MovieService {
 
     @Transactional(readOnly = true)
     public Page<Movie> getFavoriteMovies(String username, Pageable pageable, String filter) {
-        return movieRepository.findFavoriteMoviesByUsername(username, normalizedFilter(filter), pageable);
+        return getFavoriteMovies(username, pageable, filter, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getFavoriteMovies(String username, Pageable pageable, String filter, String year) {
+        return getFavoriteMovies(username, pageable, filter, year, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getFavoriteMovies(String username, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+        return movieRepository.findFavoriteMoviesByUsername(username, normalizedFilter(filter), normalizedFilter(year),
+                categoryCount(selectedCategories), categoryParameters(selectedCategories), pageable);
     }
 
     @Transactional(readOnly = true)
@@ -60,7 +86,18 @@ public class MovieService {
 
     @Transactional(readOnly = true)
     public Page<Movie> getUsersFavoriteMovies(Pageable pageable, String filter) {
-        return movieRepository.findUsersFavoriteMovies(normalizedFilter(filter), pageable);
+        return getUsersFavoriteMovies(pageable, filter, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getUsersFavoriteMovies(Pageable pageable, String filter, String year) {
+        return getUsersFavoriteMovies(pageable, filter, year, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getUsersFavoriteMovies(Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+        return movieRepository.findUsersFavoriteMovies(normalizedFilter(filter), normalizedFilter(year),
+                categoryCount(selectedCategories), categoryParameters(selectedCategories), pageable);
     }
 
     @Transactional(readOnly = true)
@@ -70,7 +107,18 @@ public class MovieService {
 
     @Transactional(readOnly = true)
     public Page<Movie> getUsersRecommendedMovies(String username, Pageable pageable, String filter) {
-        return movieRepository.findUsersRecommendedMoviesByUsername(username, normalizedFilter(filter), pageable);
+        return getUsersRecommendedMovies(username, pageable, filter, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getUsersRecommendedMovies(String username, Pageable pageable, String filter, String year) {
+        return getUsersRecommendedMovies(username, pageable, filter, year, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getUsersRecommendedMovies(String username, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+        return movieRepository.findUsersRecommendedMoviesByUsername(username, normalizedFilter(filter), normalizedFilter(year),
+                categoryCount(selectedCategories), categoryParameters(selectedCategories), pageable);
     }
 
     @Transactional
@@ -112,5 +160,11 @@ public class MovieService {
 
     private String normalizedFilter(String filter) {
         return filter == null || filter.isBlank() ? null : filter.trim();
+    }
+
+    private int categoryCount(List<Long> categories) { return categories == null ? 0 : categories.size(); }
+
+    private List<Long> categoryParameters(List<Long> categories) {
+        return categories == null || categories.isEmpty() ? List.of(-1L) : categories.stream().distinct().toList();
     }
 }

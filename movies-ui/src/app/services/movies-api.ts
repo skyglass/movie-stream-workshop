@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, map, Observable, of, throwError } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of, throwError } from 'rxjs';
 import { AppConfigService } from '../config/app-config.service';
 
 export interface MovieComment {
@@ -33,6 +33,25 @@ export interface Movie {
 export interface MoviePage {
   movies: Movie[];
   totalCount: number;
+}
+
+export interface MovieCategory {
+  id: number;
+  name: string;
+  description: string;
+  icon: string;
+  parentId: number | null;
+  checked: boolean;
+  leaf: boolean;
+  empty: boolean;
+  children: MovieCategory[];
+}
+
+export interface SaveMovieCategory {
+  name: string;
+  description: string;
+  icon: string;
+  parentId: number | null;
 }
 
 export interface MovieRankHistoryMovie {
@@ -165,6 +184,12 @@ export interface OmdbMovieSearchPage {
   hasNext: boolean;
 }
 
+export interface ParsedMovieSearch {
+  keyword: string;
+  year: string;
+  selectedCategories?: number[];
+}
+
 export interface RecommendMovieFromSearchRequest {
   imdbId: string;
   title: string;
@@ -210,6 +235,7 @@ export class MoviesApiService {
   private readonly userExtrasBase: string;
   private readonly usersBase: string;
   private readonly movieCoursesBase: string;
+  private readonly categoriesBase: string;
 
   constructor(private http: HttpClient, private cfg: AppConfigService) {
     const c = cfg.config;
@@ -222,14 +248,15 @@ export class MoviesApiService {
     this.userExtrasBase = `${c.apiBaseUrl}${c.userExtrasPath}`;
     this.usersBase = `${c.apiBaseUrl}${c.usersApiPath}`;
     this.movieCoursesBase = `${c.apiBaseUrl}/api/movies/movie-journeys`;
+    this.categoriesBase = `${c.apiBaseUrl}/api/movies/categories`;
   }
 
   get moviePageSize(): number {
     return this.positiveConfigNumber(this.cfg.config.moviesPerPage, 'moviesPerPage');
   }
 
-  listMovies(page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {
-    return this.http.get<MoviePage>(this.moviesBase, { params: this.pageParams(page, pageSize, filter) });
+  listMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.moviesBase, { params: this.pageParams(page, pageSize, filter, year, selectedCategories) });
   }
 
   listMovieCourses(): Observable<MovieCourse[]> { return this.http.get<MovieCourse[]>(this.movieCoursesBase); }
@@ -255,13 +282,37 @@ export class MoviesApiService {
     return this.http.delete<MovieCourse>(`${this.movieCoursesBase}/${id}/movies/${movieId}`);
   }
 
-  listFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {
-    return this.http.get<MoviePage>(this.favoriteMoviesBase, { params: this.pageParams(page, pageSize, filter) });
+  getCategoryTree(movieId?: string): Observable<MovieCategory[]> {
+    return this.http.get<MovieCategory[]>(movieId
+      ? `${this.categoriesBase}/movies/${encodeURIComponent(movieId)}`
+      : this.categoriesBase);
   }
 
-  listPublicFavoriteMovies(username: string, page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {
+  createCategory(category: SaveMovieCategory): Observable<MovieCategory> {
+    return this.http.post<MovieCategory>(this.categoriesBase, category);
+  }
+
+  updateCategory(id: number, category: SaveMovieCategory): Observable<MovieCategory> {
+    return this.http.put<MovieCategory>(`${this.categoriesBase}/${id}`, category);
+  }
+
+  deleteCategory(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.categoriesBase}/${id}`);
+  }
+
+  saveMovieCategories(movieId: string, addedCategories: number[], removedCategories: number[]): Observable<MovieCategory[]> {
+    return this.http.put<MovieCategory[]>(`${this.categoriesBase}/movies/${encodeURIComponent(movieId)}`, {
+      addedCategories, removedCategories
+    });
+  }
+
+  listFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.favoriteMoviesBase, { params: this.pageParams(page, pageSize, filter, year, selectedCategories) });
+  }
+
+  listPublicFavoriteMovies(username: string, page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
     return this.http.get<MoviePage>(`${this.publicFavoriteMoviesBase}/${encodeURIComponent(username)}`, {
-      params: this.pageParams(page, pageSize, filter)
+      params: this.pageParams(page, pageSize, filter, year, selectedCategories)
     });
   }
 
@@ -281,12 +332,12 @@ export class MoviesApiService {
     return `${this.trimTrailingSlash(this.cfg.config.uiBaseUrl)}${share.sharePath}`;
   }
 
-  listUsersFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {
-    return this.http.get<MoviePage>(this.usersFavoriteMoviesBase, { params: this.pageParams(page, pageSize, filter) });
+  listUsersFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.usersFavoriteMoviesBase, { params: this.pageParams(page, pageSize, filter, year, selectedCategories) });
   }
 
-  listUsersRecommendedMovies(page = 1, pageSize = this.moviePageSize, filter = ''): Observable<MoviePage> {
-    return this.http.get<MoviePage>(this.usersRecommendedMoviesBase, { params: this.pageParams(page, pageSize, filter) });
+  listUsersRecommendedMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
+    return this.http.get<MoviePage>(this.usersRecommendedMoviesBase, { params: this.pageParams(page, pageSize, filter, year, selectedCategories) });
   }
 
   getMovie(imdbId: string): Observable<Movie> {
@@ -299,6 +350,21 @@ export class MoviesApiService {
 
   createMovie(movie: Partial<Movie>): Observable<Movie> {
     return this.http.post<Movie>(this.moviesBase, movie);
+  }
+
+  createMovieFromSearch(movie: OmdbMovieSearchResult): Observable<Movie> {
+    const source = this.movieFromOmdb(movie);
+    return this.createMovie({
+      imdbId: source.imdbId,
+      title: source.title,
+      director: source.director,
+      writer: source.writer,
+      year: source.year,
+      poster: source.poster,
+      genre: source.genre,
+      country: source.country,
+      type: source.type
+    });
   }
 
   updateMovie(imdbId: string, movie: Partial<Movie>): Observable<Movie> {
@@ -319,6 +385,14 @@ export class MoviesApiService {
 
   recommendMovieFromSearch(movie: RecommendMovieFromSearchRequest): Observable<Movie> {
     return this.http.post<Movie>(`${this.moviesBase}/recommendation`, movie);
+  }
+
+  likeMovieFromSearch(movie: OmdbMovieSearchResult): Observable<Movie> {
+    return this.recommendMovie(movie.imdbId).pipe(
+      catchError(error => error?.status === 404
+        ? this.recommendMovieFromSearch(this.movieFromOmdb(movie))
+        : throwError(() => error))
+    );
   }
 
   unrecommendMovie(imdbId: string): Observable<Movie> {
@@ -438,7 +512,56 @@ export class MoviesApiService {
     );
   }
 
-  private pageParams(page: number, pageSize: number, filter = ''): Record<string, string> {
+  /** Parse a trailing year only when it is a separate second-or-later word. */
+  parseMovieSearch(value: string): ParsedMovieSearch {
+    const normalized = value.trim();
+    const match = normalized.match(/^(.+) (\d{4})$/);
+    return match
+      ? { keyword: match[1].trim(), year: match[2] }
+      : { keyword: normalized, year: '' };
+  }
+
+  /**
+   * Filter-box OMDb search: year search, exact title, then broad title search.
+   * Each source is capped at OMDb's ten-result page and duplicates keep the
+   * position of their first occurrence.
+   */
+  searchOmdbFromFilter(value: string): Observable<OmdbMovieSearchResult[]> {
+    const parsed = this.parseMovieSearch(value);
+    if (!parsed.keyword) return of([]);
+
+    const searches: Observable<OmdbMovieSearchPage>[] = [];
+    if (parsed.year) {
+      searches.push(this.searchOmdbMovies({
+        title: parsed.keyword, year: parsed.year, type: 'movie', exactTitleMatch: false
+      }));
+    }
+    searches.push(this.searchOmdbMovies({
+      title: parsed.keyword, year: '', type: 'movie', exactTitleMatch: true
+    }));
+    searches.push(this.searchOmdbMovies({
+      title: parsed.keyword, year: '', type: 'movie', exactTitleMatch: false
+    }));
+
+    return forkJoin(searches).pipe(map(pages => this.uniqueResults(pages.flatMap(page => page.movies))));
+  }
+
+  movieFromOmdb(movie: OmdbMovieSearchResult): RecommendMovieFromSearchRequest {
+    return {
+      imdbId: movie.imdbId,
+      title: movie.englishTitle || movie.originalTitle,
+      originalTitle: movie.originalTitle,
+      director: movie.directors,
+      writer: movie.writers,
+      year: movie.year,
+      country: movie.country,
+      genre: movie.genre,
+      poster: movie.poster,
+      type: movie.type
+    };
+  }
+
+  private pageParams(page: number, pageSize: number, filter = '', year = '', selectedCategories: number[] = []): Record<string, string> {
     const params: Record<string, string> = {
       page: String(page),
       pageSize: String(pageSize)
@@ -446,6 +569,13 @@ export class MoviesApiService {
     const trimmedFilter = filter.trim();
     if (trimmedFilter) {
       params['filter'] = trimmedFilter;
+    }
+    const trimmedYear = year.trim();
+    if (trimmedYear) {
+      params['year'] = trimmedYear;
+    }
+    if (selectedCategories.length) {
+      params['selectedCategories'] = selectedCategories.join(',');
     }
     return params;
   }

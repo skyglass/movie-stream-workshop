@@ -40,6 +40,7 @@ public class SecurityConfig {
                     .pathMatchers("/auth/token").permitAll()
                     .pathMatchers("/api/movies/ws", "/api/movies/ws/**").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/movies/movies").permitAll()
+                    .pathMatchers(HttpMethod.GET, "/api/movies/categories", "/api/movies/categories/**").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/movies/my-favorite-movies/**").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/movies/movie-journeys/*", "/api/movies/movie-courses/*").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/movies/movie-journeys", "/api/movies/movie-courses").permitAll()

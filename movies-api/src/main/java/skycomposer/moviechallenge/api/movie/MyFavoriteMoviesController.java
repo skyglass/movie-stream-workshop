@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import skycomposer.moviechallenge.api.movie.application.service.ShareMyFavoriteMoviesUseCase;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
 import skycomposer.moviechallenge.api.movie.exception.SharedFavoriteMoviesNotFoundException;
+import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
@@ -24,11 +25,15 @@ public class MyFavoriteMoviesController {
     public MoviePageDto getSharedFavoriteMovies(HttpServletRequest request,
                                                 @RequestParam(required = false) Integer page,
                                                 @RequestParam(required = false) Integer pageSize,
-                                                @RequestParam(required = false) String filter) {
+                                                @RequestParam(required = false) String filter,
+                                                @RequestParam(required = false) String year,
+                                                @RequestParam(required = false) List<Long> selectedCategories) {
         return shareMyFavoriteMovies.viewSharedFavoriteMovies(
                 encodedUsername(request),
                 moviePaging.pageable(page, pageSize),
-                filter);
+                filter,
+                year,
+                selectedCategories);
     }
 
     private String encodedUsername(HttpServletRequest request) {

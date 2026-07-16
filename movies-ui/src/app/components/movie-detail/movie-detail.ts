@@ -4,14 +4,17 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription, combineLatest } from 'rxjs';
 import { AuthService } from '../../services/auth';
-import { Movie, MovieRankHistory, MovieRankHistoryMovie, MoviesApiService } from '../../services/movies-api';
+import { Movie, MovieCategory, MovieRankHistory, MovieRankHistoryMovie, MoviesApiService } from '../../services/movies-api';
+import { BackButtonComponent } from '../back-button/back-button';
+import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
+import { MovieCategoryPathViewComponent } from '../movie-category-path-view/movie-category-path-view';
 
 type RankHistoryHelpSection = 'winners' | 'losers';
 
 @Component({
   standalone: true,
   selector: 'app-movie-detail',
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, BackButtonComponent, CategoryTreeDialogComponent, MovieCategoryPathViewComponent],
   templateUrl: './movie-detail.html',
   styleUrl: './movie-detail.css'
 })
@@ -23,10 +26,15 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
   private pageSub?: Subscription;
   private movieSub?: Subscription;
   private rankHistorySub?: Subscription;
+  private categoriesSub?: Subscription;
   private imdbId = '';
 
   movie: Movie | null = null;
   rankHistory: MovieRankHistory | null = null;
+  categories: MovieCategory[] = [];
+  categoriesLoading = false;
+  categoriesErrorMessage = '';
+  editCategoriesOpen = false;
   loading = false;
   rankHistoryLoading = false;
   saving = false;
@@ -58,11 +66,13 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
     this.pageSub?.unsubscribe();
     this.movieSub?.unsubscribe();
     this.rankHistorySub?.unsubscribe();
+    this.categoriesSub?.unsubscribe();
   }
 
   loadMovie(imdbId: string): void {
     this.movieSub?.unsubscribe();
     this.rankHistorySub?.unsubscribe();
+    this.categoriesSub?.unsubscribe();
     this.loading = true;
     this.rankHistoryLoading = false;
     this.errorMessage = '';
@@ -74,6 +84,7 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
         this.movie = movie;
         this.loading = false;
         this.loadRankHistory(imdbId);
+        this.loadCategories(imdbId);
       },
       error: err => {
         if (!this.auth.token || this.imdbId !== imdbId) return;
@@ -81,6 +92,41 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
         this.loading = false;
       }
     });
+  }
+
+  loadCategories(imdbId: string): void {
+    this.categoriesSub?.unsubscribe();
+    this.categoriesLoading = true;
+    this.categoriesErrorMessage = '';
+    this.categoriesSub = this.moviesApi.getCategoryTree(imdbId).subscribe({
+      next: categories => {
+        if (!this.auth.token || this.imdbId !== imdbId) return;
+        this.categories = categories;
+        this.categoriesLoading = false;
+      },
+      error: err => {
+        if (!this.auth.token || this.imdbId !== imdbId) return;
+        this.categoriesErrorMessage = err?.error?.message ?? err?.message ?? 'Could not load categories';
+        this.categoriesLoading = false;
+      }
+    });
+  }
+
+  hasCategoryPath(): boolean {
+    return this.categories.some(category => category.checked || this.categoryHasCheckedDescendant(category));
+  }
+
+  openEditCategories(): void { this.editCategoriesOpen = true; }
+
+  closeEditCategories(): void { this.editCategoriesOpen = false; }
+
+  onCategoriesSaved(): void {
+    this.editCategoriesOpen = false;
+    if (this.movie) this.loadCategories(this.movie.imdbId);
+  }
+
+  private categoryHasCheckedDescendant(category: MovieCategory): boolean {
+    return category.children.some(child => child.checked || this.categoryHasCheckedDescendant(child));
   }
 
   loadRankHistory(imdbId: string): void {
@@ -189,6 +235,10 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
   private clearMovie(): void {
     this.movie = null;
     this.rankHistory = null;
+    this.categories = [];
+    this.categoriesLoading = false;
+    this.categoriesErrorMessage = '';
+    this.editCategoriesOpen = false;
     this.loading = false;
     this.rankHistoryLoading = false;
     this.saving = false;

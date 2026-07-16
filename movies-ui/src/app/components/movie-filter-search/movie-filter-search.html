@@ -1,0 +1,66 @@
+<div class="movie-filter-search">
+  <div class="filter-line">
+    <label class="filter-control">
+      <span>{{ label }}</span>
+      <input type="text" [value]="value" (input)="onInput($event)" [attr.aria-label]="ariaLabel" autocomplete="off" />
+    </label>
+    @if (value) {
+      <button type="button" (click)="search()" [disabled]="loading">Search</button>
+      <button type="button" class="secondary" (click)="clear()">Clear</button>
+    }
+  </div>
+  <label class="omdb-toggle">
+    <input type="checkbox" [checked]="searchOmdb" (change)="toggleOmdb($event)" />
+    <span>Search OMDb</span>
+  </label>
+  @if (showSelectCategories) {
+    <button type="button" class="category-filter-button" (click)="openCategoryDialog()"><span class="material-icons">account_tree</span>Select Categories… @if(selectedCategories.length){({{selectedCategories.length}})}</button>
+  }
+</div>
+
+@if(categoryDialogVisible){<app-category-tree-dialog mode="filter" [selectedCategoryIds]="selectedCategories" (closed)="cancelCategoryDialog()" (categoriesSelected)="confirmCategories()" (selectionChanged)="onCategorySelectionChanged($event)" />}
+
+@if (searchOmdb && value) {
+  <section class="external-results" aria-labelledby="external-results-title">
+    <h2 id="external-results-title">External Results</h2>
+    @if (loading) {
+      <div class="state">Searching OMDb</div>
+    } @else if (errorMessage) {
+      <div class="state error">{{ errorMessage }}</div>
+    } @else if (externalResults.length > 0) {
+      <table aria-label="External movie results">
+        <thead><tr><th>Title</th><th>Year</th></tr></thead>
+        <tbody>
+          @for (movie of pageMovies(); track movie.imdbId) {
+            <tr role="button" tabindex="0" (click)="selectMovie(movie)" (keydown.enter)="selectMovie(movie)">
+              <td>{{ movie.englishTitle || movie.originalTitle || 'N/A' }}</td><td>{{ movie.year || 'N/A' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <app-movie-page-navigator [currentPage]="currentPage" [totalCount]="externalResults.length" [pageSize]="pageSize" (pageChange)="currentPage=$event" />
+    } @else {
+      <div class="state">No external movies found</div>
+    }
+    @if (selecting) { <div class="state">Loading movie details</div> }
+    @if (selectedMovie; as movie) {
+      <article class="external-card">
+        <img [src]="poster(movie)" [alt]="(movie.englishTitle || movie.originalTitle) + ' poster'" />
+        <div class="external-card-body">
+          <h3>{{ movie.englishTitle || movie.originalTitle }}</h3>
+          <dl>
+            <div><dt>Year:</dt><dd>{{ movie.year || 'N/A' }}</dd></div>
+            <div><dt>Director:</dt><dd>{{ movie.directors || 'N/A' }}</dd></div>
+            <div><dt>Genre:</dt><dd>{{ movie.genre || 'N/A' }}</dd></div>
+          </dl>
+          <div class="card-actions">
+            @if (externalActions.includes('add')) { <button type="button" (click)="act('add')" [disabled]="acting"><span class="material-icons">add_circle</span>Add</button> }
+            @if (externalActions.includes('like')) { <button type="button" (click)="act('like')" [disabled]="acting"><span class="material-icons">thumb_up</span>Like</button> }
+            @if (externalActions.includes('addToCategory')) { <button type="button" (click)="act('addToCategory')" [disabled]="acting"><span class="material-icons">create_new_folder</span>Add to Category</button> }
+            <button type="button" class="secondary" (click)="closeMovie()" [disabled]="acting">Close</button>
+          </div>
+        </div>
+      </article>
+    }
+  </section>
+}

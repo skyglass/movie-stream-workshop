@@ -80,7 +80,7 @@
                     <span class="auth-required-tooltip" role="tooltip">Please, login to start the journey!</span>
                   </span>
                 } @else if (movie.liked) {
-                  <button class="liked" [disabled]="busy[movie.imdbId]" (click)="clear(movie)"><span class="material-icons">thumb_up</span> Liked</button>
+                  <button class="liked" [disabled]="busy[movie.imdbId]" (click)="clear(movie)"><span class="material-icons">thumb_up</span> Recommended</button>
                 } @else if (movie.disliked) {
                   <button class="disliked" [disabled]="busy[movie.imdbId]" (click)="clear(movie)"><span class="material-icons">thumb_down</span> Disliked</button>
                 } @else {

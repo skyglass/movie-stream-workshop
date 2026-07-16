@@ -97,12 +97,14 @@
 }
 
 .recommend-button {
-  cursor: default;
+  cursor: pointer;
 }
 
 .recommend-button .material-icons {
   color: #268242;
 }
+
+.category-button .material-icons { color: inherit; }
 
 .movie-link.linkless {
   cursor: default;

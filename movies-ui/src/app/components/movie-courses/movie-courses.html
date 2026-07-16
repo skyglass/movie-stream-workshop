@@ -1,9 +1,57 @@
 <section class="courses-page">
   <header><div><p class="eyebrow">Explore through film</p><h1>Movie Journeys</h1><p>Follow curated watch lists, rate every movie, and become a Journey Expert.</p></div>
-    @if(auth.token){<button type="button" (click)="creating=!creating">{{ creating ? 'Cancel' : 'Create Movie Journey' }}</button>}</header>
+    @if(auth.token){<div class="header-actions"><button type="button" class="start-journey" (click)="startJourney()"><span class="material-icons">explore</span>Start Journey</button><button type="button" (click)="creating=!creating">{{ creating ? 'Cancel' : 'Create Movie Journey' }}</button></div>}</header>
   @if (auth.token && creating) { <form class="course-form" (ngSubmit)="create()"><label>Type<select name="type" [(ngModel)]="type">@for(journeyType of journeyTypes;track journeyType.value){<option [value]="journeyType.value">{{journeyType.label}}</option>}</select></label><label>Header<input name="header" [(ngModel)]="header" maxlength="200" required placeholder="The main journey heading"></label><label>Title<input name="title" [(ngModel)]="title" maxlength="200" required placeholder="A concise journey subtitle"></label>
     <label>Description<textarea name="description" [(ngModel)]="description" rows="4"></textarea></label><button [disabled]="busy">Create Journey</button></form> }
   @if (errorMessage) { <p class="error">{{errorMessage}}</p> }
+  @if(startJourneyOpen){
+    <section class="start-journey-layout">
+      <div class="start-journey-tree">
+        <app-category-tree-dialog mode="journey" [inline]="true" [selectedCategoryIds]="journeyCategory ? [journeyCategory.id] : []" (closed)="closeStartJourney()" (journeyCategorySelected)="selectJourneyCategory($event)" />
+      </div>
+      <div class="start-journey-movies">
+        @if(!journeyCategory){
+          <p class="journey-hint">Select a leaf category on the left to see its movies.</p>
+        } @else {
+          <div class="journey-results-header">
+            <h2>{{journeyCategory.icon || '📁'}} {{journeyCategory.name}}</h2>
+            <button type="button" class="add-movie-toggle" (click)="toggleAddMovie()">{{ addMovieOpen ? 'Close' : 'Add a Movie' }}</button>
+          </div>
+          @if(addMovieOpen){
+            <section class="add-movie-panel">
+              <app-movie-filter-search [(value)]="addMovieFilter" label="Title, director, writer or year" ariaLabel="Title, director, writer or year"
+                [allowExternalActions]="false" [externalActions]="['addToCategory']" [showSelectCategories]="false"
+                (internalSearch)="searchMoviesToAdd($event)" (externalAction)="externalAddToCategory($event)" />
+              @for(movie of addMovieResults; track movie.imdbId){
+                <div class="result">
+                  <div><strong>{{movie.title}}</strong><span>{{movie.year}} · {{movie.director}} · {{movie.genre}}</span></div>
+                  <button type="button" [disabled]="addMovieBusy[movie.imdbId]" (click)="addMovieToCategory(movie)">Add to Category</button>
+                </div>
+              }
+            </section>
+          }
+          @if(journeyLoading){<p>Loading movies…</p>}
+          @else if(journeyMovies.length===0){<p>No movies in this category yet.</p>}
+          @else{
+            <div class="journey-movie-grid">
+              @for(movie of journeyMovies;track movie.imdbId){
+                <article class="journey-movie-card">
+                  <a [routerLink]="['/movies', movie.imdbId]"><img [src]="poster(movie)" [alt]="movie.title+' poster'"></a>
+                  <a class="journey-movie-title-link" [routerLink]="['/movies', movie.imdbId]"><h3>{{movie.title}}</h3></a>
+                  <p>{{movie.year}} · {{movie.director}}</p>
+                  <div class="rating-actions">
+                    @if(movie.recommended){<button class="recommended" [disabled]="recommendationBusy[movie.imdbId]" (click)="clearRating(movie)"><span class="material-icons">check_circle</span>Recommended</button>}
+                    @else if(movie.disliked){<button class="disliked" [disabled]="recommendationBusy[movie.imdbId]" (click)="clearRating(movie)"><span class="material-icons">thumb_down</span>Disliked</button>}
+                    @else{<button [disabled]="recommendationBusy[movie.imdbId]" (click)="rate(movie,true)"><span class="material-icons">thumb_up</span>Like</button><button class="dislike" [disabled]="recommendationBusy[movie.imdbId]" (click)="rate(movie,false)"><span class="material-icons">thumb_down</span>Dislike</button>}
+                  </div>
+                </article>
+              }
+            </div>
+          }
+        }
+      </div>
+    </section>
+  }
   @if (loading) { <p>Loading Movie Journeys…</p> } @else { <div class="course-grid">
     @for (course of courses; track course.id) { <article><p class="journey-card-type">{{course.typeDescription}}</p><h2><a [routerLink]="['/movie-journeys',course.id]">{{course.header}}</a></h2><h3>{{course.title}}</h3>
       <p>{{course.description || 'No description yet.'}}</p><dl><div><dt>Movies</dt><dd>{{course.movieCount}}</dd></div>@if(auth.token){<div><dt>Your Average Rating</dt><dd>{{course.averageRating | number:'1.2-2'}}</dd></div>}</dl>

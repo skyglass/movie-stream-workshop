@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
+import java.util.List;
 
 import static skycomposer.moviechallenge.api.config.SwaggerConfig.BEARER_KEY_SECURITY_SCHEME;
 
@@ -54,12 +55,14 @@ public class MoviesController {
     public MoviePageDto getMovies(@AuthenticationPrincipal Jwt jwt,
                                   @RequestParam(required = false) Integer page,
                                   @RequestParam(required = false) Integer pageSize,
-                                  @RequestParam(required = false) String filter) {
+                                  @RequestParam(required = false) String filter,
+                                  @RequestParam(required = false) String year,
+                                  @RequestParam(required = false) List<Long> selectedCategories) {
         String username = username(jwt);
         var pageable = moviePaging.pageable(page, pageSize);
         return username == null
-                ? viewMovieCatalog.viewCatalog(pageable, filter)
-                : viewMovieCatalog.viewCatalog(username, pageable, filter);
+                ? viewMovieCatalog.viewCatalog(pageable, filter, year, selectedCategories)
+                : viewMovieCatalog.viewCatalog(username, pageable, filter, year, selectedCategories);
     }
 
     @GetMapping("/{imdbId}")

@@ -196,6 +196,223 @@
           }
         </main>
       </section>
+
+      <section class="suggested-challenges-section" aria-labelledby="extra-challenges-title">
+        <header class="suggested-header">
+          <div>
+            <p class="eyebrow">Movie Challenge</p>
+            <h2 id="extra-challenges-title">Extra Challenges</h2>
+          </div>
+
+          <div class="suggested-controls">
+            <div class="suggested-actions">
+              @if (hasSuggestedSelections()) {
+                <span class="selection-count">{{ selectedSuggestedCount() }} selected</span>
+              }
+              <button type="button" (click)="discardSuggestedSelections()" [disabled]="suggestedSaving || suggestedLoading">
+                Discard
+              </button>
+              <button
+                type="button"
+                class="primary"
+                (click)="submitSuggestedSelections()"
+                [disabled]="!hasSuggestedSelections() || suggestedSaving">
+                {{ suggestedSaving ? 'Submitting' : 'Submit' }}
+              </button>
+            </div>
+            <div class="suggested-order-controls" aria-label="Extra challenge ordering">
+              <label class="suggested-order-toggle">
+                <input
+                  type="checkbox"
+                  [checked]="higherRankedFirst"
+                  [disabled]="suggestedLoading || suggestedSaving"
+                  (change)="toggleHigherRankedFirst($event)" />
+                <span>Higher Ranked First</span>
+              </label>
+              <label class="suggested-order-toggle">
+                <input
+                  type="checkbox"
+                  [checked]="moreInterestingFirst"
+                  [disabled]="suggestedLoading || suggestedSaving"
+                  (change)="toggleMoreInterestingFirst($event)" />
+                <span>More Interesting First</span>
+              </label>
+              <label class="suggested-order-toggle">
+                <input
+                  type="checkbox"
+                  [checked]="boostHigherRanks"
+                  [disabled]="suggestedLoading || suggestedSaving"
+                  (change)="toggleBoostHigherRanks($event)" />
+                <span>Boost Higher Ranks</span>
+              </label>
+            </div>
+          </div>
+        </header>
+
+        @if (suggestedLoading) {
+          <div class="message">Loading extra challenges</div>
+        } @else if (suggestedErrorMessage) {
+          <div class="message error">{{ suggestedErrorMessage }}</div>
+        } @else if (suggestedChallenges.length > 0) {
+          <div class="suggested-list">
+            @for (challenge of suggestedChallenges; track challenge.movie1.imdbId + ':' + challenge.movie2.imdbId) {
+              <article class="suggested-challenge">
+                <article
+                  class="suggested-movie-card"
+                  role="button"
+                  tabindex="0"
+                  [class.selected]="isSuggestedMovieSelected(challenge, challenge.movie1)"
+                  [class.loser]="isSuggestedMovieLoser(challenge, challenge.movie1)"
+                  (click)="selectSuggestedMovie(challenge, challenge.movie1)"
+                  (keydown.enter)="selectSuggestedMovie(challenge, challenge.movie1)"
+                  (keydown.space)="selectSuggestedMovie(challenge, challenge.movie1); $event.preventDefault()">
+                  <div class="suggested-poster">
+                    <img [src]="poster(challenge.movie1)" [alt]="challenge.movie1.title + ' poster'" />
+                    <span class="suggested-check" aria-hidden="true">
+                      <span class="material-icons">check</span>
+                    </span>
+                  </div>
+                  <div class="suggested-movie-body">
+                    <h3>{{ challenge.movie1.title }}</h3>
+                    <dl>
+                      <div>
+                        <dt>Year:</dt>
+                        <dd>{{ challenge.movie1.year || 'N/A' }}</dd>
+                      </div>
+                      <div>
+                        <dt>Director:</dt>
+                        <dd>{{ challenge.movie1.director || 'N/A' }}</dd>
+                      </div>
+                      <div>
+                        <dt>
+                          Your Rank:
+                          <button
+                            type="button"
+                            class="probability-info"
+                            aria-label="Show rank explanation"
+                            (click)="toggleRankHelp(challenge, challenge.movie1); $event.stopPropagation()">
+                            <span class="material-icons" aria-hidden="true">info</span>
+                          </button>
+                        </dt>
+                        <dd>
+                          @if (challenge.movie1.rankPosition !== null) {
+                            #{{ challenge.movie1.rankPosition }}
+                          } @else {
+                            N/A
+                          }
+                          @if (challenge.movie1.rating !== null) {
+                            ({{ challenge.movie1.rating | number:'1.2-2' }})
+                          }
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>
+                          P
+                          <button
+                            type="button"
+                            class="probability-info"
+                            aria-label="Show probability explanation"
+                            (click)="toggleProbabilityHelp(challenge, challenge.movie1); $event.stopPropagation()">
+                            <span class="material-icons" aria-hidden="true">info</span>
+                          </button>
+                        </dt>
+                        <dd>{{ challenge.movie1.winProbabilityPercent }}%</dd>
+                      </div>
+                    </dl>
+                    @if (probabilityHelpVisible(challenge, challenge.movie1)) {
+                      <div class="probability-help">{{ probabilityHelpText }}</div>
+                    }
+                    @if (rankHelpVisible(challenge, challenge.movie1)) {
+                      <div class="probability-help">{{ rankHelpText }}</div>
+                    }
+                  </div>
+                </article>
+
+                <div class="suggested-vs" aria-hidden="true">VS</div>
+
+                <article
+                  class="suggested-movie-card"
+                  role="button"
+                  tabindex="0"
+                  [class.selected]="isSuggestedMovieSelected(challenge, challenge.movie2)"
+                  [class.loser]="isSuggestedMovieLoser(challenge, challenge.movie2)"
+                  (click)="selectSuggestedMovie(challenge, challenge.movie2)"
+                  (keydown.enter)="selectSuggestedMovie(challenge, challenge.movie2)"
+                  (keydown.space)="selectSuggestedMovie(challenge, challenge.movie2); $event.preventDefault()">
+                  <div class="suggested-poster">
+                    <img [src]="poster(challenge.movie2)" [alt]="challenge.movie2.title + ' poster'" />
+                    <span class="suggested-check" aria-hidden="true">
+                      <span class="material-icons">check</span>
+                    </span>
+                  </div>
+                  <div class="suggested-movie-body">
+                    <h3>{{ challenge.movie2.title }}</h3>
+                    <dl>
+                      <div>
+                        <dt>Year:</dt>
+                        <dd>{{ challenge.movie2.year || 'N/A' }}</dd>
+                      </div>
+                      <div>
+                        <dt>Director:</dt>
+                        <dd>{{ challenge.movie2.director || 'N/A' }}</dd>
+                      </div>
+                      <div>
+                        <dt>
+                          Your Rank:
+                          <button
+                            type="button"
+                            class="probability-info"
+                            aria-label="Show rank explanation"
+                            (click)="toggleRankHelp(challenge, challenge.movie2); $event.stopPropagation()">
+                            <span class="material-icons" aria-hidden="true">info</span>
+                          </button>
+                        </dt>
+                        <dd>
+                          @if (challenge.movie2.rankPosition !== null) {
+                            #{{ challenge.movie2.rankPosition }}
+                          } @else {
+                            N/A
+                          }
+                          @if (challenge.movie2.rating !== null) {
+                            ({{ challenge.movie2.rating | number:'1.2-2' }})
+                          }
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>
+                          P
+                          <button
+                            type="button"
+                            class="probability-info"
+                            aria-label="Show probability explanation"
+                            (click)="toggleProbabilityHelp(challenge, challenge.movie2); $event.stopPropagation()">
+                            <span class="material-icons" aria-hidden="true">info</span>
+                          </button>
+                        </dt>
+                        <dd>{{ challenge.movie2.winProbabilityPercent }}%</dd>
+                      </div>
+                    </dl>
+                    @if (probabilityHelpVisible(challenge, challenge.movie2)) {
+                      <div class="probability-help">{{ probabilityHelpText }}</div>
+                    }
+                    @if (rankHelpVisible(challenge, challenge.movie2)) {
+                      <div class="probability-help">{{ rankHelpText }}</div>
+                    }
+                  </div>
+                </article>
+              </article>
+            }
+          </div>
+
+          <app-movie-page-navigator
+            [currentPage]="suggestedCurrentPage"
+            [totalCount]="suggestedTotalCount"
+            [pageSize]="suggestedPageSize"
+            (pageChange)="loadSuggestedChallenges($event)" />
+        } @else {
+          <div class="message">No extra challenges available</div>
+        }
+      </section>
     } @else {
       <section class="challenge-board" [class.has-selection]="selectedMovieId">
         <button

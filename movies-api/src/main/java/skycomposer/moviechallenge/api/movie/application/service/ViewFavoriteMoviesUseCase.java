@@ -11,6 +11,7 @@ import skycomposer.moviechallenge.api.userextra.UserExtraService;
 import skycomposer.moviechallenge.api.userextra.model.UserExtra;
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -34,8 +35,18 @@ public class ViewFavoriteMoviesUseCase {
 
     @Transactional
     public MoviePageDto viewFavoriteMovies(Jwt jwt, Pageable pageable, String filter) {
+        return viewFavoriteMovies(jwt, pageable, filter, null);
+    }
+
+    @Transactional
+    public MoviePageDto viewFavoriteMovies(Jwt jwt, Pageable pageable, String filter, String year) {
+        return viewFavoriteMovies(jwt, pageable, filter, year, List.of());
+    }
+
+    @Transactional
+    public MoviePageDto viewFavoriteMovies(Jwt jwt, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
         UserExtra userExtra = userExtraService.syncFromJwt(jwt);
-        return viewFavoriteMovies(userExtra.getUsername(), pageable, filter);
+        return viewFavoriteMovies(userExtra.getUsername(), pageable, filter, year, selectedCategories);
     }
 
     @Transactional(readOnly = true)
@@ -45,8 +56,18 @@ public class ViewFavoriteMoviesUseCase {
 
     @Transactional(readOnly = true)
     public MoviePageDto viewFavoriteMovies(String username, Pageable pageable, String filter) {
+        return viewFavoriteMovies(username, pageable, filter, null);
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewFavoriteMovies(String username, Pageable pageable, String filter, String year) {
+        return viewFavoriteMovies(username, pageable, filter, year, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewFavoriteMovies(String username, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
         Set<String> recommendedMovieIds = movieRecommendationService.recommendedMovieIds(username);
-        var movies = movieService.getFavoriteMovies(username, pageable, filter);
+        var movies = movieService.getFavoriteMovies(username, pageable, filter, year, selectedCategories);
         Map<String, MovieRatingDto> ratings = movieChallengeRepository.movieRatings(
                 username,
                 movies.getContent().stream().map(Movie::getImdbId).toList());

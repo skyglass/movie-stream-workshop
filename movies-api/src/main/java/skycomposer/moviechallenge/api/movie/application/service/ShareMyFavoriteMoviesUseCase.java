@@ -9,6 +9,7 @@ import skycomposer.moviechallenge.api.userextra.UserExtraService;
 import skycomposer.moviechallenge.api.userextra.model.UserExtra;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -56,11 +57,21 @@ public class ShareMyFavoriteMoviesUseCase {
 
     @Transactional(readOnly = true)
     public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, Pageable pageable, String filter) {
+        return viewSharedFavoriteMovies(encodedUsername, pageable, filter, null);
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, Pageable pageable, String filter, String year) {
+        return viewSharedFavoriteMovies(encodedUsername, pageable, filter, year, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
         String username = decodeUsername(encodedUsername);
         if (!userSettingsRepository.existsByUsernameAndMyFavoriteMoviesPublicTrue(username)) {
             throw new SharedFavoriteMoviesNotFoundException(encodedUsername);
         }
-        return viewFavoriteMovies.viewFavoriteMovies(username, pageable, filter);
+        return viewFavoriteMovies.viewFavoriteMovies(username, pageable, filter, year, selectedCategories);
     }
 
     private UserSettings getOrCreateSettings(String username) {

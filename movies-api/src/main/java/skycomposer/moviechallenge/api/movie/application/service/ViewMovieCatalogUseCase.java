@@ -10,6 +10,7 @@ import skycomposer.moviechallenge.api.movie.mapper.MovieDtoMapper;
 import skycomposer.moviechallenge.api.movie.model.Movie;
 import java.util.Set;
 import java.util.Map;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,21 @@ public class ViewMovieCatalogUseCase {
     }
 
     @Transactional(readOnly = true)
+    public MoviePageDto viewCatalog(Pageable pageable, String filter, String year) {
+        return viewCatalog(pageable, filter, year, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewCatalog(Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+        var movies = movieService.getMovies(pageable, filter, year, selectedCategories);
+        return new MoviePageDto(
+                movies.getContent().stream()
+                        .map(movieMapper::toMovieDto)
+                        .toList(),
+                movies.getTotalElements());
+    }
+
+    @Transactional(readOnly = true)
     public MoviePageDto viewCatalog(String username, Pageable pageable) {
         return viewCatalog(username, pageable, null);
     }
@@ -49,6 +65,30 @@ public class ViewMovieCatalogUseCase {
         Set<String> recommendedMovieIds = movieRecommendationService.recommendedMovieIds(username);
         Set<String> dislikedMovieIds = movieRecommendationService.dislikedMovieIds(username);
         var movies = movieService.getMovies(pageable, filter);
+        Map<String, MovieRatingDto> ratings = movieChallengeRepository.movieRatings(
+                username,
+                movies.getContent().stream().map(Movie::getImdbId).toList());
+        return new MoviePageDto(
+                movies.getContent().stream()
+                        .map(movie -> movieMapper.toMovieDto(
+                                movie,
+                                recommendedMovieIds.contains(movie.getImdbId()),
+                                dislikedMovieIds.contains(movie.getImdbId()),
+                                ratings.get(movie.getImdbId())))
+                        .toList(),
+                movies.getTotalElements());
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewCatalog(String username, Pageable pageable, String filter, String year) {
+        return viewCatalog(username, pageable, filter, year, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewCatalog(String username, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+        Set<String> recommendedMovieIds = movieRecommendationService.recommendedMovieIds(username);
+        Set<String> dislikedMovieIds = movieRecommendationService.dislikedMovieIds(username);
+        var movies = movieService.getMovies(pageable, filter, year, selectedCategories);
         Map<String, MovieRatingDto> ratings = movieChallengeRepository.movieRatings(
                 username,
                 movies.getContent().stream().map(Movie::getImdbId).toList());

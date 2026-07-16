@@ -4,13 +4,15 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
-import { FavoriteMoviesShare, Movie, MoviesApiService } from '../../services/movies-api';
+import { FavoriteMoviesShare, Movie, MoviesApiService, ParsedMovieSearch } from '../../services/movies-api';
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
+import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
+import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 
 @Component({
   standalone: true,
   selector: 'app-favorite-movies',
-  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent],
+  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent, CategoryTreeDialogComponent],
   templateUrl: './favorite-movies.html',
   styleUrl: './favorite-movies.css'
 })
@@ -39,7 +41,9 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   readonly pageSize = this.moviesApi.moviePageSize;
   filterText = '';
   activeFilter = '';
-  private filterTimer?: ReturnType<typeof setTimeout>;
+  activeYear = '';
+  activeCategories: number[] = [];
+  categoryMovie: Movie | null = null;
 
   ngOnInit(): void {
     this.routeSub = this.route.paramMap.subscribe(params => {
@@ -75,15 +79,14 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.authSub?.unsubscribe();
     this.routeSub?.unsubscribe();
-    this.clearFilterTimer();
   }
 
   loadFavoriteMovies(page = this.currentPage): void {
     this.loading = true;
     this.errorMessage = '';
     const moviesRequest = this.isPublicView
-      ? this.moviesApi.listPublicFavoriteMovies(this.publicUsername, page, this.pageSize, this.activeFilter)
-      : this.moviesApi.listFavoriteMovies(page, this.pageSize, this.activeFilter);
+      ? this.moviesApi.listPublicFavoriteMovies(this.publicUsername, page, this.pageSize, this.activeFilter, this.activeYear, this.activeCategories)
+      : this.moviesApi.listFavoriteMovies(page, this.pageSize, this.activeFilter, this.activeYear, this.activeCategories);
 
     moviesRequest.subscribe({
       next: moviePage => {
@@ -101,40 +104,13 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     });
   }
 
-  onFilterInput(event: Event): void {
-    this.filterText = (event.target as HTMLInputElement).value;
-    this.clearFilterTimer();
-
-    const filter = this.filterText.trim();
-    if (!filter) {
-      if (this.activeFilter) {
-        this.activeFilter = '';
-        this.loadFavoriteMovies(1);
-      }
-      return;
-    }
-
-    if (filter.length <= 3) {
-      return;
-    }
-
-    this.filterTimer = setTimeout(() => {
-      const nextFilter = this.filterText.trim();
-      if (nextFilter.length > 3 && nextFilter !== this.activeFilter) {
-        this.activeFilter = nextFilter;
-        this.loadFavoriteMovies(1);
-      }
-    }, 300);
-  }
-
-  clearFilter(): void {
-    this.clearFilterTimer();
-    const shouldReload = !!this.activeFilter || !!this.filterText;
-    this.filterText = '';
-    this.activeFilter = '';
-    if (shouldReload) {
-      this.loadFavoriteMovies(1);
-    }
+  applyFilter(search: ParsedMovieSearch): void {
+    const categories = search.selectedCategories ?? [];
+    if (search.keyword === this.activeFilter && search.year === this.activeYear && categories.join() === this.activeCategories.join()) return;
+    this.activeFilter = search.keyword;
+    this.activeYear = search.year;
+    this.activeCategories = categories;
+    this.loadFavoriteMovies(1);
   }
 
   loadShareStatus(): void {
@@ -180,6 +156,9 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';
   }
 
+  openCategories(movie: Movie): void { this.categoryMovie = movie; }
+  closeCategories(): void { this.categoryMovie = null; }
+
   private applyShare(share: FavoriteMoviesShare): void {
     this.share = share;
     if (!share.myFavoriteMoviesPublic) {
@@ -196,9 +175,10 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   }
 
   private resetFilter(): void {
-    this.clearFilterTimer();
     this.filterText = '';
     this.activeFilter = '';
+    this.activeYear = '';
+    this.activeCategories = [];
   }
 
   private resetShareState(): void {
@@ -208,13 +188,6 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     this.shareLoading = false;
     this.copiedShareUrl = false;
     this.shareDetailsVisible = false;
-  }
-
-  private clearFilterTimer(): void {
-    if (this.filterTimer) {
-      clearTimeout(this.filterTimer);
-      this.filterTimer = undefined;
-    }
   }
 
   private decodeUsername(value: string): string {

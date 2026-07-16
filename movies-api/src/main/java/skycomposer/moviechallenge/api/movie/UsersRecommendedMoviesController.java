@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import static skycomposer.moviechallenge.api.config.SwaggerConfig.BEARER_KEY_SECURITY_SCHEME;
+import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
@@ -27,7 +28,9 @@ public class UsersRecommendedMoviesController {
     public MoviePageDto getUsersRecommendedMovies(@AuthenticationPrincipal Jwt jwt,
                                                   @RequestParam(required = false) Integer page,
                                                   @RequestParam(required = false) Integer pageSize,
-                                                  @RequestParam(required = false) String filter) {
-        return viewUsersRecommendedMovies.viewUsersRecommendedMovies(jwt, moviePaging.pageable(page, pageSize), filter);
+                                                  @RequestParam(required = false) String filter,
+                                                  @RequestParam(required = false) String year,
+                                                  @RequestParam(required = false) List<Long> selectedCategories) {
+        return viewUsersRecommendedMovies.viewUsersRecommendedMovies(jwt, moviePaging.pageable(page, pageSize), filter, year, selectedCategories);
     }
 }
