@@ -2,6 +2,7 @@ package skycomposer.moviechallenge.api.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -61,6 +62,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/favorite-movies", "/api/favorite-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/users-favorite-movies", "/api/users-favorite-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/users-recommended-movies", "/api/users-recommended-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
+                        .requestMatchers("/api/movie-guides/existing", "/api/movie-guides/*/movies/existing").authenticated()
+                        .requestMatchers("/api/movie-guides", "/api/movie-guides/**").hasAnyRole(MOVIES_ADMIN, MOVIES_GUIDE)
                         .requestMatchers(HttpMethod.POST, "/api/movies").authenticated()
                         .requestMatchers("/api/movies", "/api/movies/**").hasRole(MOVIES_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/userextras/me").authenticated()
@@ -73,6 +76,14 @@ public class SecurityConfig {
                         jwt -> jwt.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthConverter)))
                 .sessionManagement(sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
+    }
+
+    @Bean
+    FilterRegistrationBean<MaxRequestSizeFilter> movieGuideRequestSizeFilter() {
+        FilterRegistrationBean<MaxRequestSizeFilter> registration =
+                new FilterRegistrationBean<>(new MaxRequestSizeFilter(5_000_000));
+        registration.addUrlPatterns("/api/movie-guides", "/api/movie-guides/*");
+        return registration;
     }
 
     @Bean
@@ -108,4 +119,5 @@ public class SecurityConfig {
     public static final String MOVIES_ADMIN = "MOVIES_ADMIN";
     public static final String MOVIES_USER = "MOVIES_USER";
     public static final String USER = "USER";
+    public static final String MOVIES_GUIDE = "MOVIES_GUIDE";
 }

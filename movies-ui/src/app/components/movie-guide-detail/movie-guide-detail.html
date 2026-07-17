@@ -1,0 +1,45 @@
+<section class="movie-page">
+  @if (loading) {
+    <div class="state">Loading Movie Guide…</div>
+  } @else {
+    <header class="guide-header">
+      <div>
+        <p class="eyebrow">{{ category?.icon || '📁' }} {{ entryType === 'Personality' ? 'Movie Personality' : 'Movie Guide' }}</p>
+        <h1>{{ category?.name || 'Movie Guide' }}</h1>
+        @if (category?.description) { <p class="guide-description">{{ category?.description }}</p> }
+      </div>
+
+      <div class="share-tools">
+        <div class="share-panel" aria-label="Movie Guide sharing">
+          @if (!shareDetailsVisible) {
+            <button type="button" class="share-button" (click)="share()">Share</button>
+          }
+          @if (shareDetailsVisible && shareUrl) {
+            <div class="share-link-row">
+              <input type="text" [value]="shareUrl" readonly aria-label="Public Movie Guide link" />
+              <button type="button" class="copy-button" (click)="copyShareUrl()">
+                {{ copiedShareUrl ? 'Copied' : 'Copy' }}
+              </button>
+              <button type="button" class="close-share-button" (click)="closeShareDetails()">Close</button>
+            </div>
+          }
+        </div>
+      </div>
+    </header>
+
+    @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+
+    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies in this guide" [showNotRecommendedFilter]="true" [initialSelectedCategories]="activeCategories" (internalSearch)="applyFilter($event)" />
+    <h2>Movie Results</h2>
+
+    <app-movie-grid
+      [movies]="movies"
+      [loading]="moviesLoading"
+      [errorMessage]="''"
+      [currentPage]="currentPage"
+      [totalCount]="totalCount"
+      [pageSize]="pageSize"
+      emptyMessage="No movies in this Movie Guide yet"
+      (pageChange)="loadMovies($event)" />
+  }
+</section>

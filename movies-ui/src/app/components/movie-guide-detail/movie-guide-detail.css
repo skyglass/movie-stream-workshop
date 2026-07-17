@@ -1,0 +1,132 @@
+.movie-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.guide-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #64748b;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.guide-header h1 {
+  margin: 0.2rem 0;
+  color: #203349;
+  font-size: 1.6rem;
+  line-height: 1.25;
+}
+
+.guide-description {
+  margin: 0.25rem 0 0;
+  color: #526170;
+  max-width: 42rem;
+  line-height: 1.5;
+}
+
+.share-tools {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.share-panel {
+  min-width: min(100%, 26rem);
+  display: grid;
+  justify-items: end;
+  gap: 0.45rem;
+}
+
+.share-button,
+.copy-button,
+.close-share-button {
+  min-height: 2.35rem;
+  border-radius: 6px;
+  border: 1px solid #1b6fa8;
+  background: #1b6fa8;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.share-button:hover,
+.copy-button:hover {
+  background: #155c8d;
+}
+
+.close-share-button {
+  border-color: #c9d2dc;
+  background: #ffffff;
+  color: #203349;
+}
+
+.close-share-button:hover {
+  border-color: #1b6fa8;
+  color: #1b6fa8;
+  background: #ffffff;
+}
+
+.share-link-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+}
+
+.share-link-row input {
+  min-width: 0;
+  min-height: 2.35rem;
+  border: 1px solid #c9d2dc;
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+  color: #203349;
+}
+
+.state,
+.error {
+  border: 1px solid #99c2e8;
+  border-radius: 6px;
+  padding: 1.5rem;
+  text-align: center;
+  background: #f7fbff;
+  color: #244c73;
+  font-weight: 700;
+}
+
+.error {
+  border-color: #edb4b4;
+  background: #fff6f6;
+  color: #a43636;
+}
+
+@media (max-width: 760px) {
+  .movie-page {
+    padding: 1rem;
+  }
+
+  .guide-header {
+    display: grid;
+  }
+
+  .share-panel {
+    justify-items: stretch;
+    min-width: 0;
+  }
+
+  .share-button {
+    justify-self: start;
+  }
+}

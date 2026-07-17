@@ -1,0 +1,62 @@
+<section class="movie-guides-page">
+  <header>
+    <p class="eyebrow">Explore curated lists</p>
+    <h1>Movie Guides</h1>
+  </header>
+
+  @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+
+  @if (loading) {
+    <div class="state">Loading Movie Guides…</div>
+  } @else {
+    <section class="guide-panel">
+      <header class="guide-panel-header">
+        <h2>Guides</h2>
+        @if (auth.token) {
+          <button type="button" class="create-button" (click)="openCreate('Guide')">
+            <span class="material-icons" aria-hidden="true">library_add</span>Create Movie Guide
+          </button>
+        }
+      </header>
+      <div class="guide-list">
+        @if (guides.length === 0) {
+          <p class="empty">No Movie Guides yet.</p>
+        } @else {
+          @for (guide of guides; track guide.id) {
+            <a class="guide-row" [routerLink]="['/movie-guides', guide.id]">
+              <span class="emoji">{{ guide.icon || '📁' }}</span>
+              <span class="guide-name">{{ guide.name }}</span>
+            </a>
+          }
+        }
+      </div>
+    </section>
+
+    <section class="guide-panel">
+      <header class="guide-panel-header">
+        <h2>Personalities</h2>
+        @if (auth.token) {
+          <button type="button" class="create-button" (click)="openCreate('Personality')">
+            <span class="material-icons" aria-hidden="true">library_add</span>Create Movie Personality
+          </button>
+        }
+      </header>
+      <div class="guide-list">
+        @if (personalities.length === 0) {
+          <p class="empty">No Movie Personalities yet.</p>
+        } @else {
+          @for (personality of personalities; track personality.id) {
+            <a class="guide-row" [routerLink]="['/movie-guides', personality.id]">
+              <span class="emoji">{{ personality.icon || '📁' }}</span>
+              <span class="guide-name">{{ personality.name }}</span>
+            </a>
+          }
+        }
+      </div>
+    </section>
+  }
+
+  @if (creatingType) {
+    <app-create-movie-guide-dialog [initialType]="creatingType" (closed)="closeCreate()" (guideCreated)="onGuideCreated($event)" />
+  }
+</section>

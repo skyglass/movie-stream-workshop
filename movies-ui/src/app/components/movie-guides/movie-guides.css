@@ -1,0 +1,113 @@
+.movie-guides-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #64748b;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+header h1 {
+  margin: 0.2rem 0 1.25rem;
+  color: #203349;
+  font-size: 1.6rem;
+}
+
+.guide-panel {
+  border: 1px solid #d8dde5;
+  border-radius: 10px;
+  background: #ffffff;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.guide-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #eceff3;
+}
+
+.guide-panel-header h2 {
+  margin: 0;
+  color: #203349;
+  font-size: 1.15rem;
+}
+
+.create-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  border: 1px solid #1b6fa8;
+  border-radius: 6px;
+  background: #1b6fa8;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.create-button:hover {
+  background: #155c8d;
+}
+
+.guide-list {
+  height: 24rem;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.guide-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  color: #203349;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.guide-row:hover {
+  background: #eff6ff;
+}
+
+.emoji {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.empty {
+  margin: 0;
+  padding: 1.5rem;
+  text-align: center;
+  color: #5d6978;
+  font-weight: 700;
+}
+
+.state,
+.error {
+  border: 1px solid #99c2e8;
+  border-radius: 6px;
+  padding: 1.5rem;
+  text-align: center;
+  background: #f7fbff;
+  color: #244c73;
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+}
+
+.error {
+  border-color: #edb4b4;
+  background: #fff6f6;
+  color: #a43636;
+}

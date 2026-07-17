@@ -7,15 +7,15 @@
   @if(startJourneyOpen){
     <section class="start-journey-layout">
       <div class="start-journey-tree">
-        <app-category-tree-dialog mode="journey" [inline]="true" [selectedCategoryIds]="journeyCategory ? [journeyCategory.id] : []" (closed)="closeStartJourney()" (journeyCategorySelected)="selectJourneyCategory($event)" />
+        <app-category-tree-dialog mode="journey" [inline]="true" [selectedCategoryIds]="journeyCategoryIds" (closed)="closeStartJourney()" (categoriesSelected)="onJourneyCategoriesSelected($event)" />
       </div>
       <div class="start-journey-movies">
-        @if(!journeyCategory){
-          <p class="journey-hint">Select a category on the left to see its movies.</p>
+        @if(journeyCategories.length===0){
+          <p class="journey-hint">Select one or more categories on the left to see their movies.</p>
         } @else {
           <div class="journey-results-header">
-            <h2>{{journeyCategory.icon || '📁'}} {{journeyCategory.name}}</h2>
-            <button type="button" class="add-movie-toggle" (click)="toggleAddMovie()">{{ addMovieOpen ? 'Close' : 'Add a Movie' }}</button>
+            <h2>@for(category of journeyCategories; track category.id){<span class="journey-category-chip">{{category.icon || '📁'}} {{category.name}}</span>}</h2>
+            <button type="button" class="add-movie-toggle" (click)="toggleAddMovie()">{{ addMovieOpen ? 'Close' : 'Add Movie to selected categories' }}</button>
           </div>
           @if(addMovieOpen){
             <section class="add-movie-panel">
@@ -25,13 +25,13 @@
               @for(movie of addMovieResults; track movie.imdbId){
                 <div class="result">
                   <div><strong>{{movie.title}}</strong><span>{{movie.year}} · {{movie.director}} · {{movie.genre}}</span></div>
-                  <button type="button" [disabled]="addMovieBusy[movie.imdbId]" (click)="addMovieToCategory(movie)">Add to Category</button>
+                  <button type="button" [disabled]="addMovieBusy[movie.imdbId]" (click)="addMovieToCategory(movie)">Add to Selected Categories</button>
                 </div>
               }
             </section>
           }
           @if(journeyLoading){<p>Loading movies…</p>}
-          @else if(journeyMovies.length===0){<p>No movies in this category yet.</p>}
+          @else if(journeyMovies.length===0){<p>No movies in these categories yet.</p>}
           @else{
             <div class="journey-movie-grid">
               @for(movie of journeyMovies;track movie.imdbId){

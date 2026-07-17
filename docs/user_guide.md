@@ -142,3 +142,215 @@ A prolific user may still contribute many movies. When that user has only weak p
 supported movies remain eligible but receive scores close to the catalog average and generally appear below movies with
 stronger or broader support. If the user's Pearson correlation is zero or negative, their uniquely contributed movies
 are not eligible.
+
+## Movie Guide JSON Import Format
+
+"Create Movie Guide" (Movie Guides page, any signed-in user) bulk-imports a hand-curated movie list from a JSON file.
+Uploading it creates a `Guides > <name>` or `Personalities > <name>` category, links every listed movie to it, and
+lands you on the catalog filtered to that category. A name that's already taken by an existing Guide/Personality is
+rejected — bulk import only ever creates a brand-new one; to add or remove movies/categories on an existing one, edit
+it directly on its own page instead of re-importing.
+
+A **Guide** is a themed list (e.g. "Heist Movies"). A **Personality** is a real film expert, critic, or movie fan
+whose taste is publicly known — the "personality" is the one *doing the recommending*, not necessarily the subject
+of the movies. An actor or director can absolutely be the persona (e.g. "Robert De Niro — Italian Neorealism Picks"),
+but only because of their well-known taste and opinions; their own filmography belongs under `Directors`/`Writers`
+instead, not under a Personality category named after them.
+
+### Two account tiers — same JSON format, different category resolution
+
+The JSON shape is identical either way. Creating the `Guides > <name>` / `Personalities > <name>` container itself is
+open to everyone. What differs is how a movie's `categories` dot-paths get resolved:
+
+- **`MOVIES_GUIDE` role or admin** — each path segment is created if it doesn't already exist (walking root to leaf).
+  This role is assigned per-user in Keycloak by an admin, precisely because unrestricted category creation at
+  bulk-import scale is a real abuse surface (spam/obscene category names, resource exhaustion) — see the request-size
+  and count limits below.
+- **Everyone else (any signed-in user)** — nothing is ever created. Each path is walked root to leaf against
+  *existing* categories only; the moment any segment (including the root) doesn't match, that whole path is silently
+  dropped for that movie rather than erroring. Browse "Select Categories" in the filter bar to see the current tree
+  before writing (or generating) your file, and copy a path from there exactly.
+
+Either way, any `imdbId` your account can't resolve (nonexistent, or OMDb can't find it either) is silently skipped
+rather than failing the whole upload — but the request as a whole is still capped: **1000 movies / 20,000 total
+category references** for `MOVIES_GUIDE`/admin accounts, **100 movies / 700 total category references** for everyone
+else. A file over 5 MB is rejected before it's even read.
+
+### Top-level fields
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `type` | `"Guide"` \| `"Personality"` | yes | Exact casing. Chooses the `Guides` or `Personalities` root. |
+| `name` | string | yes | The guide/personality's own category name, e.g. `"Heist Movies"` or `"Robert De Niro — Italian Neorealism Picks"`. |
+| `description` | string | no | Stored on that category the first time it's created; left alone on later uploads. |
+| `movies` | array | yes | See below. |
+
+### Each `movies[]` entry
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `imdbId` | string | yes | A real IMDb id (`tt...`). Every movie must have one. |
+| `categories` | array of strings | yes | One or more **dot-separated full paths**, root to leaf, e.g. `"Directors.Vittorio De Sica"` or `"Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"`. Any number of levels is allowed. `MOVIES_GUIDE`/admin accounts auto-create any segment that doesn't exist; other accounts must match an existing path exactly, or it's dropped (see above). |
+
+Every movie is also linked to the guide/personality category itself — you don't need to (and shouldn't) repeat the
+`type`/`name` as one of its own `categories` entries.
+
+### What "categories" should actually contain
+
+A category path can be:
+- **A reuse of something that already exists** — `"Genres.Crime"`, `"Directors.Vittorio De Sica"`, or one of the
+  curated narrative paths (`"Narratives.Greek & Roman Mythology.Prometheus"`) all resolve to the existing category
+  instead of creating a duplicate.
+- **A brand-new, invented path** that captures *why this specific movie belongs in this specific guide/personality* —
+  this is the interesting part. When you (or an AI assistant) curate the list, write a short private note for each
+  movie explaining the judgment call — what makes it fit the theme, or why this persona would recommend it — and turn
+  that note into a category path instead of leaving it as prose. A deeper path is fine and often better:
+  `"Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"` says far more than a flat
+  `"Neorealism"` tag would. For a Personality specifically, remember the path should describe *why the persona
+  recommends it*, not a fact about the persona's own career — their own filmography belongs under `Directors`/`Writers`.
+
+Re-uploading the same file is always safe — every step is idempotent (existing categories are reused, existing
+`movie_category` links are no-ops).
+
+### Minimal 2-movie example
+
+```json
+{
+  "type": "Personality",
+  "name": "Robert De Niro — Italian Neorealism Picks",
+  "description": "The postwar Italian films De Niro has cited as formative to his own sense of screen truth.",
+  "movies": [
+    {
+      "imdbId": "tt0040959",
+      "categories": ["Directors.Vittorio De Sica", "Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"]
+    },
+    {
+      "imdbId": "tt0038650",
+      "categories": ["Directors.Roberto Rossellini", "Recommended By.Robert De Niro's Italian Neorealism Picks.Wartime Resistance Under Occupation"]
+    }
+  ]
+}
+```
+
+### Generating a file with an AI assistant
+
+This format is deliberately easy for an AI assistant (ChatGPT, Claude, Codex, etc.) to produce: ask it to role-play a
+domain expert curating a Guide, or a real, publicly-known film expert/critic/movie fan *recommending* movies for a
+Personality — hand-pick a real, specific movie list for that topic/persona, and translate its own judgment notes
+directly into category paths. A reusable prompt template:
+
+```text
+For a Guide: you are <a real or invented domain expert>, curating a movie guide called "<Guide name>".
+For a Personality: you are simulating <a real film expert, critic, or movie fan whose taste is publicly known, e.g.
+"Robert De Niro" or "a Cahiers du Cinéma critic">, recommending movies the way this person genuinely would, for a
+list called "<Personality name>". The personality is the expert doing the recommending, not necessarily the subject
+of the movies — an actor/director can be the persona, but only for their known taste, not their own filmography
+(which belongs under Directors/Writers instead).
+
+Hand-pick <12–25, or fewer for a tightly-scoped theme> real movies that best represent this topic/persona. For each
+movie:
+1. Look up (or recall) its real IMDb id (tt...).
+2. Write yourself a one-sentence note on *why* this specific movie earned its place on the list.
+3. Turn that note into one or more dot-separated category paths (root → ... → leaf, any depth), reusing an existing
+   root like Genres/Directors/Writers/Narratives when it genuinely fits, and inventing a new, specific path under a
+   topic-relevant root otherwise.
+
+Output only this JSON shape (no commentary):
+{
+  "type": "Guide" or "Personality",
+  "name": "<title>",
+  "description": "<one sentence>",
+  "movies": [ { "imdbId": "tt...", "categories": ["...", "..."] }, ... ]
+}
+```
+
+### Worked examples
+
+Three different framings of the same Personality persona, and three unrelated Guide topics — each trimmed to 2
+movies here for brevity (a real upload would typically include far more). Note that none of the movies in the
+Personality examples star or were directed by Robert De Niro — he's the expert doing the recommending, not the
+subject.
+
+**Personality 1 — Robert De Niro's Italian Neorealism picks** (postwar films he's cited as formative to his own sense of screen truth):
+
+```json
+{
+  "type": "Personality",
+  "name": "Robert De Niro — Italian Neorealism Picks",
+  "description": "The postwar Italian films De Niro has cited as formative to his own sense of screen truth.",
+  "movies": [
+    { "imdbId": "tt0040959", "categories": ["Directors.Vittorio De Sica", "Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"] },
+    { "imdbId": "tt0038650", "categories": ["Directors.Roberto Rossellini", "Recommended By.Robert De Niro's Italian Neorealism Picks.Wartime Resistance Under Occupation"] }
+  ]
+}
+```
+
+**Personality 2 — Robert De Niro's classic Hollywood noir favorites** (the studio-era films he's pointed to as touchstones):
+
+```json
+{
+  "type": "Personality",
+  "name": "Robert De Niro — Classic Hollywood Noir Favorites",
+  "description": "The studio-era noirs whose moral shading De Niro has named as touchstones.",
+  "movies": [
+    { "imdbId": "tt0043014", "categories": ["Directors.Billy Wilder", "Styles.Influences.Classical Hollywood Style", "Recommended By.Robert De Niro's Classic Hollywood Noir Favorites.Faded Stardom's Dark Side"] },
+    { "imdbId": "tt0036775", "categories": ["Directors.Billy Wilder", "Styles.Influences.Film Noir", "Recommended By.Robert De Niro's Classic Hollywood Noir Favorites.Greed Disguised as Romance"] }
+  ]
+}
+```
+
+**Personality 3 — Robert De Niro's method acting masters** (the performances he's credited with shaping his own approach):
+
+```json
+{
+  "type": "Personality",
+  "name": "Robert De Niro — Method Acting Masters",
+  "description": "The performances De Niro has credited as shaping his own approach to the craft.",
+  "movies": [
+    { "imdbId": "tt0047296", "categories": ["Directors.Elia Kazan", "Recommended By.Robert De Niro's Method Acting Masters.The Conflicted Conscience"] },
+    { "imdbId": "tt0044081", "categories": ["Directors.Elia Kazan", "Writers.Tennessee Williams", "Narratives.Classic Theatre & Tragedy.Blanche DuBois", "Recommended By.Robert De Niro's Method Acting Masters.Raw Emotional Volatility"] }
+  ]
+}
+```
+
+**Guide 1 — Heist movies: masterworks of the perfect plan** (judged by how deliberately the plan/execution/twist structure is built, not just genre):
+
+```json
+{
+  "type": "Guide",
+  "name": "Heist Movies: Masterworks of the Perfect Plan",
+  "description": "Films built entirely around the construction, execution, and unraveling of a meticulous plan.",
+  "movies": [
+    { "imdbId": "tt0070735", "categories": ["Genres.Comedy", "Heist Mechanics.The Perfect Plan.The Long Con"] },
+    { "imdbId": "tt0105236", "categories": ["Directors.Quentin Tarantino", "Heist Mechanics.The Perfect Plan.The Job Gone Wrong"] }
+  ]
+}
+```
+
+**Guide 2 — Existential sci-fi: questioning what it means to be human** (judged by philosophical weight, not spectacle):
+
+```json
+{
+  "type": "Guide",
+  "name": "Existential Sci-Fi: Questioning What It Means to Be Human",
+  "description": "Science fiction that uses its premise to interrogate identity, memory, and consciousness.",
+  "movies": [
+    { "imdbId": "tt0083658", "categories": ["Genres.Sci-Fi", "Philosophical Questions.What Makes Us Human.Manufactured Memory"] },
+    { "imdbId": "tt2543164", "categories": ["Genres.Sci-Fi", "Philosophical Questions.What Makes Us Human.Language Reshapes Time"] }
+  ]
+}
+```
+
+**Guide 3 — Underdog sports dramas: triumph against the odds** (judged by the shape of the underdog arc, across different sports):
+
+```json
+{
+  "type": "Guide",
+  "name": "Underdog Sports Dramas: Triumph Against the Odds",
+  "description": "Sports films where the emotional core is the unlikely rise, not the sport itself.",
+  "movies": [
+    { "imdbId": "tt0075148", "categories": ["Genres.Sport", "Narrative Arcs.Triumph Against the Odds.The Unlikely Contender"] },
+    { "imdbId": "tt0405159", "categories": ["Genres.Sport", "Narrative Arcs.Triumph Against the Odds.The Late-Blooming Fighter"] }
+  ]
+}
+```

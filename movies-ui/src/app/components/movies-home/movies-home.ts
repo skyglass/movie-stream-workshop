@@ -1,17 +1,16 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { AuthService } from '../../services/auth';
 import { MoviesApiService, Movie, ParsedMovieSearch } from '../../services/movies-api';
 import { Subscription } from 'rxjs';
-import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
+import { MovieGridComponent } from '../movie-grid/movie-grid';
 
 @Component({
   standalone: true,
   selector: 'app-movies-home',
-  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent],
+  imports: [CommonModule, MovieFilterSearchComponent, MovieGridComponent],
   templateUrl: './movies-home.html',
   styleUrl: './movies-home.css'
 })
@@ -27,7 +26,6 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   currentPage = 1;
   totalCount = 0;
   readonly pageSize = this.moviesApi.moviePageSize;
-  recommendationBusy: Record<string, boolean> = {};
   filterText = '';
   activeFilter = '';
   activeYear = '';
@@ -75,40 +73,8 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
     this.loadMovies(1);
   }
 
-  poster(movie: Movie): string {
-    return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';
-  }
-
-  likeMovie(movie: Movie): void {
-    if (this.recommendationBusy[movie.imdbId]) return;
-    this.updateRecommendation(movie, () => this.moviesApi.recommendMovie(movie.imdbId));
-  }
-
-  dislikeMovie(movie: Movie): void {
-    if (this.recommendationBusy[movie.imdbId]) return;
-    this.updateRecommendation(movie, () => this.moviesApi.dislikeMovie(movie.imdbId));
-  }
-
-  clearRecommendation(movie: Movie): void {
-    if (this.recommendationBusy[movie.imdbId]) return;
-    this.updateRecommendation(movie, () => this.moviesApi.unrecommendMovie(movie.imdbId));
-  }
-
-  private updateRecommendation(movie: Movie, requestFactory: () => ReturnType<MoviesApiService['recommendMovie']>): void {
-    if (!this.auth.token) return;
-    this.recommendationBusy[movie.imdbId] = true;
-    this.errorMessage = '';
-    requestFactory().subscribe({
-      next: updatedMovie => {
-        movie.recommended = updatedMovie.recommended;
-        movie.disliked = updatedMovie.disliked;
-        this.recommendationBusy[movie.imdbId] = false;
-      },
-      error: err => {
-        this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not update recommendation';
-        this.recommendationBusy[movie.imdbId] = false;
-      }
-    });
+  emptyMessage(): string {
+    return this.activeCategories.length > 0 ? 'No movies in Selected Categories yet' : 'No movies in Movie Challenge yet';
   }
 
   private applySeoMetadata(): void {

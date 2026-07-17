@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { Movie, MovieCategory, MovieCourse, MovieJourneyType, MoviesApiService, OmdbMovieSearchResult, ParsedMovieSearch } from '../../services/movies-api';
 import { AuthService } from '../../services/auth';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
@@ -15,17 +16,18 @@ export class MovieCoursesComponent implements OnInit {
   courses: MovieCourse[] = []; loading = true; busy = false; errorMessage = '';
   readonly journeyTypes:{value:MovieJourneyType;label:string}[]=[{value:'JOURNEY',label:'Movie Journey'},{value:'GUIDE',label:'Movie Guide'},{value:'COURSE',label:'Movie Course'},{value:'FESTIVAL',label:'Movie Festival'},{value:'TOUR',label:'Movie Tour'}];
   creating = false; header = ''; title = ''; description = ''; type:MovieJourneyType='JOURNEY';
-  startJourneyOpen=false;journeyCategory:MovieCategory|null=null;journeyMovies:Movie[]=[];journeyLoading=false;recommendationBusy:Record<string,boolean>={};
+  startJourneyOpen=false;journeyCategories:MovieCategory[]=[];categoriesTree:MovieCategory[]=[];journeyMovies:Movie[]=[];journeyLoading=false;recommendationBusy:Record<string,boolean>={};
   addMovieOpen=false;addMovieFilter='';addMovieResults:Movie[]=[];addMovieBusy:Record<string,boolean>={};
   descriptionCourse:MovieCourse|null=null;
   @ViewChild(MovieFilterSearchComponent) addMovieFilterSearch?:MovieFilterSearchComponent;
 
   ngOnInit(): void {
     this.load();
-    const categoryId = Number(this.route.snapshot.queryParamMap.get('category'));
-    if (categoryId) {
+    const raw = this.route.snapshot.queryParamMap.get('category');
+    const categoryIds = raw ? raw.split(',').map(Number).filter(id => !!id) : [];
+    if (categoryIds.length) {
       this.startJourneyOpen = true;
-      this.restoreJourneyCategory(categoryId);
+      this.restoreJourneyCategories(categoryIds);
     }
   }
 
@@ -35,11 +37,13 @@ export class MovieCoursesComponent implements OnInit {
   apply(course: MovieCourse): void { this.busy=true; this.api.applyToMovieCourse(course.id).subscribe({
     next:()=>this.router.navigate(['/movie-journeys',course.id]), error:e=>this.fail(e)}); }
 
+  get journeyCategoryIds(): number[] { return this.journeyCategories.map(c => c.id); }
+
   startJourney(): void { this.startJourneyOpen = true; }
 
   closeStartJourney(): void {
     this.startJourneyOpen = false;
-    this.journeyCategory = null;
+    this.journeyCategories = [];
     this.journeyMovies = [];
     this.addMovieOpen = false;
     this.addMovieResults = [];
@@ -47,15 +51,12 @@ export class MovieCoursesComponent implements OnInit {
     this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
   }
 
-  selectJourneyCategory(category: MovieCategory, updateUrl = true): void {
-    this.journeyCategory = category;
-    this.addMovieOpen = false;
-    this.addMovieResults = [];
-    this.addMovieFilter = '';
-    this.reloadJourneyMovies();
-    if (updateUrl) {
-      this.router.navigate([], { relativeTo: this.route, queryParams: { category: category.id }, replaceUrl: true });
-    }
+  onJourneyCategoriesSelected(ids: number[]): void {
+    if (this.categoriesTree.length) { this.applyJourneyCategorySelection(ids); return; }
+    this.api.getCategoryTree().subscribe({
+      next: categories => { this.categoriesTree = categories; this.applyJourneyCategorySelection(ids); },
+      error: e => this.fail(e)
+    });
   }
 
   toggleAddMovie(): void { this.addMovieOpen = !this.addMovieOpen; }
@@ -69,25 +70,23 @@ export class MovieCoursesComponent implements OnInit {
   }
 
   addMovieToCategory(movie: Movie): void {
-    if (!this.journeyCategory || this.addMovieBusy[movie.imdbId]) return;
+    if (this.journeyCategories.length === 0 || this.addMovieBusy[movie.imdbId]) return;
     this.addMovieBusy[movie.imdbId] = true;
-    this.api.saveMovieCategories(movie.imdbId, [this.journeyCategory.id], []).subscribe({
+    this.api.saveMovieCategories(movie.imdbId, this.journeyCategories.map(c => c.id), []).subscribe({
       next: () => {
-        this.addMovieResults = this.addMovieResults.filter(result => result.imdbId !== movie.imdbId);
         this.addMovieBusy[movie.imdbId] = false;
-        this.reloadJourneyMovies();
+        this.closeAddMoviePanel();
       },
       error: e => { this.addMovieBusy[movie.imdbId] = false; this.fail(e); }
     });
   }
 
   externalAddToCategory(event: { action: ExternalMovieAction; movie: OmdbMovieSearchResult }): void {
-    if (!this.journeyCategory) return;
-    this.api.addMovieFromSearchToCategory(this.journeyCategory.id, event.movie).subscribe({
+    if (this.journeyCategories.length === 0) return;
+    forkJoin(this.journeyCategories.map(c => this.api.addMovieFromSearchToCategory(c.id, event.movie))).subscribe({
       next: () => {
-        this.addMovieFilter = '';
         this.addMovieFilterSearch?.completeExternalAction();
-        this.reloadJourneyMovies();
+        this.closeAddMoviePanel();
       },
       error: e => { this.addMovieFilterSearch?.failExternalAction(e); this.fail(e); }
     });
@@ -100,13 +99,29 @@ export class MovieCoursesComponent implements OnInit {
   rate(movie:Movie,positive:boolean):void{if(this.recommendationBusy[movie.imdbId])return;this.recommendationBusy[movie.imdbId]=true;const request=positive?this.api.recommendMovie(movie.imdbId):this.api.dislikeMovie(movie.imdbId);request.subscribe({next:updated=>{movie.recommended=updated.recommended;movie.disliked=updated.disliked;this.recommendationBusy[movie.imdbId]=false;},error:e=>this.fail(e)});}
   clearRating(movie:Movie):void{if(this.recommendationBusy[movie.imdbId])return;this.recommendationBusy[movie.imdbId]=true;this.api.unrecommendMovie(movie.imdbId).subscribe({next:updated=>{movie.recommended=updated.recommended;movie.disliked=updated.disliked;this.recommendationBusy[movie.imdbId]=false;},error:e=>this.fail(e)});}
 
-  private restoreJourneyCategory(categoryId: number): void {
+  private applyJourneyCategorySelection(ids: number[]): void {
+    this.journeyCategories = ids.map(id => this.findCategory(this.categoriesTree, id)).filter((c): c is MovieCategory => !!c);
+    this.addMovieOpen = false;
+    this.addMovieResults = [];
+    this.addMovieFilter = '';
+    this.reloadJourneyMovies();
+    this.router.navigate([], { relativeTo: this.route, queryParams: { category: ids.join(',') || null }, replaceUrl: true });
+  }
+
+  private closeAddMoviePanel(): void {
+    this.addMovieOpen = false;
+    this.addMovieResults = [];
+    this.addMovieFilter = '';
+    this.reloadJourneyMovies();
+  }
+
+  private restoreJourneyCategories(categoryIds: number[]): void {
     this.journeyLoading = true;
     this.api.getCategoryTree().subscribe({
       next: categories => {
-        const found = this.findCategory(categories, categoryId);
-        if (found) this.selectJourneyCategory(found, false);
-        else this.journeyLoading = false;
+        this.categoriesTree = categories;
+        this.journeyCategories = categoryIds.map(id => this.findCategory(categories, id)).filter((c): c is MovieCategory => !!c);
+        if (this.journeyCategories.length) this.reloadJourneyMovies(); else this.journeyLoading = false;
       },
       error: e => this.fail(e)
     });
@@ -122,9 +137,9 @@ export class MovieCoursesComponent implements OnInit {
   }
 
   private reloadJourneyMovies(): void {
-    if (!this.journeyCategory) return;
+    if (this.journeyCategories.length === 0) { this.journeyMovies = []; return; }
     this.journeyLoading = true;
-    this.api.listMovies(1, 50, '', '', [this.journeyCategory.id]).subscribe({
+    this.api.listMovies(1, 50, '', '', this.journeyCategories.map(c => c.id)).subscribe({
       next: page => { this.journeyMovies = page.movies; this.journeyLoading = false; },
       error: e => this.fail(e)
     });

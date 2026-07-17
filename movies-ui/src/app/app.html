@@ -6,11 +6,10 @@
       @if (auth.token) {
         <a routerLink="/movie-challenge" routerLinkActive="active">Movie Challenge</a>
         <a routerLink="/favorites" routerLinkActive="active">My Favorite Movies</a>
-      }
-      <a routerLink="/movie-journeys" routerLinkActive="active">Movie Journeys</a>
-      @if (auth.token) {
         <a routerLink="/users-recommended" routerLinkActive="active">Recommended Movies</a>
       }
+      <a routerLink="/movie-guides" routerLinkActive="active">Movie Guides</a>
+      <a routerLink="/movie-journeys" routerLinkActive="active">Movie Journeys</a>
       @if (auth.isAdmin) {
         <a routerLink="/wizard" routerLinkActive="active">Movie Wizard</a>
         <a routerLink="/admin" routerLinkActive="active">Admin</a>

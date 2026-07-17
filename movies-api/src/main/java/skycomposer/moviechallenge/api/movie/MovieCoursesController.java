@@ -6,9 +6,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import skycomposer.moviechallenge.api.movie.dto.AddCourseMovieFromSearchRequest;
 import skycomposer.moviechallenge.api.movie.dto.AddCourseMovieRequest;
 import skycomposer.moviechallenge.api.movie.dto.CreateMovieCourseRequest;
 import skycomposer.moviechallenge.api.movie.dto.MovieCourseDto;
+import skycomposer.moviechallenge.api.movie.model.Movie;
 
 import java.util.List;
 
@@ -17,6 +19,7 @@ import java.util.List;
 @RequestMapping({"/api/movie-journeys", "/api/movie-courses"})
 public class MovieCoursesController {
     private final MovieCourseRepository courses;
+    private final MovieService movieService;
 
     @GetMapping public List<MovieCourseDto> list(@AuthenticationPrincipal Jwt jwt) { return courses.findAll(username(jwt)); }
     @GetMapping("/{id}") public MovieCourseDto get(@PathVariable long id, @AuthenticationPrincipal Jwt jwt) { return courses.find(id, username(jwt)); }
@@ -30,6 +33,13 @@ public class MovieCoursesController {
     public void delete(@PathVariable long id, @AuthenticationPrincipal Jwt jwt) { courses.delete(id, username(jwt)); }
     @PostMapping("/{id}/applications") public MovieCourseDto apply(@PathVariable long id, @AuthenticationPrincipal Jwt jwt) { return courses.apply(id, username(jwt)); }
     @PostMapping("/{id}/movies") public MovieCourseDto addMovie(@PathVariable long id, @Valid @RequestBody AddCourseMovieRequest r, @AuthenticationPrincipal Jwt jwt) { return courses.addMovie(id, r, username(jwt)); }
+    @PostMapping("/{id}/movies-from-search")
+    public MovieCourseDto addMovieFromSearch(@PathVariable long id, @Valid @RequestBody AddCourseMovieFromSearchRequest r, @AuthenticationPrincipal Jwt jwt) {
+        String user = username(jwt);
+        courses.requireOwner(id, user);
+        Movie movie = movieService.getOrCreateMovie(r.movie());
+        return courses.addMovie(id, new AddCourseMovieRequest(movie.getImdbId(), r.header(), r.description(), 1, r.linkedCourseId()), user);
+    }
     @PutMapping("/{id}/movies/{movieId}") public MovieCourseDto updateMovie(@PathVariable long id, @PathVariable String movieId, @Valid @RequestBody AddCourseMovieRequest r, @AuthenticationPrincipal Jwt jwt) { return courses.updateMovie(id, movieId, r, username(jwt)); }
     @DeleteMapping("/{id}/movies/{movieId}") public MovieCourseDto removeMovie(@PathVariable long id, @PathVariable String movieId, @AuthenticationPrincipal Jwt jwt) { return courses.removeMovie(id, movieId, username(jwt)); }
 

@@ -46,7 +46,11 @@ export class AuthService {
   }
 
   get isAdmin(): boolean {
-    return this.currentUser?.roles.includes('MOVIES_ADMIN') ?? false;
+    return this.hasRole('MOVIES_ADMIN');
+  }
+
+  hasRole(role: string): boolean {
+    return this.currentUser?.roles.includes(role) ?? false;
   }
 
   getRegistrationUrl(redirectUrl: string = window.location.href): string {

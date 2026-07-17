@@ -41,7 +41,7 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 or lower(m.director) like concat('%', lower(:filter), '%')
                 or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
                 and (:year is null or m.release_year = :year)
-                and (:selectedCategoryCount=0 or not exists (select 1 from category s where s.id in (:selectedCategories) and not exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
                 and (:onlyNotRecommended = false or not exists (select 1 from movie_recommendations mr where mr.user_id = :username and mr.movie_id = m.imdb_id))
             order by case when movie_rating_stats.voter_count is null then 1 else 0 end asc,
                 catalog_prior.catalog_average
@@ -63,7 +63,7 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 or lower(m.director) like concat('%', lower(:filter), '%')
                 or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
                 and (:year is null or m.release_year = :year)
-                and (:selectedCategoryCount=0 or not exists (select 1 from category s where s.id in (:selectedCategories) and not exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
                 and (:onlyNotRecommended = false or not exists (select 1 from movie_recommendations mr where mr.user_id = :username and mr.movie_id = m.imdb_id))
             """, nativeQuery = true)
     Page<Movie> findAllByUsersFavoritePopularity(@Param("filter") String filter,
@@ -94,7 +94,7 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 or lower(m.director) like concat('%', lower(:filter), '%')
                 or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
                 and (:year is null or m.release_year = :year)
-                and (:selectedCategoryCount=0 or not exists (select 1 from category s where s.id in (:selectedCategories) and not exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
             order by rating.rank_position asc,
                 rating.score desc,
                 m.title asc,
@@ -118,7 +118,7 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                     or lower(m.director) like concat('%', lower(:filter), '%')
                     or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
                 and (:year is null or m.release_year = :year)
-                and (:selectedCategoryCount=0 or not exists (select 1 from category s where s.id in (:selectedCategories) and not exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
             """, nativeQuery = true)
     Page<Movie> findFavoriteMoviesByUsername(@Param("username") String username,
                                              @Param("filter") String filter,
@@ -138,7 +138,7 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 or lower(m.director) like concat('%', lower(:filter), '%')
                 or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
                 and (:year is null or m.release_year = :year)
-                and (:selectedCategoryCount=0 or not exists (select 1 from category s where s.id in (:selectedCategories) and not exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
             group by m.imdb_id, m.title, m.director, m.writer, m.release_year, m.poster, m.genre, m.country, m.type
             order by avg(rating.rating) desc,
                 count(distinct rating.user_id) desc,
@@ -157,7 +157,7 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                     or lower(m.director) like concat('%', lower(:filter), '%')
                     or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
                     and (:year is null or m.release_year = :year)
-                    and (:selectedCategoryCount=0 or not exists (select 1 from category s where s.id in (:selectedCategories) and not exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                    and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
                 group by rating.movie_id
             ) users_favorite_movies
             """, nativeQuery = true)
@@ -226,7 +226,7 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 or lower(m.director) like concat('%', lower(:filter), '%')
                 or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
                 and (:year is null or m.release_year = :year)
-                and (:selectedCategoryCount=0 or not exists (select 1 from category s where s.id in (:selectedCategories) and not exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
             order by recommended_movies.recommended_score desc,
                 recommended_movies.similarity_weight desc,
                 recommended_movies.similar_user_count desc,
@@ -283,7 +283,7 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%')
             )
                 and (:year is null or m.release_year = :year)
-                and (:selectedCategoryCount=0 or not exists (select 1 from category s where s.id in (:selectedCategories) and not exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
             """, nativeQuery = true)
     Page<Movie> findUsersRecommendedMoviesByUsername(@Param("username") String username,
                                                      @Param("filter") String filter,

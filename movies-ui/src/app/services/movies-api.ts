@@ -204,6 +204,21 @@ export interface RecommendMovieFromSearchRequest {
   type: MovieType;
 }
 
+export interface GuideMovieRef {
+  imdbId: string;
+  categories: string[];
+}
+
+export interface CreateMovieGuideResponse {
+  guideCategoryId: number;
+  failedImdbIds: string[];
+}
+
+export interface GuideMovieDetails {
+  movie: RecommendMovieFromSearchRequest;
+  categories: string[];
+}
+
 export interface CourseMovie {
   imdbId: string; title: string; header: string; description: string; year: string; director: string;
   writer: string; genre: string; poster: string; watchOrder: number;
@@ -237,6 +252,7 @@ export class MoviesApiService {
   private readonly usersBase: string;
   private readonly movieCoursesBase: string;
   private readonly categoriesBase: string;
+  private readonly movieGuidesBase: string;
 
   constructor(private http: HttpClient, private cfg: AppConfigService) {
     const c = cfg.config;
@@ -250,6 +266,7 @@ export class MoviesApiService {
     this.usersBase = `${c.apiBaseUrl}${c.usersApiPath}`;
     this.movieCoursesBase = `${c.apiBaseUrl}/api/movies/movie-journeys`;
     this.categoriesBase = `${c.apiBaseUrl}/api/movies/categories`;
+    this.movieGuidesBase = `${c.apiBaseUrl}/api/movies/movie-guides`;
   }
 
   get moviePageSize(): number {
@@ -279,6 +296,11 @@ export class MoviesApiService {
   }
   addCourseMovie(id: number, input: CourseMovieInput): Observable<MovieCourse> {
     return this.http.post<MovieCourse>(`${this.movieCoursesBase}/${id}/movies`, input);
+  }
+  addCourseMovieFromSearch(id: number, movie: OmdbMovieSearchResult, header: string, description: string, linkedCourseId: number | null): Observable<MovieCourse> {
+    return this.http.post<MovieCourse>(`${this.movieCoursesBase}/${id}/movies-from-search`, {
+      movie: this.movieFromOmdb(movie), header, description, linkedCourseId
+    });
   }
   updateCourseMovie(id: number, movieId: string, input: CourseMovieInput): Observable<MovieCourse> {
     return this.http.put<MovieCourse>(`${this.movieCoursesBase}/${id}/movies/${movieId}`, input);
@@ -313,6 +335,22 @@ export class MoviesApiService {
 
   addMovieFromSearchToCategory(categoryId: number, movie: OmdbMovieSearchResult): Observable<void> {
     return this.http.post<void>(`${this.categoriesBase}/${categoryId}/movies-from-search`, this.movieFromOmdb(movie));
+  }
+
+  createMovieGuide(type: string, name: string, description: string, movies: GuideMovieRef[]): Observable<CreateMovieGuideResponse> {
+    return this.http.post<CreateMovieGuideResponse>(this.movieGuidesBase, { type, name, description, movies });
+  }
+
+  completeMovieGuide(guideCategoryId: number, movies: GuideMovieDetails[]): Observable<void> {
+    return this.http.post<void>(`${this.movieGuidesBase}/${guideCategoryId}/movies`, { movies });
+  }
+
+  createMovieGuideExistingOnly(type: string, name: string, description: string, movies: GuideMovieRef[]): Observable<CreateMovieGuideResponse> {
+    return this.http.post<CreateMovieGuideResponse>(`${this.movieGuidesBase}/existing`, { type, name, description, movies });
+  }
+
+  completeMovieGuideExistingOnly(guideCategoryId: number, movies: GuideMovieDetails[]): Observable<void> {
+    return this.http.post<void>(`${this.movieGuidesBase}/${guideCategoryId}/movies/existing`, { movies });
   }
 
   listFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
@@ -482,6 +520,12 @@ export class MoviesApiService {
         return this.toSearchResult(movie);
       })
     );
+  }
+
+  // OMDb has no multi-id batch lookup, so this fires the per-id calls in parallel; any
+  // imdbId OMDb can't resolve is skipped (mapped to null) rather than failing the whole batch.
+  getOmdbMoviesByIds(imdbIds: string[]): Observable<(OmdbMovieSearchResult | null)[]> {
+    return forkJoin(imdbIds.map(id => this.getOmdbMovieById(id).pipe(catchError(() => of(null)))));
   }
 
   searchOmdbMovies(criteria: OmdbMovieSearchCriteria, page = 1): Observable<OmdbMovieSearchPage> {

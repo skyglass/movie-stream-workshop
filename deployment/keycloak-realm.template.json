@@ -38,6 +38,10 @@
       {
         "name": "MOVIES_ADMIN",
         "description": "Administer movies and users"
+      },
+      {
+        "name": "MOVIES_GUIDE",
+        "description": "Create Movie Guides and Movie Personalities (assigned per-user, not automatic)"
       }
     ]
   },

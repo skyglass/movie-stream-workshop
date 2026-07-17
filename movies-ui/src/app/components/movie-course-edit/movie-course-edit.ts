@@ -1,9 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CourseMovie, Movie, MovieCourse, MovieJourneyType, MoviesApiService, ParsedMovieSearch } from '../../services/movies-api';
-import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
+import { CourseMovie, Movie, MovieCourse, MovieJourneyType, MoviesApiService, OmdbMovieSearchResult, ParsedMovieSearch } from '../../services/movies-api';
+import { ExternalMovieAction, MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
 
 @Component({standalone:true,selector:'app-movie-course-edit',imports:[CommonModule,FormsModule,RouterLink,MovieFilterSearchComponent],templateUrl:'./movie-course-edit.html',styleUrl:'./movie-course-edit.css'})
 export class MovieCourseEditComponent implements OnInit {
@@ -15,6 +15,7 @@ export class MovieCourseEditComponent implements OnInit {
   confirmRemoveMovie:CourseMovie|null=null;
   confirmDeleteCourse=false;
   descriptionDialog:{title:string;text:string}|null=null;
+  @ViewChild(MovieFilterSearchComponent) filterSearch?:MovieFilterSearchComponent;
   ngOnInit():void{this.load();}
   load():void{this.api.manageMovieCourse(Number(this.route.snapshot.paramMap.get('id'))).subscribe({next:c=>{this.setCourse(c);this.loading=false;},error:e=>this.fail(e)});}
   saveCourse():void{if(!this.course)return;this.busy=true;this.api.updateMovieCourse(this.course.id,this.header,this.title,this.description,this.type).subscribe({next:c=>this.router.navigate(['/movie-journeys',c.id]),error:e=>this.fail(e)});}
@@ -22,6 +23,14 @@ export class MovieCourseEditComponent implements OnInit {
   toggleAddMovie():void{this.addingMovie=!this.addingMovie;}
   poster(movie:CourseMovie):string{return movie.poster&&movie.poster!=='N/A'?movie.poster:'/images/movie-poster.jpg';}
   add(movie:Movie):void{if(!this.course)return;this.busy=true;this.api.addCourseMovie(this.course.id,{movieId:movie.imdbId,header:'',description:'',watchOrder:this.course.movies.length+1,linkedCourseId:null}).subscribe({next:c=>{this.setCourse(c);this.results=this.results.filter(m=>m.imdbId!==movie.imdbId);this.busy=false;},error:e=>this.fail(e)});}
+
+  externalAdd(event:{action:ExternalMovieAction;movie:OmdbMovieSearchResult}):void{
+    if(!this.course)return;
+    this.api.addCourseMovieFromSearch(this.course.id,event.movie,'','',null).subscribe({
+      next:c=>{this.setCourse(c);this.filter='';this.filterSearch?.completeExternalAction();},
+      error:e=>{this.filterSearch?.failExternalAction(e);this.fail(e);}
+    });
+  }
 
   editMovie(movie:CourseMovie):void{this.headers[movie.imdbId]=movie.header;this.descriptions[movie.imdbId]=movie.description;this.editingMovie=movie;}
   cancelEditMovie():void{this.editingMovie=null;}

@@ -1,12 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnDestroy, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { MoviesApiService, OmdbMovieSearchResult, ParsedMovieSearch } from '../../services/movies-api';
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 
-export type ExternalMovieAction = 'add' | 'like' | 'addToCategory';
+export type ExternalMovieAction = 'add' | 'like' | 'addToCategory' | 'addToJourney';
 
 @Component({
   standalone: true,
@@ -15,7 +15,7 @@ export type ExternalMovieAction = 'add' | 'like' | 'addToCategory';
   templateUrl: './movie-filter-search.html',
   styleUrl: './movie-filter-search.css'
 })
-export class MovieFilterSearchComponent implements OnDestroy {
+export class MovieFilterSearchComponent implements OnDestroy, OnChanges {
   private readonly api = inject(MoviesApiService);
   readonly auth = inject(AuthService);
 
@@ -26,6 +26,7 @@ export class MovieFilterSearchComponent implements OnDestroy {
   @Input() externalActions: ExternalMovieAction[] = ['add', 'like'];
   @Input() showSelectCategories = true;
   @Input() showNotRecommendedFilter = false;
+  @Input() initialSelectedCategories: number[] = [];
   @Output() valueChange = new EventEmitter<string>();
   @Output() internalSearch = new EventEmitter<ParsedMovieSearch>();
   @Output() cleared = new EventEmitter<void>();
@@ -35,7 +36,6 @@ export class MovieFilterSearchComponent implements OnDestroy {
   notRecommendedOnly = false;
   selectedCategories: number[] = [];
   categoryDialogVisible = false;
-  private categoryDialogSnapshot: number[] = [];
   externalResults: OmdbMovieSearchResult[] = [];
   selectedMovie: OmdbMovieSearchResult | null = null;
   loading = false;
@@ -48,6 +48,12 @@ export class MovieFilterSearchComponent implements OnDestroy {
   private searchSub?: Subscription;
   private detailsSub?: Subscription;
   private actionSub?: Subscription;
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['initialSelectedCategories'] || changes['initialSelectedCategories'].firstChange) return;
+    this.selectedCategories = [...this.initialSelectedCategories];
+    this.runInternalSearch(this.value.trim());
+  }
 
   ngOnDestroy(): void {
     this.cancelTimer();
@@ -141,7 +147,6 @@ export class MovieFilterSearchComponent implements OnDestroy {
   closeMovie(): void { this.selectedMovie = null; }
 
   openCategoryDialog(): void {
-    this.categoryDialogSnapshot = [...this.selectedCategories];
     this.categoryDialogVisible = true;
   }
 
@@ -150,15 +155,8 @@ export class MovieFilterSearchComponent implements OnDestroy {
     this.runInternalSearch(this.value.trim());
   }
 
-  confirmCategories(): void {
+  closeCategoryDialog(): void {
     this.categoryDialogVisible = false;
-  }
-
-  cancelCategoryDialog(): void {
-    this.categoryDialogVisible = false;
-    if (this.selectedCategories.join() === this.categoryDialogSnapshot.join()) return;
-    this.selectedCategories = [...this.categoryDialogSnapshot];
-    this.runInternalSearch(this.value.trim());
   }
 
   act(action: ExternalMovieAction): void {

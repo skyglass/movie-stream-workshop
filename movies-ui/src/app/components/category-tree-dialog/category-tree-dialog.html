@@ -14,39 +14,45 @@
   <header>
     <div><p class="eyebrow">Movie categories</p><h2 id="category-dialog-title">{{ mode === 'assign' ? 'Add to Category' : mode === 'filter' ? 'Select Categories' : 'Start Journey' }}</h2></div>
     @if (!inline) {
-      <button type="button" class="icon-button" title="Cancel" aria-label="Cancel" (click)="closed.emit()"><span class="material-icons">close</span></button>
+      <button type="button" class="icon-button" [title]="mode === 'filter' ? 'Close' : 'Cancel'" [attr.aria-label]="mode === 'filter' ? 'Close' : 'Cancel'" (click)="closed.emit()"><span class="material-icons">close</span></button>
     }
   </header>
-  @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
-  @if (loading) { <p>Loading categories…</p> } @else {
-    @if (managementEnabled()) {
-      <button type="button" class="create-root" title="Create Root Category" aria-label="Create Root Category" (click)="beginCreate(null)"><span class="material-icons">create_new_folder</span></button>
-    }
-    @if (categories.length === 0) { <p class="empty">No categories yet.</p> }
-    <ul class="category-tree">
-      @for (category of categories; track category.id) {
-        <app-category-tree-node [category]="category" [mode]="mode" [expanded]="expanded" [explicitSelected]="explicitSelected" [assignmentSelected]="assignmentSelectedIds()" [management]="managementEnabled()"
-          (expand)="toggleExpanded($event)" (toggle)="toggleCategory($event.category,$event.checked)" (create)="beginCreate($event)" (edit)="beginEdit($event)" (remove)="deleteCategory($event)" />
+  <div class="dialog-body">
+    @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+    @if (loading) { <p>Loading categories…</p> } @else {
+      @if (managementEnabled()) {
+        <button type="button" class="create-root" title="Create Root Category" aria-label="Create Root Category" (click)="beginCreate(null)"><span class="material-icons">create_new_folder</span></button>
       }
-    </ul>
-    @if (creatingParentId !== undefined || editingId !== null) {
-      <form class="category-editor" (ngSubmit)="saveEditor()">
-        <h3>{{ editorTitle() }}</h3>
-        @if (editorParentCategory(); as parent) {
-          <div class="parent-field">
-            <span class="parent-field-label">Parent category</span>
-            <span class="parent-field-value"><span class="emoji">{{ parent.icon || '📁' }}</span><span class="category-name">{{ parent.name }}</span></span>
-          </div>
+      @if (categories.length === 0) { <p class="empty">No categories yet.</p> }
+      <ul class="category-tree">
+        @for (category of categories; track category.id) {
+          <app-category-tree-node [category]="category" [mode]="mode" [expanded]="expanded" [explicitSelected]="explicitSelected" [assignmentSelected]="assignmentSelectedIds()" [management]="managementEnabled()"
+            (expand)="toggleExpanded($event)" (toggle)="toggleCategory($event.category,$event.checked)" (create)="beginCreate($event)" (edit)="beginEdit($event)" (remove)="deleteCategory($event)" />
         }
-        <label>Name<input name="categoryName" [(ngModel)]="name" maxlength="200" required /></label>
-        <label>Emoji icon<input name="categoryIcon" [(ngModel)]="icon" maxlength="32" placeholder="📁" /></label>
-        <label>Description<textarea name="categoryDescription" [(ngModel)]="description" maxlength="2000" rows="3"></textarea></label>
-        <div class="editor-actions"><button type="button" class="secondary" (click)="cancelEditor()">Cancel</button><button type="submit" [disabled]="saving || !name.trim()"><span class="material-icons">check</span>Save</button></div>
-      </form>
+      </ul>
+      @if (creatingParentId !== undefined || editingId !== null) {
+        <form class="category-editor" (ngSubmit)="saveEditor()">
+          <h3>{{ editorTitle() }}</h3>
+          @if (editorParentCategory(); as parent) {
+            <div class="parent-field">
+              <span class="parent-field-label">Parent category</span>
+              <span class="parent-field-value"><span class="emoji">{{ parent.icon || '📁' }}</span><span class="category-name">{{ parent.name }}</span></span>
+            </div>
+          }
+          <label>Name<input name="categoryName" [(ngModel)]="name" maxlength="200" required /></label>
+          <label>Emoji icon<input name="categoryIcon" [(ngModel)]="icon" maxlength="32" placeholder="📁" /></label>
+          <label>Description<textarea name="categoryDescription" [(ngModel)]="description" maxlength="2000" rows="3"></textarea></label>
+          <div class="editor-actions"><button type="button" class="secondary" (click)="cancelEditor()">Cancel</button><button type="submit" [disabled]="saving || !name.trim()"><span class="material-icons">check</span>Save</button></div>
+        </form>
+      }
     }
-  }
+  </div>
   <footer>
-    <button type="button" class="secondary" (click)="closed.emit()">{{ inline ? 'Close Journey' : 'Cancel' }}</button>
-    @if (mode !== 'journey') { <button type="button" (click)="submit()" [disabled]="saving || !canSubmit()">{{ saving ? 'Saving…' : 'Submit' }}</button> }
+    @if (mode === 'filter') {
+      <button type="button" (click)="submit()">OK</button>
+    } @else {
+      <button type="button" class="secondary" (click)="closed.emit()">{{ inline ? 'Close Journey' : 'Cancel' }}</button>
+      <button type="button" (click)="submit()" [disabled]="saving || !canSubmit()">{{ saving ? 'Saving…' : 'Submit' }}</button>
+    }
   </footer>
 </ng-template>

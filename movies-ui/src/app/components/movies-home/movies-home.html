@@ -43,119 +43,17 @@
   }
 
   <section id="movie-catalog" class="catalog-section" aria-label="Movie Catalog">
-    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies" [showNotRecommendedFilter]="true" (internalSearch)="applyFilter($event)" />
+    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies" [showNotRecommendedFilter]="true" [initialSelectedCategories]="activeCategories" (internalSearch)="applyFilter($event)" />
     <h2>Movie Results</h2>
 
-    @if (loading) {
-      <div class="state">Loading Movie Catalog</div>
-    } @else if (errorMessage) {
-      <div class="state error">{{ errorMessage }}</div>
-    } @else if (movies.length > 0) {
-      <div class="movie-grid">
-        @for (movie of movies; track movie.imdbId) {
-          <article class="movie-card" itemscope itemtype="https://schema.org/Movie">
-            @if (auth.token) {
-              <a class="poster-link" [routerLink]="['/movies', movie.imdbId]" [attr.aria-labelledby]="'movie-title-' + movie.imdbId">
-                <img itemprop="image" [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-              </a>
-              @if (movie.recommended) {
-                <button
-                  type="button"
-                  class="recommend-button recommended"
-                  title="Clear like"
-                  [disabled]="recommendationBusy[movie.imdbId]"
-                  (click)="clearRecommendation(movie)">
-                  <span class="material-icons" aria-hidden="true">check_circle</span>
-                  Liked
-                </button>
-              } @else if (movie.disliked) {
-                <button
-                  type="button"
-                  class="recommend-button disliked"
-                  title="Clear dislike"
-                  [disabled]="recommendationBusy[movie.imdbId]"
-                  (click)="clearRecommendation(movie)">
-                  <span class="material-icons" aria-hidden="true">thumb_down</span>
-                  Disliked
-                </button>
-              } @else {
-                <div class="recommendation-actions">
-                  <button
-                    type="button"
-                    class="recommend-action like"
-                    title="Like"
-                    [disabled]="recommendationBusy[movie.imdbId]"
-                    (click)="likeMovie(movie)">
-                    <span class="material-icons" aria-hidden="true">thumb_up</span>
-                    Like
-                  </button>
-                  <button
-                    type="button"
-                    class="recommend-action dislike"
-                    title="Dislike"
-                    [disabled]="recommendationBusy[movie.imdbId]"
-                    (click)="dislikeMovie(movie)">
-                    <span class="material-icons" aria-hidden="true">thumb_down</span>
-                    Dislike
-                  </button>
-                </div>
-              }
-            } @else {
-              <div class="poster-link">
-                <img itemprop="image" [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-              </div>
-            }
-            @if (auth.token) {
-              <a class="movie-link" [routerLink]="['/movies', movie.imdbId]" [attr.aria-labelledby]="'movie-title-' + movie.imdbId">
-                <h3 class="movie-title" [id]="'movie-title-' + movie.imdbId" itemprop="name">{{ movie.title }}</h3>
-                <dl>
-                  <div>
-                    <dt>Year:</dt>
-                    <dd itemprop="datePublished">{{ movie.year }}</dd>
-                  </div>
-                  <div>
-                    <dt>Director:</dt>
-                    <dd itemprop="director">{{ movie.director }}</dd>
-                  </div>
-                  <div>
-                    <dt>Genre:</dt>
-                    <dd itemprop="genre">{{ movie.genre || 'N/A' }}</dd>
-                  </div>
-                  <div>
-                    <dt>Your Rating:</dt>
-                    <dd>{{ movie.rating != null && movie.rankPosition != null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-' }}</dd>
-                  </div>
-                </dl>
-              </a>
-            } @else {
-              <div class="movie-link">
-                <h3 class="movie-title" [id]="'movie-title-' + movie.imdbId" itemprop="name">{{ movie.title }}</h3>
-                <dl>
-                  <div>
-                    <dt>Year:</dt>
-                    <dd itemprop="datePublished">{{ movie.year }}</dd>
-                  </div>
-                  <div>
-                    <dt>Director:</dt>
-                    <dd itemprop="director">{{ movie.director }}</dd>
-                  </div>
-                  <div>
-                    <dt>Genre:</dt>
-                    <dd itemprop="genre">{{ movie.genre || 'N/A' }}</dd>
-                  </div>
-                </dl>
-              </div>
-            }
-          </article>
-        }
-      </div>
-      <app-movie-page-navigator
-        [currentPage]="currentPage"
-        [totalCount]="totalCount"
-        [pageSize]="pageSize"
-        (pageChange)="loadMovies($event)" />
-    } @else {
-      <div class="empty">{{ activeCategories.length > 0 ? 'No movies in Selected Categories yet' : 'No movies in Movie Challenge yet' }}</div>
-    }
+    <app-movie-grid
+      [movies]="movies"
+      [loading]="loading"
+      [errorMessage]="errorMessage"
+      [currentPage]="currentPage"
+      [totalCount]="totalCount"
+      [pageSize]="pageSize"
+      [emptyMessage]="emptyMessage()"
+      (pageChange)="loadMovies($event)" />
   </section>
 </section>

@@ -3,8 +3,9 @@
 .start-journey-tree{position:sticky;top:1rem;min-height:32rem}
 .start-journey-movies{min-width:0}
 .journey-hint{color:#6b7280}
-.journey-results-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem}
-.journey-results-header h2{margin:0}
+.journey-results-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}
+.journey-results-header h2{margin:0;display:flex;flex-wrap:wrap;gap:.5rem}
+.journey-category-chip{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .7rem;border-radius:999px;background:#eef2f7;font-size:.95rem}
 .add-movie-toggle{background:#e9edf7;color:#273c75}
 .add-movie-panel{display:grid;gap:.5rem;margin:0 0 1.25rem;padding:1rem;border:1px solid #d7dce2;border-radius:10px;background:#f8fafc}
 .add-movie-panel .result{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.7rem;border-top:1px solid #e1e5e9}

@@ -17,7 +17,7 @@ import type { CategoryTreeMode } from './category-tree-dialog';
           </button>
         } @else { <span class="expand-spacer"></span> }
         <label class="category-choice" [class.locked]="locked">
-          <input [type]="mode === 'journey' ? 'radio' : 'checkbox'" [checked]="checked" [disabled]="locked" (change)="toggle.emit({category, checked: $any($event.target).checked})" />
+          <input type="checkbox" [checked]="checked" [disabled]="locked" (change)="toggle.emit({category, checked: $any($event.target).checked})" />
           <span class="category-label" [title]="category.description || category.name">
             <span class="emoji">{{ category.icon || '📁' }}</span>
             <span class="category-name">{{ category.name }}</span>
@@ -59,8 +59,8 @@ export class CategoryTreeNodeComponent {
   get childAncestors(): MovieCategory[] { return [...this.ancestors, this.category]; }
   get locked(): boolean { return this.mode === 'filter' && this.ancestors.some(parent => this.explicitSelected.has(parent.id)); }
   get checked(): boolean {
-    return this.mode === 'assign'
-      ? this.assignmentSelected.has(this.category.id)
-      : this.explicitSelected.has(this.category.id) || this.ancestors.some(parent => this.explicitSelected.has(parent.id));
+    if (this.mode === 'assign') return this.assignmentSelected.has(this.category.id);
+    if (this.mode === 'journey') return this.explicitSelected.has(this.category.id);
+    return this.explicitSelected.has(this.category.id) || this.ancestors.some(parent => this.explicitSelected.has(parent.id));
   }
 }

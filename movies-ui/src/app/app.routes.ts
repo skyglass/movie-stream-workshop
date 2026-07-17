@@ -13,9 +13,13 @@ import { adminGuard, authGuard } from './services/auth-guard';
 import { MovieCoursesComponent } from './components/movie-courses/movie-courses';
 import { MovieCourseDetailComponent } from './components/movie-course-detail/movie-course-detail';
 import { MovieCourseEditComponent } from './components/movie-course-edit/movie-course-edit';
+import { MovieGuidesComponent } from './components/movie-guides/movie-guides';
+import { MovieGuideDetailComponent } from './components/movie-guide-detail/movie-guide-detail';
 
 export const routes: Routes = [
   { path: 'home', component: MoviesHomeComponent },
+  { path: 'movie-guides', component: MovieGuidesComponent },
+  { path: 'movie-guides/:id', component: MovieGuideDetailComponent },
   { path: 'movie-challenge', component: MovieChallengePageComponent, canActivate: [authGuard] },
   { path: 'movies/:imdbId/edit', component: MovieEditComponent, canActivate: [adminGuard] },
   { path: 'movies/:imdbId', component: MovieDetailComponent, canActivate: [authGuard] },

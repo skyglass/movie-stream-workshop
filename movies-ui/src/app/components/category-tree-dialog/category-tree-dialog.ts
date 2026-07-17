@@ -22,7 +22,6 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
   @Output() closed = new EventEmitter<void>();
   @Output() categoriesSelected = new EventEmitter<number[]>();
   @Output() selectionChanged = new EventEmitter<number[]>();
-  @Output() journeyCategorySelected = new EventEmitter<MovieCategory>();
   @Output() assignmentsSaved = new EventEmitter<void>();
 
   categories: MovieCategory[] = [];
@@ -50,6 +49,7 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (this.mode !== 'journey' || !changes['selectedCategoryIds'] || changes['selectedCategoryIds'].firstChange) return;
     this.explicitSelected = new Set(this.selectedCategoryIds);
+    this.originalExplicitSelected = new Set(this.selectedCategoryIds);
     if (!this.loading) this.expandAncestorsOf(this.selectedCategoryIds, this.categories);
   }
 
@@ -82,10 +82,7 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
 
   toggleCategory(category: MovieCategory, checked: boolean): void {
     if (this.mode === 'journey') {
-      if (checked) {
-        this.explicitSelected = new Set([category.id]);
-        this.journeyCategorySelected.emit(category);
-      }
+      checked ? this.explicitSelected.add(category.id) : this.explicitSelected.delete(category.id);
       return;
     }
     if (this.mode === 'filter') {
@@ -108,7 +105,7 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
   }
 
   submit(): void {
-    if (this.mode === 'filter') {
+    if (this.mode === 'filter' || this.mode === 'journey') {
       this.categoriesSelected.emit([...this.explicitSelected]);
       return;
     }
@@ -176,7 +173,7 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
   }
 
   canSubmit(): boolean {
-    return this.mode === 'filter' ? !this.setsEqual(this.explicitSelected, this.originalExplicitSelected)
+    return this.mode === 'filter' || this.mode === 'journey' ? !this.setsEqual(this.explicitSelected, this.originalExplicitSelected)
       : this.addedCategories.size > 0 || this.removedCategories.size > 0;
   }
 
