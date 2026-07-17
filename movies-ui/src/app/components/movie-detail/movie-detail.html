@@ -10,16 +10,48 @@
     <div class="detail-layout">
       <article class="movie-card">
         <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-        <button
-          type="button"
-          class="recommend-button"
-          [class.recommended]="movie.recommended"
-          [title]="movie.recommended ? 'Unrecommend' : 'Like'"
-          [disabled]="recommendationSaving"
-          (click)="toggleRecommendation()">
-          <span class="material-icons" aria-hidden="true">{{ movie.recommended ? 'check_circle' : 'thumb_up' }}</span>
-          {{ movie.recommended ? 'Recommended' : 'Like' }}
-        </button>
+        @if (movie.recommended) {
+          <button
+            type="button"
+            class="recommend-button recommended"
+            title="Clear like"
+            [disabled]="recommendationSaving"
+            (click)="clearRecommendation()">
+            <span class="material-icons" aria-hidden="true">check_circle</span>
+            Liked
+          </button>
+        } @else if (movie.disliked) {
+          <button
+            type="button"
+            class="recommend-button disliked"
+            title="Clear dislike"
+            [disabled]="recommendationSaving"
+            (click)="clearRecommendation()">
+            <span class="material-icons" aria-hidden="true">thumb_down</span>
+            Disliked
+          </button>
+        } @else {
+          <div class="recommendation-actions">
+            <button
+              type="button"
+              class="recommend-action like"
+              title="Like"
+              [disabled]="recommendationSaving"
+              (click)="likeMovie()">
+              <span class="material-icons" aria-hidden="true">thumb_up</span>
+              Like
+            </button>
+            <button
+              type="button"
+              class="recommend-action dislike"
+              title="Dislike"
+              [disabled]="recommendationSaving"
+              (click)="dislikeMovie()">
+              <span class="material-icons" aria-hidden="true">thumb_down</span>
+              Dislike
+            </button>
+          </div>
+        }
         @if (auth.isAdmin) {
           <a class="edit-button" [routerLink]="['/movies', movie.imdbId, 'edit']">
             <span class="material-icons" aria-hidden="true">edit</span>
@@ -141,7 +173,7 @@
           } @else if (rankHistory) {
             <section class="rank-history-group" aria-labelledby="higher-ranks-title">
               <h3 id="higher-ranks-title">
-                Winners
+                Ranked Higher
                 <button
                   type="button"
                   class="rank-history-info"
@@ -187,7 +219,7 @@
 
             <section class="rank-history-group" aria-labelledby="lower-ranks-title">
               <h3 id="lower-ranks-title">
-                Losers
+                Ranked Lower
                 <button
                   type="button"
                   class="rank-history-info"

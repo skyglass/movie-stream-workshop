@@ -33,7 +33,7 @@ class CategoryServiceTest {
     @Autowired MovieCatalogFixture movies;
 
     @Test
-    void maintainsClosureRejectsCyclesAndAssignsMoviesOnlyToLeaves() {
+    void maintainsClosureAndRejectsCycles() {
         movies.saveMovie("tt-category", "Category Movie");
         var root = categories.create(request("Genres", "🎭", null));
         var child = categories.create(request("Drama", "🎬", root.id()));
@@ -42,15 +42,30 @@ class CategoryServiceTest {
         assertThat(closureExists(root.id(), leaf.id())).isTrue();
         assertThatThrownBy(() -> categories.update(root.id(), request("Genres", "🎭", leaf.id())))
                 .isInstanceOf(ResponseStatusException.class).hasMessageContaining("cycle");
-        assertThatThrownBy(() -> categories.saveMovieCategories("tt-category",
-                new SaveMovieCategoriesRequest(List.of(child.id()), List.of())))
-                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("leaf");
 
         var tree = categories.saveMovieCategories("tt-category",
                 new SaveMovieCategoriesRequest(List.of(leaf.id()), List.of()));
         assertThat(tree.getFirst().children().getFirst().children().getFirst().checked()).isTrue();
         assertThatThrownBy(() -> categories.delete(leaf.id()))
                 .isInstanceOf(ResponseStatusException.class).hasMessageContaining("without movies");
+    }
+
+    @Test
+    void allowsAssigningMoviesToNonLeafCategoriesAndAddingChildrenLater() {
+        movies.saveMovie("tt-category-2", "Category Movie 2");
+        var root = categories.create(request("Genres", "🎭", null));
+        var child = categories.create(request("Drama", "🎬", root.id()));
+
+        var tree = categories.saveMovieCategories("tt-category-2",
+                new SaveMovieCategoriesRequest(List.of(child.id()), List.of()));
+        var childDto = tree.getFirst().children().getFirst();
+        assertThat(childDto.checked()).isTrue();
+        assertThat(childDto.leaf()).isTrue();
+
+        var leaf = categories.create(request("Courtroom", "⚖️", child.id()));
+        var reloaded = categories.tree(null).getFirst().children().getFirst();
+        assertThat(reloaded.leaf()).isFalse();
+        assertThat(reloaded.children()).extracting("id").containsExactly(leaf.id());
     }
 
     private boolean closureExists(long ancestor, long descendant) {

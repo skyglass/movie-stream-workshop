@@ -41,6 +41,12 @@ public class MovieService {
 
     @Transactional(readOnly = true)
     public Page<Movie> getMovies(Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+        return getMovies(pageable, filter, year, selectedCategories, null, false);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Movie> getMovies(Pageable pageable, String filter, String year, List<Long> selectedCategories,
+                                  String username, boolean onlyNotRecommended) {
         List<Long> categories = categoryParameters(selectedCategories);
         Pageable pageRequest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
         return movieRepository.findAllByUsersFavoritePopularity(
@@ -49,13 +55,18 @@ public class MovieService {
                 categoryCount(selectedCategories),
                 categories,
                 HOMEPAGE_RATING_PRIOR_WEIGHT,
+                username,
+                onlyNotRecommended && username != null,
                 pageRequest);
     }
 
     @Transactional
     public Movie getOrCreateMovie(RecommendMovieRequest request) {
+        // Flush immediately: callers may follow up with a raw JDBC statement in the
+        // same transaction (e.g. inserting into movie_category), which would otherwise
+        // violate the FK constraint since Hibernate hasn't written the row yet.
         return movieRepository.findById(request.imdbId())
-                .orElseGet(() -> saveMovie(toMovie(request)));
+                .orElseGet(() -> movieRepository.saveAndFlush(toMovie(request)));
     }
 
     @Transactional(readOnly = true)

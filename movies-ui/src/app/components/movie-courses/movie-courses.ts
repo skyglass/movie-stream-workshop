@@ -17,6 +17,7 @@ export class MovieCoursesComponent implements OnInit {
   creating = false; header = ''; title = ''; description = ''; type:MovieJourneyType='JOURNEY';
   startJourneyOpen=false;journeyCategory:MovieCategory|null=null;journeyMovies:Movie[]=[];journeyLoading=false;recommendationBusy:Record<string,boolean>={};
   addMovieOpen=false;addMovieFilter='';addMovieResults:Movie[]=[];addMovieBusy:Record<string,boolean>={};
+  descriptionCourse:MovieCourse|null=null;
   @ViewChild(MovieFilterSearchComponent) addMovieFilterSearch?:MovieFilterSearchComponent;
 
   ngOnInit(): void {
@@ -82,19 +83,18 @@ export class MovieCoursesComponent implements OnInit {
 
   externalAddToCategory(event: { action: ExternalMovieAction; movie: OmdbMovieSearchResult }): void {
     if (!this.journeyCategory) return;
-    const categoryId = this.journeyCategory.id;
-    this.api.createMovieFromSearch(event.movie).subscribe({
-      next: created => this.api.saveMovieCategories(created.imdbId, [categoryId], []).subscribe({
-        next: () => {
-          this.addMovieFilter = '';
-          this.addMovieFilterSearch?.completeExternalAction();
-          this.reloadJourneyMovies();
-        },
-        error: e => { this.addMovieFilterSearch?.failExternalAction(e); this.fail(e); }
-      }),
+    this.api.addMovieFromSearchToCategory(this.journeyCategory.id, event.movie).subscribe({
+      next: () => {
+        this.addMovieFilter = '';
+        this.addMovieFilterSearch?.completeExternalAction();
+        this.reloadJourneyMovies();
+      },
       error: e => { this.addMovieFilterSearch?.failExternalAction(e); this.fail(e); }
     });
   }
+
+  openDescription(course:MovieCourse):void{this.descriptionCourse=course;}
+  closeDescription():void{this.descriptionCourse=null;}
 
   poster(movie:Movie):string{return movie.poster&&movie.poster!=='N/A'?movie.poster:'/images/movie-poster.jpg';}
   rate(movie:Movie,positive:boolean):void{if(this.recommendationBusy[movie.imdbId])return;this.recommendationBusy[movie.imdbId]=true;const request=positive?this.api.recommendMovie(movie.imdbId):this.api.dislikeMovie(movie.imdbId);request.subscribe({next:updated=>{movie.recommended=updated.recommended;movie.disliked=updated.disliked;this.recommendationBusy[movie.imdbId]=false;},error:e=>this.fail(e)});}

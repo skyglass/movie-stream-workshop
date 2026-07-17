@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import skycomposer.moviechallenge.api.movie.dto.CategoryDto;
+import skycomposer.moviechallenge.api.movie.dto.RecommendMovieRequest;
 import skycomposer.moviechallenge.api.movie.dto.SaveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.SaveMovieCategoriesRequest;
 
@@ -47,5 +48,12 @@ public class CategoryController {
     public List<CategoryDto> saveMovieCategories(@PathVariable String movieId,
                                                   @Valid @RequestBody SaveMovieCategoriesRequest request) {
         return categories.saveMovieCategories(movieId, request);
+    }
+
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PostMapping("/{categoryId}/movies-from-search")
+    public void addMovieFromSearchToCategory(@PathVariable long categoryId,
+                                              @Valid @RequestBody RecommendMovieRequest request) {
+        categories.addMovieFromSearchToCategory(categoryId, request);
     }
 }

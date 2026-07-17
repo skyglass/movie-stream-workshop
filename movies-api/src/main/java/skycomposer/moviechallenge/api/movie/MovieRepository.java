@@ -42,6 +42,7 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
                 and (:year is null or m.release_year = :year)
                 and (:selectedCategoryCount=0 or not exists (select 1 from category s where s.id in (:selectedCategories) and not exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:onlyNotRecommended = false or not exists (select 1 from movie_recommendations mr where mr.user_id = :username and mr.movie_id = m.imdb_id))
             order by case when movie_rating_stats.voter_count is null then 1 else 0 end asc,
                 catalog_prior.catalog_average
                     + (cast(movie_rating_stats.voter_count as numeric(12, 6))
@@ -63,12 +64,15 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                 or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
                 and (:year is null or m.release_year = :year)
                 and (:selectedCategoryCount=0 or not exists (select 1 from category s where s.id in (:selectedCategories) and not exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:onlyNotRecommended = false or not exists (select 1 from movie_recommendations mr where mr.user_id = :username and mr.movie_id = m.imdb_id))
             """, nativeQuery = true)
     Page<Movie> findAllByUsersFavoritePopularity(@Param("filter") String filter,
                                                  @Param("year") String year,
                                                  @Param("selectedCategoryCount") int selectedCategoryCount,
                                                  @Param("selectedCategories") List<Long> selectedCategories,
                                                  @Param("priorWeight") int priorWeight,
+                                                 @Param("username") String username,
+                                                 @Param("onlyNotRecommended") boolean onlyNotRecommended,
                                                  Pageable pageable);
 
     @Query(value = """

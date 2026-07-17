@@ -4,7 +4,7 @@
       <span>{{ label }}</span>
       <input type="text" [value]="value" (input)="onInput($event)" [attr.aria-label]="ariaLabel" autocomplete="off" />
     </label>
-    @if (value) {
+    @if (value || selectedCategories.length > 0 || notRecommendedOnly) {
       <button type="button" (click)="search()" [disabled]="loading">Search</button>
       <button type="button" class="secondary" (click)="clear()">Clear</button>
     }
@@ -13,6 +13,12 @@
     <input type="checkbox" [checked]="searchOmdb" (change)="toggleOmdb($event)" />
     <span>Search OMDb</span>
   </label>
+  @if (showNotRecommendedFilter && auth.token) {
+    <label class="not-recommended-toggle">
+      <input type="checkbox" [checked]="notRecommendedOnly" (change)="toggleNotRecommended($event)" />
+      <span>Not Voted Yet</span>
+    </label>
+  }
   @if (showSelectCategories) {
     <button type="button" class="category-filter-button" (click)="openCategoryDialog()"><span class="material-icons">account_tree</span>Select Categories… @if(selectedCategories.length){({{selectedCategories.length}})}</button>
   }

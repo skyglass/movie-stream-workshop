@@ -7,8 +7,11 @@
         <p class="eyebrow">{{course.typeDescription}}</p>
         <h1>{{ course.header }}</h1>
         <h2>{{ course.title }}</h2>
-        <div class="course-description">
-          <p>{{ course.description || 'No journey description yet.' }}</p>
+        <div class="course-description description-preview">
+          <p class="description-text">{{ course.description || 'No journey description yet.' }}</p>
+          @if (course.description) {
+            <button type="button" class="description-more" title="Read full description" (click)="openDescription(course.header, course.description)"><span class="material-icons" aria-hidden="true">read_more</span>See More…</button>
+          }
         </div>
         <p class="course-creator">Created by {{ course.creator }}</p>
       </div>
@@ -63,8 +66,11 @@
                 <div><dt>Your Rating:</dt><dd>{{ movie.disliked ? '0.00' : (movie.rating !== null && movie.rankPosition !== null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-') }}</dd></div>
               </dl>
               </a>
-              <div class="journey-movie-description" tabindex="0">
-                {{ movie.description || 'No description yet.' }}
+              <div class="description-preview">
+                <p class="journey-movie-description">{{ movie.description || 'No description yet.' }}</p>
+                @if (movie.description) {
+                  <button type="button" class="description-more" title="Read full description" (click)="openDescription(movie.title, movie.description)"><span class="material-icons" aria-hidden="true">read_more</span>See More…</button>
+                }
               </div>
               @if (movie.linkedCourseId) {
                 <p>Leads to <a [routerLink]="['/movie-journeys', movie.linkedCourseId]">{{ movie.linkedCourseTitle }}</a></p>
@@ -80,7 +86,7 @@
                     <span class="auth-required-tooltip" role="tooltip">Please, login to start the journey!</span>
                   </span>
                 } @else if (movie.liked) {
-                  <button class="liked" [disabled]="busy[movie.imdbId]" (click)="clear(movie)"><span class="material-icons">thumb_up</span> Recommended</button>
+                  <button class="liked" [disabled]="busy[movie.imdbId]" (click)="clear(movie)"><span class="material-icons">thumb_up</span> Liked</button>
                 } @else if (movie.disliked) {
                   <button class="disliked" [disabled]="busy[movie.imdbId]" (click)="clear(movie)"><span class="material-icons">thumb_down</span> Disliked</button>
                 } @else {
@@ -91,6 +97,16 @@
             </div>
           </article>
         }
+      </div>
+    }
+
+    @if (descriptionDialog; as dialog) {
+      <div class="description-dialog-backdrop" (click)="closeDescription()">
+        <section class="description-dialog" role="dialog" aria-modal="true" aria-labelledby="description-dialog-title" (click)="$event.stopPropagation()">
+          <header><h2 id="description-dialog-title">{{ dialog.title }}</h2></header>
+          <p class="description-dialog-text">{{ dialog.text }}</p>
+          <footer><button type="button" class="secondary" (click)="closeDescription()">Close</button></footer>
+        </section>
       </div>
     }
   }

@@ -10,8 +10,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import skycomposer.moviechallenge.api.movie.dto.CategoryDto;
+import skycomposer.moviechallenge.api.movie.dto.RecommendMovieRequest;
 import skycomposer.moviechallenge.api.movie.dto.SaveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.SaveMovieCategoriesRequest;
+import skycomposer.moviechallenge.api.movie.model.Movie;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,6 +27,7 @@ import java.sql.Types;
 public class CategoryService {
     private final JdbcClient jdbc;
     private final JdbcTemplate jdbcTemplate;
+    private final MovieService movieService;
     private record Row(long id, String name, String description, String icon, long parentId,
                        boolean checked, boolean leaf, boolean empty) {}
 
@@ -101,9 +104,7 @@ public class CategoryService {
         if (added.stream().anyMatch(removed::contains)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A category cannot be both added and removed");
         }
-        for (Long categoryId : added) {
-            requireLeaf(categoryId);
-        }
+        added.forEach(this::requireCategory);
         removed.forEach(this::requireCategory);
         for (Long categoryId : removed) {
             jdbc.sql("delete from movie_category where movie_id=:movie and category_id=:category")
@@ -118,6 +119,18 @@ public class CategoryService {
             }
         }
         return tree(movieId);
+    }
+
+    @Transactional
+    public void addMovieFromSearchToCategory(long categoryId, RecommendMovieRequest movieRequest) {
+        requireCategory(categoryId);
+        Movie movie = movieService.getOrCreateMovie(movieRequest);
+        try {
+            jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category)")
+                    .param("movie", movie.getImdbId()).param("category", categoryId).update();
+        } catch (DuplicateKeyException ignored) {
+            // Idempotent submission.
+        }
     }
 
     private CategoryDto findInTree(long id) {
@@ -144,12 +157,6 @@ public class CategoryService {
     private void validateParent(Long parentId, Long categoryId) {
         if (parentId == null) return;
         requireCategory(parentId);
-        boolean assigned = jdbc.sql("select exists(select 1 from movie_category where category_id=:id)")
-                .param("id", parentId).query(Boolean.class).single();
-        if (assigned) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "A category containing movies cannot become a parent; remove its movie assignments first");
-        }
         if (categoryId != null && parentId.equals(categoryId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Use a null parent for a root category");
         }
@@ -186,13 +193,6 @@ public class CategoryService {
                             and existing.descendant_id=descendant.descendant_id)
                     """).update();
         } while (inserted > 0);
-    }
-
-    private void requireLeaf(long id) {
-        requireCategory(id);
-        boolean child = jdbc.sql("select exists(select 1 from category_parent_child where parent_id=:id and child_id<>:id)")
-                .param("id", id).query(Boolean.class).single();
-        if (child) throw new ResponseStatusException(HttpStatus.CONFLICT, "Movies can only be assigned to leaf categories");
     }
 
     private void requireCategory(long id) {

@@ -11,7 +11,7 @@
       </div>
       <div class="start-journey-movies">
         @if(!journeyCategory){
-          <p class="journey-hint">Select a leaf category on the left to see its movies.</p>
+          <p class="journey-hint">Select a category on the left to see its movies.</p>
         } @else {
           <div class="journey-results-header">
             <h2>{{journeyCategory.icon || '📁'}} {{journeyCategory.name}}</h2>
@@ -40,7 +40,7 @@
                   <a class="journey-movie-title-link" [routerLink]="['/movies', movie.imdbId]"><h3>{{movie.title}}</h3></a>
                   <p>{{movie.year}} · {{movie.director}}</p>
                   <div class="rating-actions">
-                    @if(movie.recommended){<button class="recommended" [disabled]="recommendationBusy[movie.imdbId]" (click)="clearRating(movie)"><span class="material-icons">check_circle</span>Recommended</button>}
+                    @if(movie.recommended){<button class="recommended" [disabled]="recommendationBusy[movie.imdbId]" (click)="clearRating(movie)"><span class="material-icons">check_circle</span>Liked</button>}
                     @else if(movie.disliked){<button class="disliked" [disabled]="recommendationBusy[movie.imdbId]" (click)="clearRating(movie)"><span class="material-icons">thumb_down</span>Disliked</button>}
                     @else{<button [disabled]="recommendationBusy[movie.imdbId]" (click)="rate(movie,true)"><span class="material-icons">thumb_up</span>Like</button><button class="dislike" [disabled]="recommendationBusy[movie.imdbId]" (click)="rate(movie,false)"><span class="material-icons">thumb_down</span>Dislike</button>}
                   </div>
@@ -54,7 +54,11 @@
   }
   @if (loading) { <p>Loading Movie Journeys…</p> } @else { <div class="course-grid">
     @for (course of courses; track course.id) { <article><p class="journey-card-type">{{course.typeDescription}}</p><h2><a [routerLink]="['/movie-journeys',course.id]">{{course.header}}</a></h2><h3>{{course.title}}</h3>
-      <p>{{course.description || 'No description yet.'}}</p><dl><div><dt>Movies</dt><dd>{{course.movieCount}}</dd></div>@if(auth.token){<div><dt>Your Average Rating</dt><dd>{{course.averageRating | number:'1.2-2'}}</dd></div>}</dl>
+      <div class="description-preview">
+        <p class="description-text">{{course.description || 'No description yet.'}}</p>
+        @if(course.description){<button type="button" class="description-more" title="Read full description" (click)="openDescription(course)"><span class="material-icons" aria-hidden="true">read_more</span>See More…</button>}
+      </div>
+      <dl><div><dt>Movies</dt><dd>{{course.movieCount}}</dd></div>@if(auth.token){<div><dt>Your Average Rating</dt><dd>{{course.averageRating | number:'1.2-2'}}</dd></div>}</dl>
       <div class="actions">
         @if (!auth.token) {
           <a class="button secondary view-button" [routerLink]="['/movie-journeys',course.id]" title="View Movie Journey" aria-label="View Movie Journey"><span class="material-icons" aria-hidden="true">visibility</span> View</a>
@@ -67,4 +71,13 @@
         }
       </div></article> }
   </div> }
+  @if(descriptionCourse; as course){
+    <div class="description-dialog-backdrop" (click)="closeDescription()">
+      <section class="description-dialog" role="dialog" aria-modal="true" aria-labelledby="journey-description-title" (click)="$event.stopPropagation()">
+        <header><h2 id="journey-description-title">{{course.header}}</h2></header>
+        <p class="description-dialog-text">{{course.description}}</p>
+        <footer><button type="button" class="secondary" (click)="closeDescription()">Close</button></footer>
+      </section>
+    </div>
+  }
 </section>

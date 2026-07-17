@@ -113,6 +113,10 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     this.loadFavoriteMovies(1);
   }
 
+  hasActiveFilter(): boolean {
+    return !!this.activeFilter || !!this.activeYear || this.activeCategories.length > 0;
+  }
+
   loadShareStatus(): void {
     this.shareLoading = true;
     this.shareErrorMessage = '';

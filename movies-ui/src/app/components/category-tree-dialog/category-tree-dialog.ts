@@ -28,6 +28,7 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
   categories: MovieCategory[] = [];
   expanded = new Set<number>();
   explicitSelected = new Set<number>();
+  originalExplicitSelected = new Set<number>();
   originalChecked = new Set<number>();
   addedCategories = new Set<number>();
   removedCategories = new Set<number>();
@@ -42,6 +43,7 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
 
   ngOnInit(): void {
     this.explicitSelected = new Set(this.selectedCategoryIds);
+    this.originalExplicitSelected = new Set(this.selectedCategoryIds);
     this.load();
   }
 
@@ -80,7 +82,7 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
 
   toggleCategory(category: MovieCategory, checked: boolean): void {
     if (this.mode === 'journey') {
-      if (category.leaf && checked) {
+      if (checked) {
         this.explicitSelected = new Set([category.id]);
         this.journeyCategorySelected.emit(category);
       }
@@ -96,7 +98,6 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
       this.selectionChanged.emit([...this.explicitSelected]);
       return;
     }
-    if (!category.leaf) return;
     if (checked) {
       this.removedCategories.delete(category.id);
       if (!this.originalChecked.has(category.id)) this.addedCategories.add(category.id);
@@ -133,6 +134,16 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
 
   cancelEditor(): void { this.editingId = null; this.creatingParentId = undefined; }
 
+  editorTitle(): string {
+    if (this.editingId != null) return 'Edit Category';
+    return this.creatingParentId == null ? 'Create Root Category' : 'Create Category';
+  }
+
+  editorParentCategory(): MovieCategory | undefined {
+    const parentId = this.editingId != null ? (this.find(this.editingId)?.parentId ?? null) : (this.creatingParentId ?? null);
+    return parentId == null ? undefined : this.find(parentId);
+  }
+
   saveEditor(): void {
     if (!this.name.trim()) return;
     const existing = this.editingId == null ? null : this.find(this.editingId);
@@ -165,7 +176,7 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
   }
 
   canSubmit(): boolean {
-    return this.mode === 'filter' ? this.explicitSelected.size > 0
+    return this.mode === 'filter' ? !this.setsEqual(this.explicitSelected, this.originalExplicitSelected)
       : this.addedCategories.size > 0 || this.removedCategories.size > 0;
   }
 
@@ -194,6 +205,12 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
       if (ids.includes(category.id)) ancestors.forEach(id => this.expanded.add(id));
       this.expandAncestorsOf(ids, category.children, [...ancestors, category.id]);
     }
+  }
+
+  private setsEqual(a: Set<number>, b: Set<number>): boolean {
+    if (a.size !== b.size) return false;
+    for (const id of a) if (!b.has(id)) return false;
+    return true;
   }
 
   private find(id: number): MovieCategory | undefined { return this.flatten(this.categories).find(category => category.id === id); }

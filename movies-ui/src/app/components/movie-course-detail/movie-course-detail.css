@@ -7,8 +7,8 @@
 .course-heading { flex: 1; }
 .course-introduction h1 { max-width: 850px; margin: .2rem 0; color: #172b45; font-size: clamp(2rem,5vw,3.5rem); line-height: 1.05; letter-spacing: -.035em; }
 .course-introduction h2 { margin: .6rem 0 1.4rem; color: #52647a; font-size: clamp(1.15rem,2vw,1.55rem); font-weight: 600; line-height: 1.35; }
-.course-description { max-width: 850px; padding: 1rem 1.2rem; border-left: 4px solid #273c75; border-radius: 0 8px 8px 0; background: rgba(255,255,255,.8); }
-.course-description p { margin: 0; color: #3f4c5d; font-size: .98rem; line-height: 1.65; white-space: pre-wrap; }
+.course-description { max-width: 850px; }
+.course-description .description-text { min-height: 7.3rem; max-height: 7.3rem; -webkit-line-clamp: 4; font-size: .98rem; }
 .course-creator { margin: 1rem 0 0; color: #6b7583; font-size: .85rem; }
 .notice,.expert { margin: 1rem 0; padding: 1rem; border-radius: 10px; background: #eef3ff; }
 .expert { display: flex; gap: 1rem; background: #edf9ef; color: #175b29; }
@@ -28,8 +28,9 @@
 .movie-info dt { color: #637083; font-size: .78rem; font-weight: 700; }
 .movie-info dd { min-width: 0; margin: 0; color: #26384e; font-size: .82rem; overflow-wrap: anywhere; }
 .movie-info > p { margin: .25rem 1rem; font-size: .82rem; }
-.journey-movie-description { height: 7rem; margin: .35rem 1rem .25rem; padding: .8rem .9rem; overflow-y: auto; border: 1px solid #d9e0e8; border-left: 4px solid #273c75; border-radius: 5px; background: #f6f8fb; color: #344256; font-size: .94rem; line-height: 1.55; white-space: pre-wrap; scrollbar-gutter: stable; }
-.journey-movie-description:focus { outline: 2px solid #6f85a6; outline-offset: 2px; }
+.journey-movie-description { min-height: 6.9rem; max-height: 6.9rem; margin: .35rem 1rem 0; padding: .8rem .9rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; border: 1px solid #d9e0e8; border-left: 4px solid #273c75; border-radius: 0 5px 5px 0; background: #f6f8fb; color: #344256; font-size: .94rem; line-height: 1.55; }
+.movie-info .description-preview { margin: 0 1rem .25rem; }
+.movie-info .description-more { margin-top: .3rem; }
 .course-movie-actions { display: flex; gap: .45rem; align-items: center; margin-top: auto; padding: .75rem 1rem 1rem; }
 .course-movie-actions button { display: inline-flex; align-items: center; justify-content: center; gap: .25rem; min-height: 2.25rem; padding: .45rem .65rem; font-size: .82rem; }
 .auth-required-action { position: relative; display: inline-flex; border-radius: 7px; cursor: not-allowed; }

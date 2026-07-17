@@ -1,6 +1,6 @@
 .header-actions,.start-journey,.rating-actions{display:flex;gap:.6rem;align-items:center}.start-journey{background:#0f766e}.start-journey .material-icons,.rating-actions .material-icons{font-size:1.1rem}
-.start-journey-layout{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:1.25rem;margin:2rem 0;align-items:start}
-.start-journey-tree{position:sticky;top:1rem}
+.start-journey-layout{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:1.25rem;margin:2rem 0;align-items:start}
+.start-journey-tree{position:sticky;top:1rem;min-height:32rem}
 .start-journey-movies{min-width:0}
 .journey-hint{color:#6b7280}
 .journey-results-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem}

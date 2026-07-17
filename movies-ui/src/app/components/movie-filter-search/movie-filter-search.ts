@@ -25,12 +25,14 @@ export class MovieFilterSearchComponent implements OnDestroy {
   @Input() allowExternalActions = true;
   @Input() externalActions: ExternalMovieAction[] = ['add', 'like'];
   @Input() showSelectCategories = true;
+  @Input() showNotRecommendedFilter = false;
   @Output() valueChange = new EventEmitter<string>();
   @Output() internalSearch = new EventEmitter<ParsedMovieSearch>();
   @Output() cleared = new EventEmitter<void>();
   @Output() externalAction = new EventEmitter<{ action: ExternalMovieAction; movie: OmdbMovieSearchResult }>();
 
   searchOmdb = false;
+  notRecommendedOnly = false;
   selectedCategories: number[] = [];
   categoryDialogVisible = false;
   private categoryDialogSnapshot: number[] = [];
@@ -74,10 +76,15 @@ export class MovieFilterSearchComponent implements OnDestroy {
     if (this.value.trim()) this.search();
   }
 
+  toggleNotRecommended(event: Event): void {
+    this.notRecommendedOnly = (event.target as HTMLInputElement).checked;
+    this.runInternalSearch(this.value.trim());
+  }
+
   search(): void {
     this.cancelTimer();
     const query = this.value.trim();
-    if (!query && this.selectedCategories.length === 0) return;
+    if (!query && this.selectedCategories.length === 0 && !this.notRecommendedOnly) return;
     // OMDb augments the normal list; it never replaces the page's own filter.
     this.runInternalSearch(query);
     if (!this.searchOmdb) {
@@ -109,9 +116,10 @@ export class MovieFilterSearchComponent implements OnDestroy {
     this.value = '';
     this.valueChange.emit('');
     this.searchOmdb = false;
+    this.notRecommendedOnly = false;
     this.selectedCategories = [];
     this.resetExternalResults();
-    this.internalSearch.emit({ keyword: '', year: '' });
+    this.internalSearch.emit({ keyword: '', year: '', selectedCategories: [], onlyNotRecommended: false });
     this.cleared.emit();
   }
 
@@ -205,13 +213,18 @@ export class MovieFilterSearchComponent implements OnDestroy {
     this.value = '';
     this.valueChange.emit('');
     this.searchOmdb = false;
+    this.notRecommendedOnly = false;
     this.selectedCategories = [];
     this.resetExternalResults();
-    this.internalSearch.emit({ keyword: '', year: '' });
+    this.internalSearch.emit({ keyword: '', year: '', selectedCategories: [], onlyNotRecommended: false });
   }
 
   private runInternalSearch(value: string): void {
-    this.internalSearch.emit({ ...this.api.parseMovieSearch(value), selectedCategories: [...this.selectedCategories] });
+    this.internalSearch.emit({
+      ...this.api.parseMovieSearch(value),
+      selectedCategories: [...this.selectedCategories],
+      onlyNotRecommended: this.notRecommendedOnly
+    });
   }
 
   private resetExternalResults(): void {

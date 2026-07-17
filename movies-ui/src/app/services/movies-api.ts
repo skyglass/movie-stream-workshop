@@ -188,6 +188,7 @@ export interface ParsedMovieSearch {
   keyword: string;
   year: string;
   selectedCategories?: number[];
+  onlyNotRecommended?: boolean;
 }
 
 export interface RecommendMovieFromSearchRequest {
@@ -255,8 +256,12 @@ export class MoviesApiService {
     return this.positiveConfigNumber(this.cfg.config.moviesPerPage, 'moviesPerPage');
   }
 
-  listMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
-    return this.http.get<MoviePage>(this.moviesBase, { params: this.pageParams(page, pageSize, filter, year, selectedCategories) });
+  listMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = [], onlyNotRecommended = false): Observable<MoviePage> {
+    const params = this.pageParams(page, pageSize, filter, year, selectedCategories);
+    if (onlyNotRecommended) {
+      params['only_not_recommended'] = 'true';
+    }
+    return this.http.get<MoviePage>(this.moviesBase, { params });
   }
 
   listMovieCourses(): Observable<MovieCourse[]> { return this.http.get<MovieCourse[]>(this.movieCoursesBase); }
@@ -304,6 +309,10 @@ export class MoviesApiService {
     return this.http.put<MovieCategory[]>(`${this.categoriesBase}/movies/${encodeURIComponent(movieId)}`, {
       addedCategories, removedCategories
     });
+  }
+
+  addMovieFromSearchToCategory(categoryId: number, movie: OmdbMovieSearchResult): Observable<void> {
+    return this.http.post<void>(`${this.categoriesBase}/${categoryId}/movies-from-search`, this.movieFromOmdb(movie));
   }
 
   listFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
@@ -551,9 +560,11 @@ export class MoviesApiService {
       imdbId: movie.imdbId,
       title: movie.englishTitle || movie.originalTitle,
       originalTitle: movie.originalTitle,
-      director: movie.directors,
-      writer: movie.writers,
-      year: movie.year,
+      // The backend requires director/writer/year to be non-blank; OMDb sometimes
+      // omits them entirely, so fall back to "N/A" rather than sending "".
+      director: movie.directors || 'N/A',
+      writer: movie.writers || 'N/A',
+      year: movie.year || 'N/A',
       country: movie.country,
       genre: movie.genre,
       poster: movie.poster,

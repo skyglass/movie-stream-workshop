@@ -8,15 +8,6 @@
   <section><h2>Journey Movies</h2>
     <div class="journey-movie-edit-list">
     @for(movie of course.movies;track movie.imdbId){
-      @if(editingMovies[movie.imdbId]){
-      <article class="movie-editor editing">
-        <div class="editor-sequence">{{movie.watchOrder}}</div>
-        <div class="catalog-movie-title">{{movie.title}}</div>
-        <label>Header<input maxlength="200" [(ngModel)]="headers[movie.imdbId]" placeholder="Journey-specific heading for this movie"></label>
-        <label>Description<textarea rows="4" [(ngModel)]="descriptions[movie.imdbId]" placeholder="Why is this movie part of the journey?"></textarea></label>
-        <div class="actions"><button [disabled]="busy" (click)="saveMovie(movie)">Save</button><button class="danger secondary" [disabled]="busy" (click)="remove(movie)">Remove</button></div>
-      </article>
-      } @else {
       <article class="journey-preview-card">
         <div class="journey-preview-header">{{movie.header || movie.title}}</div>
         <div class="journey-preview-poster"><img [src]="poster(movie)" [alt]="movie.title+' poster'"></div>
@@ -28,12 +19,67 @@
             <div><dt>Genre:</dt><dd>{{movie.genre||'N/A'}}</dd></div>
             <div><dt>Your Rating:</dt><dd>{{movie.disliked?'0.00':(movie.rating!==null&&movie.rankPosition!==null?(movie.rating|number:'1.1-2')+' (#'+movie.rankPosition+')':'-')}}</dd></div>
           </dl>
-          <div class="movie-editor-description" tabindex="0">{{movie.description || 'No description yet.'}}</div>
-          <div class="actions"><button type="button" class="secondary edit-movie-button" (click)="editMovie(movie)"><span class="material-icons" aria-hidden="true">edit</span> Edit</button></div>
+          <div class="description-preview">
+            <p class="description-text">{{movie.description || 'No description yet.'}}</p>
+            @if(movie.description){<button type="button" class="description-more" title="Read full description" (click)="openDescription(movie.title, movie.description)"><span class="material-icons" aria-hidden="true">read_more</span>See More…</button>}
+          </div>
+          <div class="actions">
+            <button type="button" class="secondary edit-movie-button" (click)="editMovie(movie)"><span class="material-icons" aria-hidden="true">edit</span> Edit</button>
+            <button type="button" class="danger secondary remove-movie-button" (click)="confirmRemove(movie)"><span class="material-icons" aria-hidden="true">delete</span> Remove</button>
+          </div>
         </div>
       </article>
-      }
     }
     </div>
-  </section><div class="delete-zone"><div><strong>Delete Movie Journey</strong><p>Deletes its movies, explorers, descriptions and links. Movie catalog and user ratings remain intact.</p></div><button class="danger" (click)="deleteCourse()">Delete Movie Journey</button></div>
+  </section><div class="delete-zone"><div><strong>Delete Movie Journey</strong><p>Deletes its movies, explorers, descriptions and links. Movie catalog and user ratings remain intact.</p></div><button class="danger" (click)="requestDeleteCourse()">Delete Movie Journey</button></div>
+
+  @if(editingMovie; as movie){
+    <div class="edit-movie-backdrop" (click)="cancelEditMovie()">
+      <section class="edit-movie-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-movie-title" (click)="$event.stopPropagation()">
+        <header><h2 id="edit-movie-title">Edit “{{movie.title}}”</h2></header>
+        <label>Header<input name="movieHeader" [(ngModel)]="headers[movie.imdbId]" maxlength="200" placeholder="Journey-specific heading for this movie"></label>
+        <label>Description<textarea name="movieDescription" rows="12" [(ngModel)]="descriptions[movie.imdbId]" placeholder="Why is this movie part of the journey?"></textarea></label>
+        <footer>
+          <button type="button" class="secondary" (click)="cancelEditMovie()">Cancel</button>
+          <button type="button" [disabled]="busy" (click)="saveMovie()">Save</button>
+        </footer>
+      </section>
+    </div>
+  }
+
+  @if(confirmRemoveMovie; as movie){
+    <div class="confirm-dialog-backdrop" (click)="cancelRemove()">
+      <section class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-remove-title" (click)="$event.stopPropagation()">
+        <h2 id="confirm-remove-title">Remove movie?</h2>
+        <p>Remove “{{movie.title}}” from this Movie Journey?</p>
+        <footer>
+          <button type="button" class="secondary" (click)="cancelRemove()">Cancel</button>
+          <button type="button" class="danger" [disabled]="busy" (click)="removeConfirmed()">Remove</button>
+        </footer>
+      </section>
+    </div>
+  }
+
+  @if(confirmDeleteCourse){
+    <div class="confirm-dialog-backdrop" (click)="cancelDeleteCourse()">
+      <section class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-delete-title" (click)="$event.stopPropagation()">
+        <h2 id="confirm-delete-title">Delete Movie Journey?</h2>
+        <p>Delete Movie Journey “{{course.title}}”? This deletes its movies, explorers, descriptions and links. Movie catalog and user ratings remain intact.</p>
+        <footer>
+          <button type="button" class="secondary" (click)="cancelDeleteCourse()">Cancel</button>
+          <button type="button" class="danger" (click)="deleteCourseConfirmed()">Delete</button>
+        </footer>
+      </section>
+    </div>
+  }
+
+  @if(descriptionDialog; as dialog){
+    <div class="description-dialog-backdrop" (click)="closeDescription()">
+      <section class="description-dialog" role="dialog" aria-modal="true" aria-labelledby="movie-description-dialog-title" (click)="$event.stopPropagation()">
+        <header><h2 id="movie-description-dialog-title">{{dialog.title}}</h2></header>
+        <p class="description-dialog-text">{{dialog.text}}</p>
+        <footer><button type="button" class="secondary" (click)="closeDescription()">Close</button></footer>
+      </section>
+    </div>
+  }
 }</section>

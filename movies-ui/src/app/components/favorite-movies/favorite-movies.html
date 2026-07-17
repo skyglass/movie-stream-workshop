@@ -151,7 +151,7 @@
       (pageChange)="loadFavoriteMovies($event)" />
   } @else {
     <div class="empty">
-      {{ isPublicView ? 'No favorite movies yet' : 'Complete Movie Challenges to see your favorite movies!' }}
+      {{ isPublicView ? 'No favorite movies yet' : (hasActiveFilter() ? 'No movies found' : 'Complete Movie Challenges to see your favorite movies!') }}
     </div>
   }
   @if (categoryMovie; as selectedMovie) {

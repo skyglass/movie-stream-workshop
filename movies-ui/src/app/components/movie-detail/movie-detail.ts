@@ -166,15 +166,24 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  toggleRecommendation(): void {
+  likeMovie(): void {
     if (!this.movie || !this.auth.token || this.recommendationSaving) return;
+    this.updateRecommendation(() => this.moviesApi.recommendMovie(this.movie!.imdbId));
+  }
 
+  dislikeMovie(): void {
+    if (!this.movie || !this.auth.token || this.recommendationSaving) return;
+    this.updateRecommendation(() => this.moviesApi.dislikeMovie(this.movie!.imdbId));
+  }
+
+  clearRecommendation(): void {
+    if (!this.movie || !this.auth.token || this.recommendationSaving) return;
+    this.updateRecommendation(() => this.moviesApi.unrecommendMovie(this.movie!.imdbId));
+  }
+
+  private updateRecommendation(requestFactory: () => ReturnType<MoviesApiService['recommendMovie']>): void {
     this.recommendationSaving = true;
-    const request = this.movie.recommended
-      ? this.moviesApi.unrecommendMovie(this.movie.imdbId)
-      : this.moviesApi.recommendMovie(this.movie.imdbId);
-
-    request.subscribe({
+    requestFactory().subscribe({
       next: movie => {
         if (!this.auth.token) return;
         this.movie = movie;

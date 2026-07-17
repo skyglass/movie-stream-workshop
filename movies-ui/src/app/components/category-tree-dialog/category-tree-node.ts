@@ -7,6 +7,7 @@ import type { CategoryTreeMode } from './category-tree-dialog';
   standalone: true,
   selector: 'app-category-tree-node',
   imports: [CommonModule],
+  styleUrl: './category-tree-node.css',
   template: `
     <li class="tree-node">
       <div class="node-row">
@@ -16,13 +17,18 @@ import type { CategoryTreeMode } from './category-tree-dialog';
           </button>
         } @else { <span class="expand-spacer"></span> }
         <label class="category-choice" [class.locked]="locked">
-          <input [type]="mode === 'journey' ? 'radio' : 'checkbox'" [checked]="checked" [disabled]="locked || (mode !== 'filter' && !category.leaf)" (change)="toggle.emit({category, checked: $any($event.target).checked})" />
-          <span class="category-label" [title]="category.description || category.name"><span class="emoji">{{ category.icon || '📁' }}</span><span>{{ category.name }}</span></span>
+          <input [type]="mode === 'journey' ? 'radio' : 'checkbox'" [checked]="checked" [disabled]="locked" (change)="toggle.emit({category, checked: $any($event.target).checked})" />
+          <span class="category-label" [title]="category.description || category.name">
+            <span class="emoji">{{ category.icon || '📁' }}</span>
+            <span class="category-name">{{ category.name }}</span>
+          </span>
         </label>
         @if (management) {
-          <button type="button" class="node-action" title="Create sub-category" (click)="create.emit(category.id)"><span class="material-icons">create_new_folder</span></button>
-          <button type="button" class="node-action" title="Edit category" (click)="edit.emit(category)"><span class="material-icons">edit</span></button>
-          <button type="button" class="node-action danger" title="Delete empty category" [disabled]="!category.empty" (click)="remove.emit(category)"><span class="material-icons">delete</span></button>
+          <div class="node-actions">
+            <button type="button" class="node-action" title="Create sub-category" (click)="create.emit(category.id)"><span class="material-icons">create_new_folder</span></button>
+            <button type="button" class="node-action" title="Edit category" (click)="edit.emit(category)"><span class="material-icons">edit</span></button>
+            <button type="button" class="node-action danger" title="Delete empty category" [disabled]="!category.empty" (click)="remove.emit(category)"><span class="material-icons">delete</span></button>
+          </div>
         }
       </div>
       @if (!category.leaf && expanded.has(category.id)) {

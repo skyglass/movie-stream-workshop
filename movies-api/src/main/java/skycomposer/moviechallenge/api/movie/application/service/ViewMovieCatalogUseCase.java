@@ -86,9 +86,15 @@ public class ViewMovieCatalogUseCase {
 
     @Transactional(readOnly = true)
     public MoviePageDto viewCatalog(String username, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+        return viewCatalog(username, pageable, filter, year, selectedCategories, false);
+    }
+
+    @Transactional(readOnly = true)
+    public MoviePageDto viewCatalog(String username, Pageable pageable, String filter, String year,
+                                     List<Long> selectedCategories, boolean onlyNotRecommended) {
         Set<String> recommendedMovieIds = movieRecommendationService.recommendedMovieIds(username);
         Set<String> dislikedMovieIds = movieRecommendationService.dislikedMovieIds(username);
-        var movies = movieService.getMovies(pageable, filter, year, selectedCategories);
+        var movies = movieService.getMovies(pageable, filter, year, selectedCategories, username, onlyNotRecommended);
         Map<String, MovieRatingDto> ratings = movieChallengeRepository.movieRatings(
                 username,
                 movies.getContent().stream().map(Movie::getImdbId).toList());

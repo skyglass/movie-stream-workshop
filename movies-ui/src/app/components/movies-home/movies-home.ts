@@ -32,6 +32,7 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   activeFilter = '';
   activeYear = '';
   activeCategories: number[] = [];
+  activeOnlyNotRecommended = false;
   private authSub?: Subscription;
 
   ngOnInit(): void {
@@ -48,7 +49,7 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   loadMovies(page = this.currentPage): void {
     this.loading = true;
     this.errorMessage = '';
-    this.moviesApi.listMovies(page, this.pageSize, this.activeFilter, this.activeYear, this.activeCategories).subscribe({
+    this.moviesApi.listMovies(page, this.pageSize, this.activeFilter, this.activeYear, this.activeCategories, this.activeOnlyNotRecommended).subscribe({
       next: moviePage => {
         this.movies = moviePage.movies;
         this.totalCount = moviePage.totalCount;
@@ -64,10 +65,13 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
 
   applyFilter(search: ParsedMovieSearch): void {
     const categories = search.selectedCategories ?? [];
-    if (search.keyword === this.activeFilter && search.year === this.activeYear && categories.join() === this.activeCategories.join()) return;
+    const onlyNotRecommended = search.onlyNotRecommended ?? false;
+    if (search.keyword === this.activeFilter && search.year === this.activeYear
+      && categories.join() === this.activeCategories.join() && onlyNotRecommended === this.activeOnlyNotRecommended) return;
     this.activeFilter = search.keyword;
     this.activeYear = search.year;
     this.activeCategories = categories;
+    this.activeOnlyNotRecommended = onlyNotRecommended;
     this.loadMovies(1);
   }
 
@@ -75,15 +79,26 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
     return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';
   }
 
-  toggleRecommendation(movie: Movie): void {
-    if (!this.auth.token || this.recommendationBusy[movie.imdbId]) return;
+  likeMovie(movie: Movie): void {
+    if (this.recommendationBusy[movie.imdbId]) return;
+    this.updateRecommendation(movie, () => this.moviesApi.recommendMovie(movie.imdbId));
+  }
 
+  dislikeMovie(movie: Movie): void {
+    if (this.recommendationBusy[movie.imdbId]) return;
+    this.updateRecommendation(movie, () => this.moviesApi.dislikeMovie(movie.imdbId));
+  }
+
+  clearRecommendation(movie: Movie): void {
+    if (this.recommendationBusy[movie.imdbId]) return;
+    this.updateRecommendation(movie, () => this.moviesApi.unrecommendMovie(movie.imdbId));
+  }
+
+  private updateRecommendation(movie: Movie, requestFactory: () => ReturnType<MoviesApiService['recommendMovie']>): void {
+    if (!this.auth.token) return;
     this.recommendationBusy[movie.imdbId] = true;
-    const request = movie.recommended || movie.disliked
-      ? this.moviesApi.unrecommendMovie(movie.imdbId)
-      : this.moviesApi.recommendMovie(movie.imdbId);
-
-    request.subscribe({
+    this.errorMessage = '';
+    requestFactory().subscribe({
       next: updatedMovie => {
         movie.recommended = updatedMovie.recommended;
         movie.disliked = updatedMovie.disliked;
@@ -94,21 +109,6 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
         this.recommendationBusy[movie.imdbId] = false;
       }
     });
-  }
-
-  recommendationTitle(movie: Movie): string {
-    if (movie.disliked) return 'Clear dislike';
-    return movie.recommended ? 'Unrecommend' : 'Like';
-  }
-
-  recommendationIcon(movie: Movie): string {
-    if (movie.disliked) return 'thumb_down';
-    return movie.recommended ? 'check_circle' : 'thumb_up';
-  }
-
-  recommendationLabel(movie: Movie): string {
-    if (movie.disliked) return 'Disliked';
-    return movie.recommended ? 'Recommended' : 'Like';
   }
 
   private applySeoMetadata(): void {

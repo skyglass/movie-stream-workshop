@@ -25,7 +25,7 @@
               [disabled]="recommendationBusy[movie.imdbId]"
               (click)="clearRecommendation(movie)">
               <span class="material-icons" aria-hidden="true">thumb_up</span>
-              Recommended
+              Liked
             </button>
           } @else if (movie.disliked) {
             <button

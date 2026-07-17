@@ -10,3 +10,4 @@
 .card-actions button{width:100%;justify-content:center}
 .material-icons{font-size:1.1rem}.state{padding:.75rem}.error{color:#b91c1c}
 .category-filter-button{display:inline-flex;align-items:center;gap:.35rem;border:1px solid #1d4ed8;border-radius:.45rem;background:#fff;color:#1d4ed8;padding:.55rem .75rem;font-weight:700;cursor:pointer}
+.not-recommended-toggle{display:flex;align-items:center;gap:.45rem;width:max-content}

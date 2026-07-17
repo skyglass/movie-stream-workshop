@@ -20,7 +20,7 @@
   @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
   @if (loading) { <p>Loading categories…</p> } @else {
     @if (managementEnabled()) {
-      <button type="button" class="create-root" (click)="beginCreate(null)"><span class="material-icons">create_new_folder</span>Create root category</button>
+      <button type="button" class="create-root" title="Create Root Category" aria-label="Create Root Category" (click)="beginCreate(null)"><span class="material-icons">create_new_folder</span></button>
     }
     @if (categories.length === 0) { <p class="empty">No categories yet.</p> }
     <ul class="category-tree">
@@ -31,7 +31,13 @@
     </ul>
     @if (creatingParentId !== undefined || editingId !== null) {
       <form class="category-editor" (ngSubmit)="saveEditor()">
-        <h3>{{ editingId == null ? 'Create Category' : 'Edit Category' }}</h3>
+        <h3>{{ editorTitle() }}</h3>
+        @if (editorParentCategory(); as parent) {
+          <div class="parent-field">
+            <span class="parent-field-label">Parent category</span>
+            <span class="parent-field-value"><span class="emoji">{{ parent.icon || '📁' }}</span><span class="category-name">{{ parent.name }}</span></span>
+          </div>
+        }
         <label>Name<input name="categoryName" [(ngModel)]="name" maxlength="200" required /></label>
         <label>Emoji icon<input name="categoryIcon" [(ngModel)]="icon" maxlength="32" placeholder="📁" /></label>
         <label>Description<textarea name="categoryDescription" [(ngModel)]="description" maxlength="2000" rows="3"></textarea></label>

@@ -43,7 +43,7 @@
   }
 
   <section id="movie-catalog" class="catalog-section" aria-label="Movie Catalog">
-    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies" (internalSearch)="applyFilter($event)" />
+    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies" [showNotRecommendedFilter]="true" (internalSearch)="applyFilter($event)" />
     <h2>Movie Results</h2>
 
     @if (loading) {
@@ -58,17 +58,48 @@
               <a class="poster-link" [routerLink]="['/movies', movie.imdbId]" [attr.aria-labelledby]="'movie-title-' + movie.imdbId">
                 <img itemprop="image" [src]="poster(movie)" [alt]="movie.title + ' poster'" />
               </a>
-              <button
-                type="button"
-                class="recommend-button"
-                [class.recommended]="movie.recommended"
-                [class.disliked]="movie.disliked"
-                [title]="recommendationTitle(movie)"
-                [disabled]="recommendationBusy[movie.imdbId]"
-                (click)="toggleRecommendation(movie)">
-                <span class="material-icons" aria-hidden="true">{{ recommendationIcon(movie) }}</span>
-                {{ recommendationLabel(movie) }}
-              </button>
+              @if (movie.recommended) {
+                <button
+                  type="button"
+                  class="recommend-button recommended"
+                  title="Clear like"
+                  [disabled]="recommendationBusy[movie.imdbId]"
+                  (click)="clearRecommendation(movie)">
+                  <span class="material-icons" aria-hidden="true">check_circle</span>
+                  Liked
+                </button>
+              } @else if (movie.disliked) {
+                <button
+                  type="button"
+                  class="recommend-button disliked"
+                  title="Clear dislike"
+                  [disabled]="recommendationBusy[movie.imdbId]"
+                  (click)="clearRecommendation(movie)">
+                  <span class="material-icons" aria-hidden="true">thumb_down</span>
+                  Disliked
+                </button>
+              } @else {
+                <div class="recommendation-actions">
+                  <button
+                    type="button"
+                    class="recommend-action like"
+                    title="Like"
+                    [disabled]="recommendationBusy[movie.imdbId]"
+                    (click)="likeMovie(movie)">
+                    <span class="material-icons" aria-hidden="true">thumb_up</span>
+                    Like
+                  </button>
+                  <button
+                    type="button"
+                    class="recommend-action dislike"
+                    title="Dislike"
+                    [disabled]="recommendationBusy[movie.imdbId]"
+                    (click)="dislikeMovie(movie)">
+                    <span class="material-icons" aria-hidden="true">thumb_down</span>
+                    Dislike
+                  </button>
+                </div>
+              }
             } @else {
               <div class="poster-link">
                 <img itemprop="image" [src]="poster(movie)" [alt]="movie.title + ' poster'" />
@@ -124,7 +155,7 @@
         [pageSize]="pageSize"
         (pageChange)="loadMovies($event)" />
     } @else {
-      <div class="empty">No movies in Movie Challenge yet</div>
+      <div class="empty">{{ activeCategories.length > 0 ? 'No movies in Selected Categories yet' : 'No movies in Movie Challenge yet' }}</div>
     }
   </section>
 </section>

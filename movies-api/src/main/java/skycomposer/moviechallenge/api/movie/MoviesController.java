@@ -57,12 +57,14 @@ public class MoviesController {
                                   @RequestParam(required = false) Integer pageSize,
                                   @RequestParam(required = false) String filter,
                                   @RequestParam(required = false) String year,
-                                  @RequestParam(required = false) List<Long> selectedCategories) {
+                                  @RequestParam(required = false) List<Long> selectedCategories,
+                                  @RequestParam(name = "only_not_recommended", required = false) Boolean onlyNotRecommended) {
         String username = username(jwt);
         var pageable = moviePaging.pageable(page, pageSize);
         return username == null
                 ? viewMovieCatalog.viewCatalog(pageable, filter, year, selectedCategories)
-                : viewMovieCatalog.viewCatalog(username, pageable, filter, year, selectedCategories);
+                : viewMovieCatalog.viewCatalog(username, pageable, filter, year, selectedCategories,
+                    Boolean.TRUE.equals(onlyNotRecommended));
     }
 
     @GetMapping("/{imdbId}")
