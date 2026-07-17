@@ -9,7 +9,7 @@ import { UsersRecommendedMoviesComponent } from './components/users-recommended-
 import { AdminLayoutComponent } from './components/admin-layout/admin-layout';
 import { AdminUsersComponent } from './components/admin-users/admin-users';
 import { ProfileComponent } from './components/profile/profile';
-import { adminGuard, authGuard } from './services/auth-guard';
+import { adminGuard, authGuard, movieEditGuard } from './services/auth-guard';
 import { MovieCoursesComponent } from './components/movie-courses/movie-courses';
 import { MovieCourseDetailComponent } from './components/movie-course-detail/movie-course-detail';
 import { MovieCourseEditComponent } from './components/movie-course-edit/movie-course-edit';
@@ -21,7 +21,7 @@ export const routes: Routes = [
   { path: 'movie-guides', component: MovieGuidesComponent },
   { path: 'movie-guides/:id', component: MovieGuideDetailComponent },
   { path: 'movie-challenge', component: MovieChallengePageComponent, canActivate: [authGuard] },
-  { path: 'movies/:imdbId/edit', component: MovieEditComponent, canActivate: [adminGuard] },
+  { path: 'movies/:imdbId/edit', component: MovieEditComponent, canActivate: [movieEditGuard] },
   { path: 'movies/:imdbId', component: MovieDetailComponent, canActivate: [authGuard] },
   { path: 'wizard', component: MovieWizardComponent, canActivate: [adminGuard] },
   { path: 'favorites', component: FavoriteMoviesComponent, canActivate: [authGuard] },

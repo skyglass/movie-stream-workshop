@@ -50,8 +50,11 @@ export class MovieFilterSearchComponent implements OnDestroy, OnChanges {
   private actionSub?: Subscription;
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (!changes['initialSelectedCategories'] || changes['initialSelectedCategories'].firstChange) return;
+    if (!changes['initialSelectedCategories']) return;
     this.selectedCategories = [...this.initialSelectedCategories];
+    // The initial value is already reflected by loading the page itself (the parent's own first load), so only
+    // a later change needs to trigger a fresh search here.
+    if (changes['initialSelectedCategories'].firstChange) return;
     this.runInternalSearch(this.value.trim());
   }
 
@@ -123,9 +126,11 @@ export class MovieFilterSearchComponent implements OnDestroy, OnChanges {
     this.valueChange.emit('');
     this.searchOmdb = false;
     this.notRecommendedOnly = false;
-    this.selectedCategories = [];
+    // Restores the page's own default category selection (e.g. a Movie Guide/Personality's own category) rather
+    // than clearing it outright — for pages with no default (plain "" -> []) this is unchanged.
+    this.selectedCategories = [...this.initialSelectedCategories];
     this.resetExternalResults();
-    this.internalSearch.emit({ keyword: '', year: '', selectedCategories: [], onlyNotRecommended: false });
+    this.internalSearch.emit({ keyword: '', year: '', selectedCategories: [...this.initialSelectedCategories], onlyNotRecommended: false });
     this.cleared.emit();
   }
 

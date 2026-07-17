@@ -35,6 +35,9 @@ export class MovieGuideDetailComponent implements OnInit {
   activeYear = '';
   activeCategories: number[] = [];
   activeOnlyNotRecommended = false;
+  // Fixed for the lifetime of the page (never reassigned) — this is what "Clear" restores, independent of
+  // whatever activeCategories drifts to as the user checks/unchecks categories.
+  defaultCategories: number[] = [];
 
   shareUrl = '';
   shareDetailsVisible = false;
@@ -44,6 +47,7 @@ export class MovieGuideDetailComponent implements OnInit {
   ngOnInit(): void {
     this.categoryId = Number(this.route.snapshot.paramMap.get('id'));
     this.activeCategories = [this.categoryId];
+    this.defaultCategories = [this.categoryId];
     this.loadCategory();
     this.loadMovies(1);
   }
@@ -82,7 +86,9 @@ export class MovieGuideDetailComponent implements OnInit {
   }
 
   applyFilter(search: ParsedMovieSearch): void {
-    const categories = search.selectedCategories && search.selectedCategories.length > 0 ? search.selectedCategories : [this.categoryId];
+    // Unchecking this Guide/Personality's own category (and every other one) is a deliberate, allowed choice —
+    // only the "Clear" button restores the default [categoryId] selection (see initialSelectedCategories below).
+    const categories = search.selectedCategories ?? [];
     const onlyNotRecommended = search.onlyNotRecommended ?? false;
     if (search.keyword === this.activeFilter && search.year === this.activeYear
       && categories.join() === this.activeCategories.join() && onlyNotRecommended === this.activeOnlyNotRecommended) return;

@@ -29,7 +29,7 @@
 
     @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
 
-    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies in this guide" [showNotRecommendedFilter]="true" [initialSelectedCategories]="activeCategories" (internalSearch)="applyFilter($event)" />
+    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies in this guide" [showNotRecommendedFilter]="true" [initialSelectedCategories]="defaultCategories" (internalSearch)="applyFilter($event)" />
     <h2>Movie Results</h2>
 
     <app-movie-grid

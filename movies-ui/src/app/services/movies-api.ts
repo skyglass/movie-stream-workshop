@@ -337,16 +337,16 @@ export class MoviesApiService {
     return this.http.post<void>(`${this.categoriesBase}/${categoryId}/movies-from-search`, this.movieFromOmdb(movie));
   }
 
-  createMovieGuide(type: string, name: string, description: string, movies: GuideMovieRef[]): Observable<CreateMovieGuideResponse> {
-    return this.http.post<CreateMovieGuideResponse>(this.movieGuidesBase, { type, name, description, movies });
+  createMovieGuide(type: string, name: string, description: string, icon: string, movies: GuideMovieRef[]): Observable<CreateMovieGuideResponse> {
+    return this.http.post<CreateMovieGuideResponse>(this.movieGuidesBase, { type, name, description, icon, movies });
   }
 
   completeMovieGuide(guideCategoryId: number, movies: GuideMovieDetails[]): Observable<void> {
     return this.http.post<void>(`${this.movieGuidesBase}/${guideCategoryId}/movies`, { movies });
   }
 
-  createMovieGuideExistingOnly(type: string, name: string, description: string, movies: GuideMovieRef[]): Observable<CreateMovieGuideResponse> {
-    return this.http.post<CreateMovieGuideResponse>(`${this.movieGuidesBase}/existing`, { type, name, description, movies });
+  createMovieGuideExistingOnly(type: string, name: string, description: string, icon: string, movies: GuideMovieRef[]): Observable<CreateMovieGuideResponse> {
+    return this.http.post<CreateMovieGuideResponse>(`${this.movieGuidesBase}/existing`, { type, name, description, icon, movies });
   }
 
   completeMovieGuideExistingOnly(guideCategoryId: number, movies: GuideMovieDetails[]): Observable<void> {

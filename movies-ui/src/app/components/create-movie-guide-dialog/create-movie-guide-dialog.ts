@@ -15,7 +15,16 @@ type GuideJsonFile = {
   type?: string;
   name?: string;
   description?: string;
-  movies?: { imdbId?: string; categories?: string[] }[];
+  icon?: string;
+  movies?: { imdbId?: string; title?: string; year?: string; director?: string; categories?: string[] }[];
+};
+
+type PreviewMovie = {
+  imdbId: string;
+  title: string;
+  year: string;
+  director: string;
+  categoriesText: string;
 };
 
 const LIMITS = {
@@ -45,77 +54,114 @@ export class CreateMovieGuideDialogComponent implements OnInit {
   promptCopied = false;
   isPrivileged = false;
 
+  formName = '';
+  formDescription = '';
+  formIcon = '';
+  formMovieCount = 50;
+  formCategoriesPerMovie = 10;
+
+  previewing = false;
+  previewGuideMeta: { type: 'Guide' | 'Personality'; name: string; description: string; icon: string } | null = null;
+  previewMovies: PreviewMovie[] = [];
+
   ngOnInit(): void {
     this.promptType = this.initialType;
     this.isPrivileged = this.auth.hasRole('MOVIES_GUIDE') || this.auth.isAdmin;
   }
 
-  private readonly guidePromptExample = `You are a domain expert curating a themed movie guide called "<your guide name, e.g. "Heist Movies: Masterworks of the Perfect Plan">".
-
-Hand-pick 12-25 real movies that best represent this topic, based on <the specific criteria for this topic, e.g. "how deliberately the plot builds toward its central twist">. For each movie:
-1. Find its real IMDb id (tt...).
-2. Write yourself a one-sentence note on why this movie earned its place in the guide.
-3. Turn that note into one or more dot-separated category paths (root -> ... -> leaf, any depth), reusing an existing category like Genres/Directors/Writers when it genuinely fits, and inventing a new, specific path under a topic-relevant root otherwise.
-
-Reply with only this JSON (no commentary):
-{
-  "type": "Guide",
-  "name": "<your guide name>",
-  "description": "<one sentence describing the guide>",
-  "movies": [
-    { "imdbId": "tt...", "categories": ["...", "..."] }
-  ]
-}`;
-
-  private readonly personalityPromptExample = `You are simulating <a real film expert, critic, or movie fan whose taste is publicly known, e.g. "Robert De Niro" or "a Cahiers du Cinéma critic">, recommending movies the way this person genuinely would, for a list called "<your personality name, e.g. "Robert De Niro's Italian Neorealism Picks">".
-
-Note: the personality is the expert doing the recommending, not necessarily the subject of the movies — an actor or director can absolutely be the persona here, but only because of their well-known taste and opinions, not their own filmography (their own films belong under Directors/Writers instead).
-
-Hand-pick 12-25 real movies this persona is genuinely known to admire, champion, or be an authority on. For each movie:
-1. Find its real IMDb id (tt...).
-2. Write yourself a one-sentence note on why this persona would recommend it.
-3. Turn that note into one or more dot-separated category paths (root -> ... -> leaf, any depth), reusing an existing category like Genres/Directors/Writers when it genuinely fits, and inventing a new, specific path (e.g. "Recommended By.<persona name>.<the specific facet>") otherwise.
-
-Reply with only this JSON (no commentary):
-{
-  "type": "Personality",
-  "name": "<your personality name>",
-  "description": "<one sentence describing the personality>",
-  "movies": [
-    { "imdbId": "tt...", "categories": ["...", "..."] }
-  ]
-}`;
-
   get promptExample(): string {
     if (this.isPrivileged) {
-      return this.promptType === 'Guide' ? this.guidePromptExample : this.personalityPromptExample;
+      return this.promptType === 'Guide' ? this.privilegedGuidePrompt() : this.privilegedPersonalityPrompt();
     }
     return this.regularUserPrompt(this.promptType);
   }
 
+  private get name(): string {
+    return this.formName.trim() || `<your ${this.promptType.toLowerCase()} name>`;
+  }
+
+  private get description(): string {
+    return this.formDescription.trim() || '<one sentence description>';
+  }
+
+  private get icon(): string {
+    return this.formIcon.trim() || `<a single emoji representing this ${this.promptType.toLowerCase()}>`;
+  }
+
+  private get movieCount(): number {
+    return this.formMovieCount > 0 ? Math.floor(this.formMovieCount) : 50;
+  }
+
+  private get categoriesPerMovie(): number {
+    return this.formCategoriesPerMovie > 0 ? Math.floor(this.formCategoriesPerMovie) : 10;
+  }
+
+  private privilegedGuidePrompt(): string {
+    return `You are a domain expert curating a themed movie guide called "${this.name}".
+
+Hand-pick ${this.movieCount} real movies that best represent this topic: ${this.description}. For each movie:
+1. Find its real IMDb id (tt...), title, release year, and director — double-check these are all real and accurate, not invented.
+2. Write yourself a one-sentence note on why this movie earned its place in the guide.
+3. Turn that note into up to ${this.categoriesPerMovie} dot-separated category paths (root -> ... -> leaf, any depth) that capture why it fits — e.g. "Genres.Thriller" or a new, specific path under a topic-relevant root.
+
+Reply with only this JSON (no commentary), keeping "type", "name", "description" and "icon" exactly as given below — you only need to fill in "movies". Include "title", "year" and "director" for every movie so they can be previewed before upload — imdbId is still what's actually used to match/create the movie:
+{
+  "type": "Guide",
+  "name": "${this.name}",
+  "description": "${this.description}",
+  "icon": "${this.icon}",
+  "movies": [
+    { "imdbId": "tt...", "title": "...", "year": "...", "director": "...", "categories": ["...", "..."] }
+  ]
+}`;
+  }
+
+  private privilegedPersonalityPrompt(): string {
+    return `You are simulating <a real film expert, critic, or movie fan whose taste is publicly known, e.g. "Robert De Niro" or "a Cahiers du Cinéma critic">, recommending movies the way this person genuinely would, for a list called "${this.name}".
+
+Note: the personality is the expert doing the recommending, not necessarily the subject of the movies — an actor or director can absolutely be the persona here, but only because of their well-known taste and opinions, not their own filmography (their own films belong under Directors/Writers instead).
+
+Hand-pick ${this.movieCount} real movies this persona is genuinely known to admire, champion, or be an authority on: ${this.description}. For each movie:
+1. Find its real IMDb id (tt...), title, release year, and director — double-check these are all real and accurate, not invented.
+2. Write yourself a one-sentence note on why this persona would recommend it.
+3. Turn that note into up to ${this.categoriesPerMovie} dot-separated category paths (root -> ... -> leaf, any depth) that capture why this persona recommends it — e.g. "Recommended By.<persona name>.<the specific facet>".
+
+Reply with only this JSON (no commentary), keeping "type", "name", "description" and "icon" exactly as given below — you only need to fill in "movies". Include "title", "year" and "director" for every movie so they can be previewed before upload — imdbId is still what's actually used to match/create the movie:
+{
+  "type": "Personality",
+  "name": "${this.name}",
+  "description": "${this.description}",
+  "icon": "${this.icon}",
+  "movies": [
+    { "imdbId": "tt...", "title": "...", "year": "...", "director": "...", "categories": ["...", "..."] }
+  ]
+}`;
+  }
+
   private regularUserPrompt(type: 'Guide' | 'Personality'): string {
     const intro = type === 'Guide'
-      ? `You are a domain expert curating a themed movie guide called "<your guide name>".`
-      : `You are simulating <a real film expert, critic, or movie fan whose taste is publicly known, e.g. "Robert De Niro" or "a Cahiers du Cinéma critic">, recommending movies the way this person genuinely would, for a list called "<your personality name, e.g. "Robert De Niro's Italian Neorealism Picks">".
+      ? `You are a domain expert curating a themed movie guide called "${this.name}".`
+      : `You are simulating <a real film expert, critic, or movie fan whose taste is publicly known, e.g. "Robert De Niro" or "a Cahiers du Cinéma critic">, recommending movies the way this person genuinely would, for a list called "${this.name}".
 
 Note: the personality is the expert doing the recommending, not necessarily the subject of the movies — their own films belong under Directors/Writers instead.`;
     const goal = type === 'Guide'
-      ? 'Hand-pick 12-25 real movies that best represent this topic.'
-      : 'Hand-pick 12-25 real movies this persona is genuinely known to admire, champion, or be an authority on.';
+      ? `Hand-pick ${this.movieCount} real movies that best represent this topic: ${this.description}.`
+      : `Hand-pick ${this.movieCount} real movies this persona is genuinely known to admire, champion, or be an authority on: ${this.description}.`;
     return `${intro}
 
-Your account can only use EXISTING categories — it cannot invent new ones. ${goal} For each movie:
-1. Find its real IMDb id (tt...).
-2. Pick one or more dot-separated category paths (root -> ... -> leaf). Any path that doesn't already exist
-   character-for-character is silently dropped rather than created, so when in doubt, give a movie more than one path.
+${goal} For each movie:
+1. Find its real IMDb id (tt...), title, release year, and director — double-check these are all real and accurate, not invented.
+2. Write yourself a one-sentence note on why this movie earned its place.
+3. Turn that note into up to ${this.categoriesPerMovie} dot-separated category paths (root -> ... -> leaf, any depth) that capture why it fits — e.g. "Genres.Thriller" or a new, specific path.
 
-Reply with only this JSON (no commentary):
+Reply with only this JSON (no commentary), keeping "type", "name", "description" and "icon" exactly as given below — you only need to fill in "movies". Include "title", "year" and "director" for every movie so they can be previewed before upload — imdbId is still what's actually used to match/create the movie:
 {
   "type": "${type}",
-  "name": "<your ${type.toLowerCase()} name>",
-  "description": "<one sentence>",
+  "name": "${this.name}",
+  "description": "${this.description}",
+  "icon": "${this.icon}",
   "movies": [
-    { "imdbId": "tt...", "categories": ["...", "..."] }
+    { "imdbId": "tt...", "title": "...", "year": "...", "director": "...", "categories": ["...", "..."] }
   ]
 }`;
   }
@@ -183,8 +229,55 @@ Reply with only this JSON (no commentary):
       return;
     }
 
-    const movies: GuideMovieRef[] = parsed.movies!.map(m => ({ imdbId: m.imdbId!, categories: m.categories! }));
-    this.runPhase1(parsed.type!, parsed.name!, parsed.description ?? '', movies);
+    this.errorMessage = '';
+    this.previewGuideMeta = {
+      type: parsed.type as 'Guide' | 'Personality',
+      name: parsed.name!.trim(),
+      description: (parsed.description ?? '').trim(),
+      icon: (parsed.icon ?? '').trim()
+    };
+    this.previewMovies = parsed.movies!.map(m => ({
+      imdbId: m.imdbId!.trim(),
+      title: (m.title ?? '').trim(),
+      year: (m.year ?? '').trim(),
+      director: (m.director ?? '').trim(),
+      categoriesText: m.categories!.join(', ')
+    }));
+    this.previewing = true;
+  }
+
+  removePreviewMovie(index: number): void {
+    this.previewMovies.splice(index, 1);
+  }
+
+  previewTotalCategories(): number {
+    return this.previewMovies.reduce((total, movie) => total + this.splitCategories(movie.categoriesText).length, 0);
+  }
+
+  cancelPreview(): void {
+    this.previewing = false;
+    this.previewGuideMeta = null;
+    this.previewMovies = [];
+  }
+
+  submitPreview(): void {
+    if (!this.previewGuideMeta) return;
+    const movies: GuideMovieRef[] = this.previewMovies
+      .map(m => ({ imdbId: m.imdbId, categories: this.splitCategories(m.categoriesText) }))
+      .filter(m => m.categories.length > 0);
+    if (movies.length === 0) {
+      this.errorMessage = 'At least one movie with a category is required.';
+      return;
+    }
+    const meta = this.previewGuideMeta;
+    this.previewing = false;
+    this.previewGuideMeta = null;
+    this.previewMovies = [];
+    this.runPhase1(meta.type, meta.name, meta.description, meta.icon, movies);
+  }
+
+  private splitCategories(categoriesText: string): string[] {
+    return categoriesText.split(',').map(c => c.trim()).filter(c => c.length > 0);
   }
 
   private validate(parsed: GuideJsonFile): string | null {
@@ -207,6 +300,15 @@ Reply with only this JSON (no commentary):
       if (!movie.imdbId || !movie.imdbId.trim()) {
         return 'Every movie needs a non-blank "imdbId".';
       }
+      if (!movie.title || !movie.title.trim()) {
+        return `Movie "${movie.imdbId}" needs a non-blank "title" (used for the preview).`;
+      }
+      if (!movie.year || !movie.year.trim()) {
+        return `Movie "${movie.imdbId}" needs a non-blank "year" (used for the preview).`;
+      }
+      if (!movie.director || !movie.director.trim()) {
+        return `Movie "${movie.imdbId}" needs a non-blank "director" (used for the preview).`;
+      }
       if (!Array.isArray(movie.categories) || movie.categories.length === 0) {
         return `Movie "${movie.imdbId}" needs a non-empty "categories" array.`;
       }
@@ -218,10 +320,10 @@ Reply with only this JSON (no commentary):
     return null;
   }
 
-  private createGuide(type: string, name: string, description: string, movies: GuideMovieRef[]): Observable<CreateMovieGuideResponse> {
+  private createGuide(type: string, name: string, description: string, icon: string, movies: GuideMovieRef[]): Observable<CreateMovieGuideResponse> {
     return this.isPrivileged
-      ? this.api.createMovieGuide(type, name, description, movies)
-      : this.api.createMovieGuideExistingOnly(type, name, description, movies);
+      ? this.api.createMovieGuide(type, name, description, icon, movies)
+      : this.api.createMovieGuideExistingOnly(type, name, description, icon, movies);
   }
 
   private completeGuide(guideCategoryId: number, details: GuideMovieDetails[]): Observable<void> {
@@ -230,11 +332,11 @@ Reply with only this JSON (no commentary):
       : this.api.completeMovieGuideExistingOnly(guideCategoryId, details);
   }
 
-  private runPhase1(type: string, name: string, description: string, movies: GuideMovieRef[]): void {
+  private runPhase1(type: string, name: string, description: string, icon: string, movies: GuideMovieRef[]): void {
     this.processing = true;
     this.statusMessage = 'Resolving categories and matching movies already in the catalog…';
     this.errorMessage = '';
-    this.createGuide(type, name, description, movies).subscribe({
+    this.createGuide(type, name, description, icon, movies).subscribe({
       next: response => {
         if (response.failedImdbIds.length === 0) {
           this.finish(response.guideCategoryId);

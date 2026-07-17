@@ -11,4 +11,5 @@ public record CreateMovieGuideRequest(
         @NotBlank @Size(max = 20) String type,
         @NotBlank @Size(max = 200) String name,
         @Size(max = 2000) String description,
+        @Size(max = 32) String icon,
         @NotEmpty @Size(max = 1000) @Valid List<GuideMovieRef> movies) {}

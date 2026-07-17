@@ -13,3 +13,9 @@ export const adminGuard: CanActivateFn = () => {
   const router = inject(Router);
   return auth.isAdmin ? true : router.parseUrl('/home');
 };
+
+export const movieEditGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  return auth.canEditMovies ? true : router.parseUrl('/home');
+};

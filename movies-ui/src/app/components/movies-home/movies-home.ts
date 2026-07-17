@@ -31,6 +31,8 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   activeYear = '';
   activeCategories: number[] = [];
   activeOnlyNotRecommended = false;
+  // Fixed (never reassigned) — this page has no default category, so "Clear" always restores to none.
+  readonly defaultCategories: number[] = [];
   private authSub?: Subscription;
 
   ngOnInit(): void {

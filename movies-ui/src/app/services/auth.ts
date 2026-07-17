@@ -49,6 +49,10 @@ export class AuthService {
     return this.hasRole('MOVIES_ADMIN');
   }
 
+  get canEditMovies(): boolean {
+    return this.isAdmin || this.hasRole('MOVIES_GUIDE');
+  }
+
   hasRole(role: string): boolean {
     return this.currentUser?.roles.includes(role) ?? false;
   }

@@ -183,14 +183,22 @@ else. A file over 5 MB is rejected before it's even read.
 | `type` | `"Guide"` \| `"Personality"` | yes | Exact casing. Chooses the `Guides` or `Personalities` root. |
 | `name` | string | yes | The guide/personality's own category name, e.g. `"Heist Movies"` or `"Robert De Niro — Italian Neorealism Picks"`. |
 | `description` | string | no | Stored on that category the first time it's created; left alone on later uploads. |
+| `icon` | string | no | A single emoji for the guide/personality's category (e.g. `"🔫"` for a heist guide). Falls back to a generic 🗺️/🌟 if omitted. |
 | `movies` | array | yes | See below. |
 
 ### Each `movies[]` entry
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
-| `imdbId` | string | yes | A real IMDb id (`tt...`). Every movie must have one. |
+| `imdbId` | string | yes | A real IMDb id (`tt...`). Every movie must have one — this is what's actually used to match or create the movie. |
+| `title` | string | yes | The movie's title. Used only to render the pre-upload preview (see below) — never sent for reconciliation. |
+| `year` | string | yes | The movie's release year. Preview-only, same as `title`. |
+| `director` | string | yes | The movie's director. Preview-only, same as `title`. |
 | `categories` | array of strings | yes | One or more **dot-separated full paths**, root to leaf, e.g. `"Directors.Vittorio De Sica"` or `"Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"`. Any number of levels is allowed. `MOVIES_GUIDE`/admin accounts auto-create any segment that doesn't exist; other accounts must match an existing path exactly, or it's dropped (see above). |
+
+`title`/`year`/`director` exist purely so the app can show you a **preview** of every movie before anything is created —
+a chance to catch an AI hallucinating a movie into the wrong category, or picking a movie that doesn't actually fit.
+On that preview screen you can edit a movie's categories or remove it from the list entirely before submitting.
 
 Every movie is also linked to the guide/personality category itself — you don't need to (and shouldn't) repeat the
 `type`/`name` as one of its own `categories` entries.
@@ -219,13 +227,20 @@ Re-uploading the same file is always safe — every step is idempotent (existing
   "type": "Personality",
   "name": "Robert De Niro — Italian Neorealism Picks",
   "description": "The postwar Italian films De Niro has cited as formative to his own sense of screen truth.",
+  "icon": "🤌",
   "movies": [
     {
       "imdbId": "tt0040959",
+      "title": "Bicycle Thieves",
+      "year": "1948",
+      "director": "Vittorio De Sica",
       "categories": ["Directors.Vittorio De Sica", "Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"]
     },
     {
       "imdbId": "tt0038650",
+      "title": "Rome, Open City",
+      "year": "1945",
+      "director": "Roberto Rossellini",
       "categories": ["Directors.Roberto Rossellini", "Recommended By.Robert De Niro's Italian Neorealism Picks.Wartime Resistance Under Occupation"]
     }
   ]
@@ -249,18 +264,20 @@ of the movies — an actor/director can be the persona, but only for their known
 
 Hand-pick <12–25, or fewer for a tightly-scoped theme> real movies that best represent this topic/persona. For each
 movie:
-1. Look up (or recall) its real IMDb id (tt...).
+1. Look up (or recall) its real IMDb id (tt...), title, release year, and director — double-check these are real
+   and accurate, not invented.
 2. Write yourself a one-sentence note on *why* this specific movie earned its place on the list.
-3. Turn that note into one or more dot-separated category paths (root → ... → leaf, any depth), reusing an existing
-   root like Genres/Directors/Writers/Narratives when it genuinely fits, and inventing a new, specific path under a
-   topic-relevant root otherwise.
+3. Turn that note into one or more dot-separated category paths (root → ... → leaf, any depth) that capture why it
+   fits — e.g. "Genres.Thriller" or a new, specific path under a topic-relevant root.
 
-Output only this JSON shape (no commentary):
+Output only this JSON shape (no commentary). Include "title", "year" and "director" for every movie so they can be
+previewed before upload — "imdbId" is still what's actually used to match/create the movie:
 {
   "type": "Guide" or "Personality",
   "name": "<title>",
   "description": "<one sentence>",
-  "movies": [ { "imdbId": "tt...", "categories": ["...", "..."] }, ... ]
+  "icon": "<a single emoji>",
+  "movies": [ { "imdbId": "tt...", "title": "...", "year": "...", "director": "...", "categories": ["...", "..."] }, ... ]
 }
 ```
 
@@ -278,9 +295,10 @@ subject.
   "type": "Personality",
   "name": "Robert De Niro — Italian Neorealism Picks",
   "description": "The postwar Italian films De Niro has cited as formative to his own sense of screen truth.",
+  "icon": "🤌",
   "movies": [
-    { "imdbId": "tt0040959", "categories": ["Directors.Vittorio De Sica", "Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"] },
-    { "imdbId": "tt0038650", "categories": ["Directors.Roberto Rossellini", "Recommended By.Robert De Niro's Italian Neorealism Picks.Wartime Resistance Under Occupation"] }
+    { "imdbId": "tt0040959", "title": "Bicycle Thieves", "year": "1948", "director": "Vittorio De Sica", "categories": ["Directors.Vittorio De Sica", "Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"] },
+    { "imdbId": "tt0038650", "title": "Rome, Open City", "year": "1945", "director": "Roberto Rossellini", "categories": ["Directors.Roberto Rossellini", "Recommended By.Robert De Niro's Italian Neorealism Picks.Wartime Resistance Under Occupation"] }
   ]
 }
 ```
@@ -292,9 +310,10 @@ subject.
   "type": "Personality",
   "name": "Robert De Niro — Classic Hollywood Noir Favorites",
   "description": "The studio-era noirs whose moral shading De Niro has named as touchstones.",
+  "icon": "🕵️",
   "movies": [
-    { "imdbId": "tt0043014", "categories": ["Directors.Billy Wilder", "Styles.Influences.Classical Hollywood Style", "Recommended By.Robert De Niro's Classic Hollywood Noir Favorites.Faded Stardom's Dark Side"] },
-    { "imdbId": "tt0036775", "categories": ["Directors.Billy Wilder", "Styles.Influences.Film Noir", "Recommended By.Robert De Niro's Classic Hollywood Noir Favorites.Greed Disguised as Romance"] }
+    { "imdbId": "tt0043014", "title": "Sunset Boulevard", "year": "1950", "director": "Billy Wilder", "categories": ["Directors.Billy Wilder", "Styles.Influences.Classical Hollywood Style", "Recommended By.Robert De Niro's Classic Hollywood Noir Favorites.Faded Stardom's Dark Side"] },
+    { "imdbId": "tt0036775", "title": "Double Indemnity", "year": "1944", "director": "Billy Wilder", "categories": ["Directors.Billy Wilder", "Styles.Influences.Film Noir", "Recommended By.Robert De Niro's Classic Hollywood Noir Favorites.Greed Disguised as Romance"] }
   ]
 }
 ```
@@ -306,9 +325,10 @@ subject.
   "type": "Personality",
   "name": "Robert De Niro — Method Acting Masters",
   "description": "The performances De Niro has credited as shaping his own approach to the craft.",
+  "icon": "🎭",
   "movies": [
-    { "imdbId": "tt0047296", "categories": ["Directors.Elia Kazan", "Recommended By.Robert De Niro's Method Acting Masters.The Conflicted Conscience"] },
-    { "imdbId": "tt0044081", "categories": ["Directors.Elia Kazan", "Writers.Tennessee Williams", "Narratives.Classic Theatre & Tragedy.Blanche DuBois", "Recommended By.Robert De Niro's Method Acting Masters.Raw Emotional Volatility"] }
+    { "imdbId": "tt0047296", "title": "On the Waterfront", "year": "1954", "director": "Elia Kazan", "categories": ["Directors.Elia Kazan", "Recommended By.Robert De Niro's Method Acting Masters.The Conflicted Conscience"] },
+    { "imdbId": "tt0044081", "title": "A Streetcar Named Desire", "year": "1951", "director": "Elia Kazan", "categories": ["Directors.Elia Kazan", "Writers.Tennessee Williams", "Narratives.Classic Theatre & Tragedy.Blanche DuBois", "Recommended By.Robert De Niro's Method Acting Masters.Raw Emotional Volatility"] }
   ]
 }
 ```
@@ -320,9 +340,10 @@ subject.
   "type": "Guide",
   "name": "Heist Movies: Masterworks of the Perfect Plan",
   "description": "Films built entirely around the construction, execution, and unraveling of a meticulous plan.",
+  "icon": "🔫",
   "movies": [
-    { "imdbId": "tt0070735", "categories": ["Genres.Comedy", "Heist Mechanics.The Perfect Plan.The Long Con"] },
-    { "imdbId": "tt0105236", "categories": ["Directors.Quentin Tarantino", "Heist Mechanics.The Perfect Plan.The Job Gone Wrong"] }
+    { "imdbId": "tt0070735", "title": "The Sting", "year": "1973", "director": "George Roy Hill", "categories": ["Genres.Comedy", "Heist Mechanics.The Perfect Plan.The Long Con"] },
+    { "imdbId": "tt0105236", "title": "Reservoir Dogs", "year": "1992", "director": "Quentin Tarantino", "categories": ["Directors.Quentin Tarantino", "Heist Mechanics.The Perfect Plan.The Job Gone Wrong"] }
   ]
 }
 ```
@@ -334,9 +355,10 @@ subject.
   "type": "Guide",
   "name": "Existential Sci-Fi: Questioning What It Means to Be Human",
   "description": "Science fiction that uses its premise to interrogate identity, memory, and consciousness.",
+  "icon": "🤖",
   "movies": [
-    { "imdbId": "tt0083658", "categories": ["Genres.Sci-Fi", "Philosophical Questions.What Makes Us Human.Manufactured Memory"] },
-    { "imdbId": "tt2543164", "categories": ["Genres.Sci-Fi", "Philosophical Questions.What Makes Us Human.Language Reshapes Time"] }
+    { "imdbId": "tt0083658", "title": "Blade Runner", "year": "1982", "director": "Ridley Scott", "categories": ["Genres.Sci-Fi", "Philosophical Questions.What Makes Us Human.Manufactured Memory"] },
+    { "imdbId": "tt2543164", "title": "Arrival", "year": "2016", "director": "Denis Villeneuve", "categories": ["Genres.Sci-Fi", "Philosophical Questions.What Makes Us Human.Language Reshapes Time"] }
   ]
 }
 ```
@@ -348,9 +370,10 @@ subject.
   "type": "Guide",
   "name": "Underdog Sports Dramas: Triumph Against the Odds",
   "description": "Sports films where the emotional core is the unlikely rise, not the sport itself.",
+  "icon": "🏆",
   "movies": [
-    { "imdbId": "tt0075148", "categories": ["Genres.Sport", "Narrative Arcs.Triumph Against the Odds.The Unlikely Contender"] },
-    { "imdbId": "tt0405159", "categories": ["Genres.Sport", "Narrative Arcs.Triumph Against the Odds.The Late-Blooming Fighter"] }
+    { "imdbId": "tt0075148", "title": "Rocky", "year": "1976", "director": "John G. Avildsen", "categories": ["Genres.Sport", "Narrative Arcs.Triumph Against the Odds.The Unlikely Contender"] },
+    { "imdbId": "tt0405159", "title": "Cinderella Man", "year": "2005", "director": "Ron Howard", "categories": ["Genres.Sport", "Narrative Arcs.Triumph Against the Odds.The Late-Blooming Fighter"] }
   ]
 }
 ```

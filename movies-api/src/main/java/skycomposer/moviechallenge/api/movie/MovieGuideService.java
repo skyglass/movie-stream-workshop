@@ -37,7 +37,7 @@ public class MovieGuideService {
     public CreateMovieGuideResponse createGuide(CreateMovieGuideRequest request) {
         requireWithinLimits(request.movies().size(), request.movies().stream().mapToLong(m -> m.categories().size()).sum(),
                 MAX_MOVIES_WITH_CATEGORY_CREATION, MAX_CATEGORIES_WITH_CREATION);
-        long guideCategoryId = resolveGuideCategory(request.type(), request.name(), request.description());
+        long guideCategoryId = resolveGuideCategory(request.type(), request.name(), request.description(), request.icon());
         List<String> failedImdbIds = new ArrayList<>();
         for (GuideMovieRef movieRef : request.movies()) {
             List<Long> categoryIds = movieRef.categories().stream().map(this::resolveCategoryPath).toList();
@@ -66,7 +66,7 @@ public class MovieGuideService {
     public CreateMovieGuideResponse createGuideExistingOnly(CreateMovieGuideRequest request) {
         requireWithinLimits(request.movies().size(), request.movies().stream().mapToLong(m -> m.categories().size()).sum(),
                 MAX_MOVIES_EXISTING_ONLY, MAX_CATEGORIES_EXISTING_ONLY);
-        long guideCategoryId = resolveGuideCategory(request.type(), request.name(), request.description());
+        long guideCategoryId = resolveGuideCategory(request.type(), request.name(), request.description(), request.icon());
         List<String> failedImdbIds = new ArrayList<>();
         for (GuideMovieRef movieRef : request.movies()) {
             List<Long> categoryIds = movieRef.categories().stream()
@@ -104,14 +104,14 @@ public class MovieGuideService {
         }
     }
 
-    private long resolveGuideCategory(String type, String name, String description) {
+    private long resolveGuideCategory(String type, String name, String description, String icon) {
         String root = switch (type) {
             case "Guide" -> "Guides";
             case "Personality" -> "Personalities";
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "type must be \"Guide\" or \"Personality\"");
         };
-        String icon = type.equals("Personality") ? "🌟" : "🗺️";
-        long rootId = getOrCreateCategory(null, root, icon);
+        String defaultIcon = type.equals("Personality") ? "🌟" : "🗺️";
+        long rootId = getOrCreateCategory(null, root, defaultIcon);
         String trimmedName = name.trim();
         // Bulk import must only ever create a brand-new Guide/Personality, never silently fold movies into an
         // existing one under a reused name — refining an existing one is left to manual category/movie edits.
@@ -121,7 +121,8 @@ public class MovieGuideService {
                             + "or remove movies and categories on the existing one, edit it directly instead of "
                             + "re-importing.");
         }
-        long guideId = getOrCreateCategory(rootId, trimmedName, null);
+        String guideIcon = (icon != null && !icon.isBlank()) ? icon.trim() : defaultIcon;
+        long guideId = getOrCreateCategory(rootId, trimmedName, guideIcon);
         if (description != null && !description.isBlank()) {
             jdbc.sql("update category set description=:description where id=:id and description is null")
                     .param("description", description.trim()).param("id", guideId).update();

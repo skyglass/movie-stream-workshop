@@ -52,7 +52,7 @@
             </button>
           </div>
         }
-        @if (auth.isAdmin) {
+        @if (auth.canEditMovies) {
           <a class="edit-button" [routerLink]="['/movies', movie.imdbId, 'edit']">
             <span class="material-icons" aria-hidden="true">edit</span>
             Edit Movie

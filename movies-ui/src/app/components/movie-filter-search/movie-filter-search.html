@@ -4,7 +4,7 @@
       <span>{{ label }}</span>
       <input type="text" [value]="value" (input)="onInput($event)" [attr.aria-label]="ariaLabel" autocomplete="off" />
     </label>
-    @if (value || selectedCategories.length > 0 || notRecommendedOnly) {
+    @if (value || selectedCategories.length > 0 || notRecommendedOnly || initialSelectedCategories.length > 0) {
       <button type="button" (click)="search()" [disabled]="loading">Search</button>
       <button type="button" class="secondary" (click)="clear()">Clear</button>
     }

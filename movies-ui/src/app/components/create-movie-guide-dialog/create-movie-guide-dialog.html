@@ -12,6 +12,41 @@
         <div class="spinner" aria-hidden="true"></div>
         <p>{{ statusMessage }}</p>
       </div>
+    } @else if (previewing) {
+      <section class="preview-section">
+        <h3>Preview {{ previewGuideMeta?.icon }} {{ previewGuideMeta?.name }}</h3>
+        <p>Check every movie the AI picked before creating this {{ previewGuideMeta?.type }} — edit a movie's
+          categories, or remove it entirely if it doesn't belong.</p>
+
+        <div class="preview-list">
+          @for (movie of previewMovies; track movie.imdbId; let i = $index) {
+            <div class="preview-row">
+              <div class="preview-row-header">
+                <div class="preview-row-info">
+                  <strong>{{ movie.title || 'Untitled' }}</strong>
+                  <span class="preview-meta">{{ movie.year || 'Year unknown' }} · {{ movie.director || 'Director unknown' }} · {{ movie.imdbId }}</span>
+                </div>
+                <button type="button" class="remove-button" (click)="removePreviewMovie(i)" title="Remove this movie" aria-label="Remove this movie">
+                  <span class="material-icons" aria-hidden="true">delete</span>
+                </button>
+              </div>
+              <label class="preview-categories-label">Categories (comma-separated)
+                <input type="text" [(ngModel)]="movie.categoriesText" [name]="'preview-categories-' + i" />
+              </label>
+            </div>
+          }
+          @if (previewMovies.length === 0) {
+            <p class="empty">No movies left to create — go back and upload a JSON file to try again.</p>
+          }
+        </div>
+
+        <p class="preview-summary">{{ previewMovies.length }} movie(s), {{ previewTotalCategories() }} categor{{ previewTotalCategories() === 1 ? 'y' : 'ies' }} total.</p>
+
+        <div class="preview-actions">
+          <button type="button" class="secondary" (click)="cancelPreview()">Back</button>
+          <button type="button" (click)="submitPreview()" [disabled]="previewMovies.length === 0">Create {{ previewGuideMeta?.type }}</button>
+        </div>
+      </section>
     } @else {
       <section class="prompt-section">
         <h3>1. Let an AI assistant build your movie list</h3>
@@ -42,6 +77,28 @@
         <div class="type-toggle" role="group" aria-label="Prompt type">
           <button type="button" [class.active]="promptType === 'Guide'" (click)="selectPromptType('Guide')">Guide</button>
           <button type="button" [class.active]="promptType === 'Personality'" (click)="selectPromptType('Personality')">Personality</button>
+        </div>
+
+        <div class="prompt-fields">
+          <label>Name
+            <input type="text" [(ngModel)]="formName" maxlength="200"
+              [placeholder]="promptType === 'Guide' ? 'e.g. Heist Movies' : 'e.g. Robert De Niro\'s Italian Neorealism Picks'" />
+          </label>
+          <label>Description
+            <input type="text" [(ngModel)]="formDescription" maxlength="2000" placeholder="One sentence description" />
+          </label>
+          <label class="icon-field">Icon
+            <input type="text" [(ngModel)]="formIcon" maxlength="8" placeholder="🔫" />
+          </label>
+        </div>
+
+        <div class="prompt-fields">
+          <label class="number-field"># of movies
+            <input type="number" [(ngModel)]="formMovieCount" min="1" max="1000" />
+          </label>
+          <label class="number-field">Categories per movie
+            <input type="number" [(ngModel)]="formCategoriesPerMovie" min="1" max="30" />
+          </label>
         </div>
 
         <div class="prompt-box">

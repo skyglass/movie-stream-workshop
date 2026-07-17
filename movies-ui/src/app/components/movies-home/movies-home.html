@@ -43,7 +43,7 @@
   }
 
   <section id="movie-catalog" class="catalog-section" aria-label="Movie Catalog">
-    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies" [showNotRecommendedFilter]="true" [initialSelectedCategories]="activeCategories" (internalSearch)="applyFilter($event)" />
+    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies" [showNotRecommendedFilter]="true" [initialSelectedCategories]="defaultCategories" (internalSearch)="applyFilter($event)" />
     <h2>Movie Results</h2>
 
     <app-movie-grid
