@@ -11,5 +11,6 @@ public record CategoryDto(
         boolean checked,
         boolean leaf,
         boolean empty,
+        Long referencedCategoryId,
         List<CategoryDto> children) {
 }

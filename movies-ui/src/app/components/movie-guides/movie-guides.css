@@ -60,6 +60,21 @@ header h1 {
   background: #155c8d;
 }
 
+.create-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.create-button.secondary {
+  background: #ffffff;
+  color: #1b6fa8;
+}
+
+.create-button.secondary:hover {
+  background: #eef6fb;
+}
+
 .guide-list {
   height: 24rem;
   overflow-y: auto;
@@ -79,6 +94,54 @@ header h1 {
 
 .guide-row:hover {
   background: #eff6ff;
+}
+
+.guide-name {
+  flex: 1;
+}
+
+.edit-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  padding: 0.35rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.edit-icon-button:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.edit-icon-button .material-icons {
+  font-size: 1.15rem;
+}
+
+.delete-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  padding: 0.35rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.delete-icon-button:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.delete-icon-button .material-icons {
+  font-size: 1.15rem;
 }
 
 .emoji {

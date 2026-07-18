@@ -3,6 +3,11 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { MovieCategory } from '../../services/movies-api';
 import type { CategoryTreeMode } from './category-tree-dialog';
 
+export interface CategoryNodeAction {
+  category: MovieCategory;
+  parentId: number;
+}
+
 @Component({
   standalone: true,
   selector: 'app-category-tree-node',
@@ -21,13 +26,17 @@ import type { CategoryTreeMode } from './category-tree-dialog';
           <span class="category-label" [title]="category.description || category.name">
             <span class="emoji">{{ category.icon || '📁' }}</span>
             <span class="category-name">{{ category.name }}</span>
+            @if (category.referencedCategoryId) { <span class="material-icons reference-badge" title="Referenced from another guide/category">link</span> }
           </span>
         </label>
         @if (management) {
           <div class="node-actions">
-            <button type="button" class="node-action" title="Create sub-category" (click)="create.emit(category.id)"><span class="material-icons">create_new_folder</span></button>
-            <button type="button" class="node-action" title="Edit category" (click)="edit.emit(category)"><span class="material-icons">edit</span></button>
-            <button type="button" class="node-action danger" title="Delete empty category" [disabled]="!category.empty" (click)="remove.emit(category)"><span class="material-icons">delete</span></button>
+            @if (!category.referencedCategoryId) {
+              <button type="button" class="node-action" title="Create sub-category" (click)="create.emit(category.id)"><span class="material-icons">create_new_folder</span></button>
+              <button type="button" class="node-action" title="Edit category" (click)="edit.emit(category)"><span class="material-icons">edit</span></button>
+              <button type="button" class="node-action" title="Move category" (click)="move.emit({category, parentId: parentIdForActions})"><span class="material-icons">drive_file_move</span></button>
+            }
+            <button type="button" class="node-action danger" [title]="category.referencedCategoryId ? 'Unlink from this guide' : 'Delete category'" (click)="remove.emit({category, parentId: parentIdForActions})"><span class="material-icons">{{ category.referencedCategoryId ? 'link_off' : 'delete' }}</span></button>
           </div>
         }
       </div>
@@ -35,7 +44,7 @@ import type { CategoryTreeMode } from './category-tree-dialog';
         <ul>
           @for (child of category.children; track child.id) {
             <app-category-tree-node [category]="child" [mode]="mode" [ancestors]="childAncestors" [expanded]="expanded" [explicitSelected]="explicitSelected" [assignmentSelected]="assignmentSelected" [management]="management"
-              (expand)="expand.emit($event)" (toggle)="toggle.emit($event)" (create)="create.emit($event)" (edit)="edit.emit($event)" (remove)="remove.emit($event)" />
+              (expand)="expand.emit($event)" (toggle)="toggle.emit($event)" (create)="create.emit($event)" (edit)="edit.emit($event)" (move)="move.emit($event)" (remove)="remove.emit($event)" />
           }
         </ul>
       }
@@ -54,13 +63,15 @@ export class CategoryTreeNodeComponent {
   @Output() toggle = new EventEmitter<{ category: MovieCategory; checked: boolean }>();
   @Output() create = new EventEmitter<number>();
   @Output() edit = new EventEmitter<MovieCategory>();
-  @Output() remove = new EventEmitter<MovieCategory>();
+  @Output() move = new EventEmitter<CategoryNodeAction>();
+  @Output() remove = new EventEmitter<CategoryNodeAction>();
 
   get childAncestors(): MovieCategory[] { return [...this.ancestors, this.category]; }
+  get parentIdForActions(): number { return this.ancestors.length ? this.ancestors[this.ancestors.length - 1].id : this.category.id; }
   get locked(): boolean { return this.mode === 'filter' && this.ancestors.some(parent => this.explicitSelected.has(parent.id)); }
   get checked(): boolean {
     if (this.mode === 'assign') return this.assignmentSelected.has(this.category.id);
-    if (this.mode === 'journey') return this.explicitSelected.has(this.category.id);
+    if (this.mode === 'journey' || this.mode === 'move' || this.mode === 'guide') return this.explicitSelected.has(this.category.id);
     return this.explicitSelected.has(this.category.id) || this.ancestors.some(parent => this.explicitSelected.has(parent.id));
   }
 }

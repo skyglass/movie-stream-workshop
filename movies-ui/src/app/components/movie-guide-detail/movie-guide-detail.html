@@ -1,5 +1,7 @@
 <section class="movie-page">
-  @if (loading) {
+  @if (resumeWizard) {
+    <app-create-guide-wizard [initialType]="wizardType" [resume]="resumeWizard" (completed)="onWizardCompleted()" />
+  } @else if (loading) {
     <div class="state">Loading Movie Guide…</div>
   } @else {
     <header class="guide-header">
@@ -9,26 +11,45 @@
         @if (category?.description) { <p class="guide-description">{{ category?.description }}</p> }
       </div>
 
-      <div class="share-tools">
-        <div class="share-panel" aria-label="Movie Guide sharing">
-          @if (!shareDetailsVisible) {
-            <button type="button" class="share-button" (click)="share()">Share</button>
-          }
-          @if (shareDetailsVisible && shareUrl) {
-            <div class="share-link-row">
-              <input type="text" [value]="shareUrl" readonly aria-label="Public Movie Guide link" />
-              <button type="button" class="copy-button" (click)="copyShareUrl()">
-                {{ copiedShareUrl ? 'Copied' : 'Copy' }}
-              </button>
-              <button type="button" class="close-share-button" (click)="closeShareDetails()">Close</button>
-            </div>
-          }
+      <div class="header-actions">
+        @if (showAddMovies) {
+          <button type="button" class="icon-button" title="Add Movies" aria-label="Add Movies" (click)="openMovieSelector()"><span class="material-icons">playlist_add</span></button>
+          <button type="button" class="icon-button" title="Import Movies from CSV" aria-label="Import Movies from CSV" (click)="openImportCsv()"><span class="material-icons">upload_file</span></button>
+        }
+        <div class="share-tools">
+          <div class="share-panel" aria-label="Movie Guide sharing">
+            @if (!shareDetailsVisible) {
+              <button type="button" class="share-button" (click)="share()">Share</button>
+            }
+            @if (shareDetailsVisible && shareUrl) {
+              <div class="share-link-row">
+                <input type="text" [value]="shareUrl" readonly aria-label="Public Movie Guide link" />
+                <button type="button" class="copy-button" (click)="copyShareUrl()">
+                  {{ copiedShareUrl ? 'Copied' : 'Copy' }}
+                </button>
+                <button type="button" class="close-share-button" (click)="closeShareDetails()">Close</button>
+              </div>
+            }
+          </div>
         </div>
       </div>
     </header>
 
     @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
 
+    @if (showAddMovies) {
+      <div class="owner-actions">
+        <button type="button" class="category-filter-button" (click)="openCategoryDialog()">
+          <span class="material-icons">account_tree</span>
+          {{ selectedCategory ? 'Sub-category selected' : 'Select a sub-category…' }}
+        </button>
+      </div>
+      @if (categoryDialogVisible && movieGuideId) {
+        <app-category-tree-dialog mode="guide" [rootCategoryId]="categoryId" [excludedCategoryIds]="guideSubscribedCategoryIds"
+          [selectedCategoryIds]="selectedCategory != null ? [selectedCategory] : []" [allowCopy]="false"
+          (closed)="closeCategoryDialog()" (categoriesSelected)="onCategorySelected($event)" />
+      }
+    }
     <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies in this guide" [showNotRecommendedFilter]="true" [initialSelectedCategories]="defaultCategories" (internalSearch)="applyFilter($event)" />
     <h2>Movie Results</h2>
 
@@ -41,5 +62,12 @@
       [pageSize]="pageSize"
       emptyMessage="No movies in this Movie Guide yet"
       (pageChange)="loadMovies($event)" />
+  }
+  @if (movieSelectorVisible) {
+    <app-movie-selector (moviesSelected)="onMoviesSelected($event)" />
+  }
+  @if (csvDialogVisible && movieGuideId) {
+    <app-import-csv-dialog [movieGuideId]="movieGuideId" [categoryId]="selectedCategory" (closed)="closeImportCsv()"
+      (imported)="onCsvImported()" (importFailed)="onCsvImportFailed($event)" />
   }
 </section>

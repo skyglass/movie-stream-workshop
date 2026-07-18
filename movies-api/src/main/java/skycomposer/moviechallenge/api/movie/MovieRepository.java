@@ -291,4 +291,44 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                                                      @Param("selectedCategoryCount") int selectedCategoryCount,
                                                      @Param("selectedCategories") List<Long> selectedCategories,
                                                      Pageable pageable);
+
+    // Movies already assigned to a Movie Guide's own category tree, excluding any that only appear there via a
+    // subscribed/referenced category (movie_guide_default_category) -- used by the guide-creation wizard's Step 2
+    // so the curator only ever sees movies they explicitly added, not ones that arrive "for free" via subscription.
+    @Query(value = """
+            select m.*
+            from movies m
+            where exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id
+                    where c.ancestor_id=:guideCategoryId and mc.movie_id=m.imdb_id)
+                and (:excludedCategoryCount=0 or not exists (select 1 from category s where s.id in (:excludedCategories)
+                    and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id
+                        where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:filter is null
+                    or trim(:filter) = ''
+                    or lower(m.title) like concat('%', lower(:filter), '%')
+                    or lower(m.director) like concat('%', lower(:filter), '%')
+                    or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+            order by regexp_replace(lower(m.title), '^(the|a)[[:space:]]+', '') asc, lower(m.title) asc, m.imdb_id asc
+            """, countQuery = """
+            select count(1)
+            from movies m
+            where exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id
+                    where c.ancestor_id=:guideCategoryId and mc.movie_id=m.imdb_id)
+                and (:excludedCategoryCount=0 or not exists (select 1 from category s where s.id in (:excludedCategories)
+                    and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id
+                        where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:filter is null
+                    or trim(:filter) = ''
+                    or lower(m.title) like concat('%', lower(:filter), '%')
+                    or lower(m.director) like concat('%', lower(:filter), '%')
+                    or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+            """, nativeQuery = true)
+    Page<Movie> findGuideMovies(@Param("guideCategoryId") long guideCategoryId,
+                                @Param("excludedCategoryCount") int excludedCategoryCount,
+                                @Param("excludedCategories") List<Long> excludedCategories,
+                                @Param("filter") String filter,
+                                @Param("year") String year,
+                                Pageable pageable);
 }

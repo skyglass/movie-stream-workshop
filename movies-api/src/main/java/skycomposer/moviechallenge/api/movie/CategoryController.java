@@ -3,6 +3,8 @@ package skycomposer.moviechallenge.api.movie;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,9 +12,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import skycomposer.moviechallenge.api.movie.dto.CategoryDto;
+import skycomposer.moviechallenge.api.movie.dto.MoveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.RecommendMovieRequest;
 import skycomposer.moviechallenge.api.movie.dto.SaveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.SaveMovieCategoriesRequest;
@@ -31,18 +35,34 @@ public class CategoryController {
     @GetMapping("/movies/{movieId}")
     public List<CategoryDto> movieTree(@PathVariable String movieId) { return categories.tree(movieId); }
 
+    @GetMapping("/subtree/{rootId}")
+    public List<CategoryDto> subtree(@PathVariable long rootId, @RequestParam(required = false) List<Long> exclude) {
+        return categories.subtree(rootId, exclude == null ? List.of() : exclude);
+    }
+
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
-    public CategoryDto create(@Valid @RequestBody SaveCategoryRequest request) { return categories.create(request); }
+    public CategoryDto create(@Valid @RequestBody SaveCategoryRequest request, Authentication authentication) {
+        return categories.create(request, authentication.getName(), isAdminOrGuide(authentication));
+    }
 
     @PutMapping("/{id}")
-    public CategoryDto update(@PathVariable long id, @Valid @RequestBody SaveCategoryRequest request) {
-        return categories.update(id, request);
+    public CategoryDto update(@PathVariable long id, @Valid @RequestBody SaveCategoryRequest request,
+                               Authentication authentication) {
+        return categories.update(id, request, authentication.getName(), isAdminOrGuide(authentication));
+    }
+
+    @PostMapping("/{id}/move")
+    public CategoryDto move(@PathVariable long id, @Valid @RequestBody MoveCategoryRequest request,
+                             Authentication authentication) {
+        return categories.move(id, request, authentication.getName(), isAdminOrGuide(authentication));
     }
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable long id) { categories.delete(id); }
+    public void delete(@PathVariable long id, @RequestParam long parentId, Authentication authentication) {
+        categories.delete(id, parentId, authentication.getName(), isAdminOrGuide(authentication));
+    }
 
     @PutMapping("/movies/{movieId}")
     public List<CategoryDto> saveMovieCategories(@PathVariable String movieId,
@@ -55,5 +75,10 @@ public class CategoryController {
     public void addMovieFromSearchToCategory(@PathVariable long categoryId,
                                               @Valid @RequestBody RecommendMovieRequest request) {
         categories.addMovieFromSearchToCategory(categoryId, request);
+    }
+
+    private boolean isAdminOrGuide(Authentication authentication) {
+        return authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority.equals("ROLE_MOVIES_ADMIN") || authority.equals("ROLE_MOVIES_GUIDE"));
     }
 }

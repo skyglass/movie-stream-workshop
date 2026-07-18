@@ -44,6 +44,7 @@ export interface MovieCategory {
   checked: boolean;
   leaf: boolean;
   empty: boolean;
+  referencedCategoryId: number | null;
   children: MovieCategory[];
 }
 
@@ -204,6 +205,20 @@ export interface RecommendMovieFromSearchRequest {
   type: MovieType;
 }
 
+export interface MovieGuideDto {
+  id: number;
+  categoryId: number;
+  type: 'Guide' | 'Personality';
+  name: string;
+  description: string | null;
+  icon: string | null;
+  owner: string;
+  status: 'STARTED' | 'COMPLETED';
+  subscribedCategoryIds: number[];
+}
+
+// JSON-upload bulk-import flow (paste a hand-crafted/LLM-generated JSON file) -- kept alongside the interactive
+// wizard's MovieGuideDto above as a second, faster creation path for large/AI-assisted imports.
 export interface GuideMovieRef {
   imdbId: string;
   categories: string[];
@@ -217,6 +232,17 @@ export interface CreateMovieGuideResponse {
 export interface GuideMovieDetails {
   movie: RecommendMovieFromSearchRequest;
   categories: string[];
+}
+
+// CSV import (default guide view "Import from CSV" dialog). Either imdbId, or title+year, is non-blank.
+export interface CsvMovieRef {
+  imdbId: string;
+  title: string;
+  year: string;
+}
+
+export interface ImportCsvMoviesResponse {
+  failedMovies: CsvMovieRef[];
 }
 
 export interface CourseMovie {
@@ -315,6 +341,12 @@ export class MoviesApiService {
       : this.categoriesBase);
   }
 
+  getCategorySubtree(rootId: number, exclude: number[] = []): Observable<MovieCategory[]> {
+    const params: Record<string, string> = {};
+    if (exclude.length) params['exclude'] = exclude.join(',');
+    return this.http.get<MovieCategory[]>(`${this.categoriesBase}/subtree/${rootId}`, { params });
+  }
+
   createCategory(category: SaveMovieCategory): Observable<MovieCategory> {
     return this.http.post<MovieCategory>(this.categoriesBase, category);
   }
@@ -323,8 +355,12 @@ export class MoviesApiService {
     return this.http.put<MovieCategory>(`${this.categoriesBase}/${id}`, category);
   }
 
-  deleteCategory(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.categoriesBase}/${id}`);
+  deleteCategory(id: number, parentId: number): Observable<void> {
+    return this.http.delete<void>(`${this.categoriesBase}/${id}`, { params: { parentId } });
+  }
+
+  moveCategory(id: number, sourceParentId: number, targetParentId: number | null, copy: boolean): Observable<MovieCategory> {
+    return this.http.post<MovieCategory>(`${this.categoriesBase}/${id}/move`, { sourceParentId, targetParentId, copy });
   }
 
   saveMovieCategories(movieId: string, addedCategories: number[], removedCategories: number[]): Observable<MovieCategory[]> {
@@ -337,6 +373,47 @@ export class MoviesApiService {
     return this.http.post<void>(`${this.categoriesBase}/${categoryId}/movies-from-search`, this.movieFromOmdb(movie));
   }
 
+  // Interactive creation wizard -- distinct paths (/wizard, /wizard-movies) from the JSON-upload flow below,
+  // which owns the bare POST /api/movie-guides and POST /{id}/movies routes.
+  createGuide(type: 'Guide' | 'Personality', name: string, description: string, icon: string,
+              subscribedCategoryIds: number[]): Observable<MovieGuideDto> {
+    return this.http.post<MovieGuideDto>(`${this.movieGuidesBase}/wizard`, { type, name, description, icon, subscribedCategoryIds });
+  }
+
+  getMovieGuideByCategory(categoryId: number): Observable<MovieGuideDto> {
+    return this.http.get<MovieGuideDto>(`${this.movieGuidesBase}/by-category/${categoryId}`);
+  }
+
+  // Category ids of every guide/personality the current user owns — backs the "Delete" action on the Movie
+  // Guides/Personalities list, shown only on rows the viewer actually owns.
+  getMyGuideCategoryIds(): Observable<number[]> {
+    return this.http.get<number[]>(`${this.movieGuidesBase}/mine`);
+  }
+
+  assignMoviesToGuide(movieGuideId: number, imdbIds: string[], categoryId: number | null = null): Observable<void> {
+    return this.http.post<void>(`${this.movieGuidesBase}/${movieGuideId}/wizard-movies`, { imdbIds, categoryId });
+  }
+
+  completeGuide(movieGuideId: number): Observable<void> {
+    return this.http.post<void>(`${this.movieGuidesBase}/${movieGuideId}/complete`, {});
+  }
+
+  listGuideMovies(movieGuideId: number, page = 1, pageSize = this.moviePageSize, filter = '', year = ''): Observable<MoviePage> {
+    return this.http.get<MoviePage>(`${this.movieGuidesBase}/${movieGuideId}/movies`, {
+      params: this.pageParams(page, pageSize, filter, year)
+    });
+  }
+
+  // CSV import (default guide view "Import from CSV" dialog) Phase 1/2b.
+  importCsvMovies(movieGuideId: number, movies: CsvMovieRef[], categoryId: number | null): Observable<ImportCsvMoviesResponse> {
+    return this.http.post<ImportCsvMoviesResponse>(`${this.movieGuidesBase}/${movieGuideId}/import-csv`, { movies, categoryId });
+  }
+
+  completeCsvImport(movieGuideId: number, movies: RecommendMovieFromSearchRequest[], categoryId: number | null): Observable<void> {
+    return this.http.post<void>(`${this.movieGuidesBase}/${movieGuideId}/import-csv/complete`, { movies, categoryId });
+  }
+
+  // JSON-upload bulk-import flow (paste a hand-crafted/LLM-generated JSON file).
   createMovieGuide(type: string, name: string, description: string, icon: string, movies: GuideMovieRef[]): Observable<CreateMovieGuideResponse> {
     return this.http.post<CreateMovieGuideResponse>(this.movieGuidesBase, { type, name, description, icon, movies });
   }

@@ -1,0 +1,15 @@
+.dialog-backdrop{position:fixed;inset:0;z-index:1100;background:rgba(15,23,42,.58);display:grid;place-items:center;padding:1rem}
+.move-dialog{width:fit-content;min-width:min(420px,100%);max-width:min(640px,100%);max-height:90vh;background:#fff;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.3);padding:1.25rem;display:flex;flex-direction:column}
+.move-dialog header,.move-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-shrink:0}
+.dialog-body{flex:1 1 auto;min-height:0;overflow:auto}
+.move-dialog h2{margin:.1rem 0}
+.eyebrow{margin:0;color:#64748b;text-transform:uppercase;font-size:.75rem;font-weight:800}
+.icon-button{border:0;background:transparent;color:#334155;padding:.35rem;cursor:pointer}
+.category-tree{list-style:none;margin:.6rem 0;padding-left:0}
+.root-choice,.copy-choice{display:flex;align-items:center;gap:.6rem;font-weight:700;color:#334155;padding:.4rem 0}
+.copy-choice{border-top:1px solid #e2e8f0;margin-top:.6rem;padding-top:.8rem;font-weight:500}
+footer{justify-content:flex-end;margin-top:1rem;padding-top:1rem;border-top:1px solid #e2e8f0}
+footer button{display:inline-flex;align-items:center;gap:.35rem;border:0;border-radius:7px;background:#1d4ed8;color:#fff;font-weight:700;cursor:pointer;padding:.65rem .9rem;font-size:1rem}
+.secondary{background:#e2e8f0!important;color:#334155!important}
+.move-dialog button:disabled{opacity:.45;cursor:not-allowed}
+.error{color:#b91c1c}

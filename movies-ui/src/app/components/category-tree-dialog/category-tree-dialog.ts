@@ -2,23 +2,33 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MovieCategory, MoviesApiService, SaveMovieCategory } from '../../services/movies-api';
-import { CategoryTreeNodeComponent } from './category-tree-node';
+import { AuthService } from '../../services/auth';
+import { CategoryNodeAction, CategoryTreeNodeComponent } from './category-tree-node';
+import { MoveCategoryDialogComponent } from '../move-category-dialog/move-category-dialog';
 
-export type CategoryTreeMode = 'assign' | 'filter' | 'journey';
+export type CategoryTreeMode = 'assign' | 'filter' | 'journey' | 'move' | 'guide';
 
 @Component({
   standalone: true,
   selector: 'app-category-tree-dialog',
-  imports: [CommonModule, FormsModule, CategoryTreeNodeComponent],
+  imports: [CommonModule, FormsModule, CategoryTreeNodeComponent, MoveCategoryDialogComponent],
   templateUrl: './category-tree-dialog.html',
   styleUrl: './category-tree-dialog.css'
 })
 export class CategoryTreeDialogComponent implements OnInit, OnChanges {
   private readonly api = inject(MoviesApiService);
+  readonly auth = inject(AuthService);
   @Input() mode: CategoryTreeMode = 'assign';
   @Input() movieId = '';
   @Input() selectedCategoryIds: number[] = [];
   @Input() inline = false;
+  // 'guide' mode only: scopes the tree to one category's direct children (e.g. a Movie Guide's own anchor
+  // category) instead of the whole global tree, and excludes a given set of ids (e.g. its subscribed categories).
+  @Input() rootCategoryId?: number;
+  @Input() excludedCategoryIds: number[] = [];
+  // Threaded down to the Move dialog: false suppresses the "Copy instead of move" checkbox (e.g. inside a Movie
+  // Guide's own sandbox, where subscribing to one of its own categories would be nonsensical).
+  @Input() allowCopy = true;
   @Output() closed = new EventEmitter<void>();
   @Output() categoriesSelected = new EventEmitter<number[]>();
   @Output() selectionChanged = new EventEmitter<number[]>();
@@ -33,6 +43,7 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
   removedCategories = new Set<number>();
   editingId: number | null = null;
   creatingParentId: number | null | undefined = undefined;
+  movingAction: CategoryNodeAction | null = null;
   name = '';
   icon = '';
   description = '';
@@ -56,7 +67,10 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
   load(): void {
     this.loading = true;
     this.errorMessage = '';
-    this.api.getCategoryTree(this.mode === 'assign' ? this.movieId : undefined).subscribe({
+    const request = this.mode === 'guide' && this.rootCategoryId != null
+      ? this.api.getCategorySubtree(this.rootCategoryId, this.excludedCategoryIds)
+      : this.api.getCategoryTree(this.mode === 'assign' ? this.movieId : undefined);
+    request.subscribe({
       next: categories => {
         this.categories = categories;
         this.originalChecked = new Set(this.flatten(categories).filter(category => category.checked).map(category => category.id));
@@ -85,6 +99,14 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
       checked ? this.explicitSelected.add(category.id) : this.explicitSelected.delete(category.id);
       return;
     }
+    if (this.mode === 'guide') {
+      // Single-select, non-recursive: checking one category never implies its sub-categories, and only one
+      // category may be targeted for a movie assignment at a time.
+      this.explicitSelected.clear();
+      if (checked) this.explicitSelected.add(category.id);
+      this.selectionChanged.emit([...this.explicitSelected]);
+      return;
+    }
     if (this.mode === 'filter') {
       if (checked) {
         this.removeExplicitDescendants(category);
@@ -105,7 +127,7 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
   }
 
   submit(): void {
-    if (this.mode === 'filter' || this.mode === 'journey') {
+    if (this.mode === 'filter' || this.mode === 'journey' || this.mode === 'guide') {
       this.categoriesSelected.emit([...this.explicitSelected]);
       return;
     }
@@ -163,21 +185,32 @@ export class CategoryTreeDialogComponent implements OnInit, OnChanges {
     });
   }
 
-  deleteCategory(category: MovieCategory): void {
-    if (!category.empty || !confirm(`Delete category “${category.name}”?`)) return;
+  deleteCategory(action: CategoryNodeAction): void {
+    const verb = action.category.referencedCategoryId ? 'Unlink' : 'Delete';
+    if (!confirm(`${verb} category “${action.category.name}”?`)) return;
     this.saving = true;
-    this.api.deleteCategory(category.id).subscribe({
-      next: () => { this.explicitSelected.delete(category.id); this.saving = false; this.load(); },
+    this.api.deleteCategory(action.category.id, action.parentId).subscribe({
+      next: () => { this.explicitSelected.delete(action.category.id); this.saving = false; this.load(); },
       error: error => this.fail(error)
     });
   }
+
+  beginMove(action: CategoryNodeAction): void { this.movingAction = action; }
+
+  cancelMove(): void { this.movingAction = null; }
+
+  onMoved(): void { this.movingAction = null; this.load(); }
 
   canSubmit(): boolean {
     return this.mode === 'filter' || this.mode === 'journey' ? !this.setsEqual(this.explicitSelected, this.originalExplicitSelected)
       : this.addedCategories.size > 0 || this.removedCategories.size > 0;
   }
 
-  managementEnabled(): boolean { return this.mode !== 'filter'; }
+  managementEnabled(): boolean {
+    // 'guide' mode is only ever rendered for a confirmed guide owner (enforced by the caller before mounting this
+    // component), so it unconditionally enables management here regardless of MOVIES_GUIDE/MOVIES_ADMIN role.
+    return this.mode === 'guide' || (this.mode !== 'filter' && this.auth.canEditMovies);
+  }
 
   assignmentSelectedIds(): Set<number> {
     const selected = new Set(this.originalChecked);

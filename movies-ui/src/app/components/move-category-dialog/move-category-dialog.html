@@ -1,0 +1,33 @@
+<div class="dialog-backdrop" (click)="closed.emit()">
+  <section class="move-dialog" role="dialog" aria-modal="true" aria-labelledby="move-dialog-title" (click)="$event.stopPropagation()">
+    <header>
+      <div><p class="eyebrow">{{ copy ? 'Copy' : 'Move' }} category</p><h2 id="move-dialog-title">{{ category.icon || '📁' }} {{ category.name }}</h2></div>
+      <button type="button" class="icon-button" title="Cancel" aria-label="Cancel" (click)="closed.emit()"><span class="material-icons">close</span></button>
+    </header>
+    <div class="dialog-body">
+      @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+      @if (loading) { <p>Loading categories…</p> } @else {
+        <label class="root-choice">
+          <input type="radio" name="moveTarget" [checked]="targetId() === null" (change)="selectRoot()" />
+          Root level (no parent)
+        </label>
+        <ul class="category-tree">
+          @for (c of categories; track c.id) {
+            <app-category-tree-node [category]="c" mode="move" [expanded]="expanded" [explicitSelected]="selected" [management]="false"
+              (expand)="toggleExpanded($event)" (toggle)="selectTarget($event.category, $event.checked)" />
+          }
+        </ul>
+        @if (allowCopy) {
+          <label class="copy-choice">
+            <input type="checkbox" [(ngModel)]="copy" />
+            Copy instead of move (link this category under the target too, keeping it in its original place)
+          </label>
+        }
+      }
+    </div>
+    <footer>
+      <button type="button" class="secondary" (click)="closed.emit()">Cancel</button>
+      <button type="button" (click)="submit()" [disabled]="saving || loading">{{ saving ? 'Saving…' : (copy ? 'Copy' : 'Move') }}</button>
+    </footer>
+  </section>
+</div>

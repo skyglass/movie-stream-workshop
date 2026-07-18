@@ -45,7 +45,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movies").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories", "/api/categories/**").permitAll()
-                        .requestMatchers("/api/categories", "/api/categories/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
+                        .requestMatchers(HttpMethod.PUT, "/api/categories/movies/*").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
+                        .requestMatchers(HttpMethod.POST, "/api/categories/*/movies-from-search").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
+                        .requestMatchers("/api/categories", "/api/categories/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/my-favorite-movies/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-journeys/*", "/api/movie-courses/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-journeys", "/api/movie-courses").permitAll()
@@ -63,6 +65,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/favorite-movies", "/api/favorite-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/users-favorite-movies", "/api/users-favorite-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/users-recommended-movies", "/api/users-recommended-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
+                        .requestMatchers(HttpMethod.GET, "/api/movie-guides/by-category/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/movie-guides/*/movies").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/movie-guides/mine").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/movie-guides/wizard").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/wizard-movies").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/complete").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/import-csv").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/import-csv/complete").authenticated()
                         .requestMatchers("/api/movie-guides/existing", "/api/movie-guides/*/movies/existing").authenticated()
                         .requestMatchers("/api/movie-guides", "/api/movie-guides/**").hasAnyRole(MOVIES_ADMIN, MOVIES_GUIDE)
                         .requestMatchers(HttpMethod.POST, "/api/movies").authenticated()
@@ -79,6 +89,8 @@ public class SecurityConfig {
                 .build();
     }
 
+    // Sized for the JSON-upload bulk-import flow's large payloads; the interactive wizard's own endpoints
+    // (/wizard, /wizard-movies) are small, request-per-step calls and don't need this limit.
     @Bean
     FilterRegistrationBean<MaxRequestSizeFilter> movieGuideRequestSizeFilter() {
         FilterRegistrationBean<MaxRequestSizeFilter> registration =

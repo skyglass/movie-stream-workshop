@@ -4,6 +4,50 @@
   padding: 1.5rem;
 }
 
+.owner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #1d4ed8;
+  width: 2.35rem;
+  height: 2.35rem;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: #eff6ff;
+}
+
+.category-filter-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid #1d4ed8;
+  border-radius: 0.45rem;
+  background: #fff;
+  color: #1d4ed8;
+  padding: 0.55rem 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .guide-header {
   display: flex;
   align-items: flex-start;

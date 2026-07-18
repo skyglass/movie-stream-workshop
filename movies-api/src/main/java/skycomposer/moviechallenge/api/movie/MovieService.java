@@ -60,6 +60,19 @@ public class MovieService {
                 pageRequest);
     }
 
+    @Transactional(readOnly = true)
+    public Page<Movie> getGuideMovies(long guideCategoryId, List<Long> excludedCategories, String filter, String year,
+                                       Pageable pageable) {
+        Pageable pageRequest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        return movieRepository.findGuideMovies(
+                guideCategoryId,
+                categoryCount(excludedCategories),
+                categoryParameters(excludedCategories),
+                normalizedFilter(filter),
+                normalizedFilter(year),
+                pageRequest);
+    }
+
     @Transactional
     public Movie getOrCreateMovie(RecommendMovieRequest request) {
         // Flush immediately: callers may follow up with a raw JDBC statement in the

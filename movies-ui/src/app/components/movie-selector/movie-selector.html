@@ -1,0 +1,69 @@
+<div class="dialog-backdrop" (click)="submit()">
+  <section class="movie-selector" role="dialog" aria-modal="true" aria-labelledby="movie-selector-title" (click)="$event.stopPropagation()">
+    <header>
+      <div><p class="eyebrow">Add Movies</p><h2 id="movie-selector-title">Select movies for this guide</h2></div>
+      <button type="button" class="icon-button" title="Done" aria-label="Done" (click)="submit()"><span class="material-icons">close</span></button>
+    </header>
+
+    <div class="dialog-body">
+      <app-movie-filter-search [value]="filterText" (valueChange)="filterText=$event"
+        [allowExternalActions]="false" [externalActions]="['add','like']" [showSelectCategories]="false"
+        (internalSearch)="onInternalSearch($event)" (externalAction)="onExternalAction($event)" />
+
+      <button type="button" class="category-filter-button" (click)="openCategoryDialog()">
+        <span class="material-icons">account_tree</span>Select Categories…
+        @if (selectedCategoryIds.length) { ({{ selectedCategoryIds.length }}) }
+      </button>
+      @if (categoryDialogVisible) {
+        <app-category-tree-dialog mode="filter" [selectedCategoryIds]="selectedCategoryIds"
+          (closed)="closeCategoryDialog()" (categoriesSelected)="onCategoriesSelected($event)" />
+      }
+
+      <section class="movie-results" aria-labelledby="movie-results-title">
+        <h3 id="movie-results-title">Movie Results</h3>
+        @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+        @if (loading) { <p>Loading movies…</p> } @else if (movies.length === 0) {
+          <p class="empty">No movies found.</p>
+        } @else {
+          <ul class="movie-rows">
+            @for (movie of movies; track movie.imdbId) {
+              <li class="movie-row">
+                <label>
+                  <input type="checkbox" [checked]="isSelected(movie)" (change)="toggleSelect(movie, $any($event.target).checked)" />
+                  <img [src]="movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg'" [alt]="movie.title + ' poster'" />
+                  <span class="movie-info">
+                    <span class="movie-title">{{ movie.title }}</span>
+                    <span class="movie-meta">{{ movie.year }} · {{ movie.director }}</span>
+                  </span>
+                </label>
+              </li>
+            }
+          </ul>
+          <app-movie-page-navigator [currentPage]="currentPage" [totalCount]="totalCount" [pageSize]="pageSize" (pageChange)="loadMovies($event)" />
+        }
+      </section>
+
+      <section class="selected-movies" aria-labelledby="selected-movies-title">
+        <h3 id="selected-movies-title">Selected Movies ({{ selectedMovies.length }})</h3>
+        @if (selectedMovies.length === 0) { <p class="empty">No movies selected yet.</p> } @else {
+          <ul class="movie-rows">
+            @for (movie of selectedMovies; track movie.imdbId) {
+              <li class="movie-row">
+                <img [src]="movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg'" [alt]="movie.title + ' poster'" />
+                <span class="movie-info">
+                  <span class="movie-title">{{ movie.title }}</span>
+                  <span class="movie-meta">{{ movie.year }} · {{ movie.director }}</span>
+                </span>
+                <button type="button" class="icon-button" title="Remove" aria-label="Remove" (click)="removeSelected(movie.imdbId)"><span class="material-icons">delete</span></button>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
+
+    <footer>
+      <button type="button" (click)="submit()">OK</button>
+    </footer>
+  </section>
+</div>

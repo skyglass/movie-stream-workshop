@@ -13,9 +13,14 @@
       <header class="guide-panel-header">
         <h2>Guides</h2>
         @if (auth.token) {
-          <button type="button" class="create-button" (click)="openCreate('Guide')">
-            <span class="material-icons" aria-hidden="true">library_add</span>Create Movie Guide
-          </button>
+          <div class="create-actions">
+            <button type="button" class="create-button" (click)="openCreate('Guide')">
+              <span class="material-icons" aria-hidden="true">library_add</span>Create Movie Guide
+            </button>
+            <button type="button" class="create-button secondary" (click)="openCreateJson('Guide')">
+              <span class="material-icons" aria-hidden="true">upload_file</span>Import from JSON
+            </button>
+          </div>
         }
       </header>
       <div class="guide-list">
@@ -26,6 +31,18 @@
             <a class="guide-row" [routerLink]="['/movie-guides', guide.id]">
               <span class="emoji">{{ guide.icon || '📁' }}</span>
               <span class="guide-name">{{ guide.name }}</span>
+              @if (auth.token) {
+                <button type="button" class="edit-icon-button" title="Edit Movie Guide" aria-label="Edit Movie Guide"
+                  (click)="openEdit(guide, 'Guide', $event)">
+                  <span class="material-icons" aria-hidden="true">edit</span>
+                </button>
+              }
+              @if (isOwnerOf(guide.id)) {
+                <button type="button" class="delete-icon-button" title="Delete Movie Guide" aria-label="Delete Movie Guide"
+                  (click)="deleteGuide(guide, 'Guide', $event)">
+                  <span class="material-icons" aria-hidden="true">delete</span>
+                </button>
+              }
             </a>
           }
         }
@@ -36,9 +53,14 @@
       <header class="guide-panel-header">
         <h2>Personalities</h2>
         @if (auth.token) {
-          <button type="button" class="create-button" (click)="openCreate('Personality')">
-            <span class="material-icons" aria-hidden="true">library_add</span>Create Movie Personality
-          </button>
+          <div class="create-actions">
+            <button type="button" class="create-button" (click)="openCreate('Personality')">
+              <span class="material-icons" aria-hidden="true">library_add</span>Create Movie Personality
+            </button>
+            <button type="button" class="create-button secondary" (click)="openCreateJson('Personality')">
+              <span class="material-icons" aria-hidden="true">upload_file</span>Import from JSON
+            </button>
+          </div>
         }
       </header>
       <div class="guide-list">
@@ -49,6 +71,18 @@
             <a class="guide-row" [routerLink]="['/movie-guides', personality.id]">
               <span class="emoji">{{ personality.icon || '📁' }}</span>
               <span class="guide-name">{{ personality.name }}</span>
+              @if (auth.token) {
+                <button type="button" class="edit-icon-button" title="Edit Movie Personality" aria-label="Edit Movie Personality"
+                  (click)="openEdit(personality, 'Personality', $event)">
+                  <span class="material-icons" aria-hidden="true">edit</span>
+                </button>
+              }
+              @if (isOwnerOf(personality.id)) {
+                <button type="button" class="delete-icon-button" title="Delete Movie Personality" aria-label="Delete Movie Personality"
+                  (click)="deleteGuide(personality, 'Personality', $event)">
+                  <span class="material-icons" aria-hidden="true">delete</span>
+                </button>
+              }
             </a>
           }
         }
@@ -57,6 +91,14 @@
   }
 
   @if (creatingType) {
-    <app-create-movie-guide-dialog [initialType]="creatingType" (closed)="closeCreate()" (guideCreated)="onGuideCreated($event)" />
+    <app-create-guide-wizard [initialType]="creatingType" (closed)="closeCreate()" (guideCreated)="onGuideCreated($event)" />
+  }
+
+  @if (creatingViaJson) {
+    <app-create-movie-guide-dialog [initialType]="creatingViaJson" (closed)="closeCreateJson()" (guideCreated)="onJsonGuideCreated($event)" />
+  }
+
+  @if (editing; as e) {
+    <app-edit-guide-dialog [category]="e.category" [entryLabel]="e.label" (closed)="closeEdit()" (saved)="onEditSaved($event)" />
   }
 </section>

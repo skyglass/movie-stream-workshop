@@ -44,6 +44,8 @@ public class SecurityConfig {
                     .pathMatchers(HttpMethod.GET, "/api/movies/my-favorite-movies/**").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/movies/movie-journeys/*", "/api/movies/movie-courses/*").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/movies/movie-journeys", "/api/movies/movie-courses").permitAll()
+                    .pathMatchers(HttpMethod.GET, "/api/movies/movie-guides/by-category/*").permitAll()
+                    .pathMatchers(HttpMethod.GET, "/api/movies/movie-guides/*/movies").permitAll()
                     .pathMatchers("/swagger-ui.html", "/swagger-ui/**", "/webjars/**").permitAll()
                     .pathMatchers("/v3/api-docs", "/v3/api-docs/**").permitAll()
                     .pathMatchers("/api/movies", "/api/movies/**").authenticated()

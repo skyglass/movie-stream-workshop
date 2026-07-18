@@ -1,0 +1,60 @@
+<div class="dialog-backdrop" (click)="close()">
+  <section class="csv-dialog" role="dialog" aria-modal="true" aria-labelledby="csv-dialog-title" (click)="$event.stopPropagation()">
+    <header>
+      <div><p class="eyebrow">Bulk import</p><h2 id="csv-dialog-title">Import from CSV</h2></div>
+      <button type="button" class="icon-button" title="Close" aria-label="Close" (click)="close()" [disabled]="processing"><span class="material-icons">close</span></button>
+    </header>
+
+    @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+
+    @if (processing) {
+      <div class="processing">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>{{ statusMessage }}</p>
+      </div>
+    } @else {
+      <section class="notes-section">
+        <h3>Import comma-separated movies</h3>
+        <p>Each line is one movie. Two formats are accepted, and you can mix both in the same file:</p>
+        <ul>
+          <li><strong>By IMDb id</strong> — just the id: <code>tt0075314</code></li>
+          <li><strong>By title and year</strong> — a blank id, then title, then a 4-digit year: <code>,Taxi Driver,1976</code></li>
+        </ul>
+        <p>
+          Extra trailing columns (e.g. a director) are read but ignored. Quote a title with a comma in it, e.g.
+          <code>,"Ocean's Eleven",2001</code>. Lines that don't have a usable id or a title with a valid year are
+          skipped entirely — they never show up as failed.
+        </p>
+        <p class="example-block">
+          Example file:<br />
+          <code>tt0075314,,</code><br />
+          <code>,Taxi Driver,1976</code><br />
+          <code>,"Ocean's Eleven",2001,Steven Soderbergh</code>
+        </p>
+      </section>
+
+      <section class="paste-section">
+        <h3>Import from CSV text</h3>
+        <label for="guide-csv-paste">Paste CSV rows</label>
+        <textarea id="guide-csv-paste" class="paste-textarea" rows="8" [(ngModel)]="pastedCsv"
+          placeholder="tt0075314,,&#10;,Taxi Driver,1976"></textarea>
+        <button type="button" class="use-pasted-button" (click)="usePastedCsv()" [disabled]="!pastedCsv.trim()">
+          <span class="material-icons">playlist_add_check</span>Use this CSV
+        </button>
+      </section>
+
+      <section class="file-section">
+        <h3>Import from CSV file</h3>
+        <label class="file-picker">
+          <input type="file" accept=".csv,text/csv,text/plain" (change)="onFileSelected($event)" />
+          <span class="material-icons">upload_file</span>
+          <span>Choose CSV file…</span>
+        </label>
+      </section>
+    }
+
+    <footer>
+      <button type="button" class="secondary" (click)="close()" [disabled]="processing">Cancel</button>
+    </footer>
+  </section>
+</div>
