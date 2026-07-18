@@ -12,6 +12,7 @@ ul{list-style:none;margin:0;padding-left:1.5rem}
 .emoji{font-size:1.4rem;line-height:1;flex-shrink:0}
 .category-name{font-weight:700;color:#1e293b;font-size:.98rem;white-space:nowrap}
 .reference-badge{font-size:1rem!important;color:#0369a1;flex-shrink:0}
+.subscribed-label{font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#0369a1;flex-shrink:0}
 
 .node-actions{display:flex;align-items:center;gap:.15rem;flex-shrink:0;margin-left:.4rem;padding-left:.6rem;border-left:1px solid #e2e8f0}
 .node-action{border:0;background:transparent;color:#475569;padding:.4rem;border-radius:7px;cursor:pointer}

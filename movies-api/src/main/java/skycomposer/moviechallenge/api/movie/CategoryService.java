@@ -109,7 +109,11 @@ public class CategoryService {
     @Transactional
     public CategoryDto move(long id, MoveCategoryRequest request, String username, boolean adminOrGuide) {
         requireCategory(id);
-        if (isReferencedAnywhere(id)) {
+        // Only a real move (copy=false) deletes the sourceParentId->id edge, which could silently break some
+        // guide's subscription if that edge is what it depends on -- a copy (subscribe) is purely additive (a
+        // new edge, nothing removed), so it's always safe even when the category is already referenced
+        // elsewhere, including by other guides subscribing to the same category.
+        if (!request.copy() && isReferencedAnywhere(id)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Referenced categories are read-only here; unlink them from the guide instead of moving");
         }
