@@ -12,7 +12,7 @@
 
 <ng-template #body>
   <header>
-    <div><p class="eyebrow">Movie categories</p><h2 id="category-dialog-title">{{ mode === 'assign' ? 'Add to Category' : mode === 'filter' || mode === 'guide' ? 'Select Categories' : 'Start Journey' }}</h2></div>
+    <div><p class="eyebrow">Movie categories</p><h2 id="category-dialog-title">{{ mode === 'assign' ? 'Add to Categories' : mode === 'filter' || mode === 'guide' ? 'Select Categories' : 'Start Journey' }}</h2></div>
     @if (!inline) {
       <button type="button" class="icon-button" [title]="mode === 'filter' || mode === 'guide' ? 'Close' : 'Cancel'" [attr.aria-label]="mode === 'filter' || mode === 'guide' ? 'Close' : 'Cancel'" (click)="closed.emit()"><span class="material-icons">close</span></button>
     }
@@ -50,12 +50,14 @@
       }
     }
   </div>
-  <footer>
-    @if (mode === 'filter' || mode === 'guide') {
-      <button type="button" (click)="submit()">OK</button>
-    } @else {
-      <button type="button" class="secondary" (click)="closed.emit()">{{ inline ? 'Close Journey' : 'Cancel' }}</button>
-      <button type="button" (click)="submit()" [disabled]="saving || !canSubmit()">{{ saving ? 'Saving…' : 'Submit' }}</button>
-    }
-  </footer>
+  @if (!inline) {
+    <footer>
+      @if (mode === 'filter' || mode === 'guide') {
+        <button type="button" (click)="submit()">OK</button>
+      } @else {
+        <button type="button" class="secondary" (click)="closed.emit()">Cancel</button>
+        <button type="button" (click)="submit()" [disabled]="saving || !canSubmit()">{{ saving ? 'Saving…' : 'Submit' }}</button>
+      }
+    </footer>
+  }
 </ng-template>

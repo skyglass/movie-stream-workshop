@@ -139,6 +139,75 @@
   color: #203349;
 }
 
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.58);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.subscribe-categories-dialog {
+  width: min(520px, 100%);
+  max-height: 85vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+  padding: 1.25rem;
+}
+
+.subscribe-categories-dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.subscribe-categories-dialog h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+.subscribe-categories-dialog .subscribe-hint {
+  margin: 0 0 0.75rem;
+  color: #526170;
+  line-height: 1.5;
+}
+
+.subscribe-categories-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.subscribe-categories-dialog footer button {
+  border: 0;
+  border-radius: 7px;
+  padding: 0.6rem 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.subscribe-categories-dialog footer button.secondary {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.subscribe-categories-dialog footer button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .state,
 .error {
   border: 1px solid #99c2e8;

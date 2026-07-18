@@ -17,12 +17,13 @@
             <button type="button" class="create-button" (click)="openCreate('Guide')">
               <span class="material-icons" aria-hidden="true">library_add</span>Create Movie Guide
             </button>
-            <button type="button" class="create-button secondary" (click)="openCreateJson('Guide')">
-              <span class="material-icons" aria-hidden="true">upload_file</span>Import from JSON
-            </button>
           </div>
         }
       </header>
+      <p class="panel-description">
+        <strong>Movie Guide</strong> — a collection built around a topic: "Essential Heist Films," "80s Sci-Fi
+        You Can't Miss." Explore by theme, curated by someone who actually knows the subject.
+      </p>
       <div class="guide-list">
         @if (guides.length === 0) {
           <p class="empty">No Movie Guides yet.</p>
@@ -57,12 +58,15 @@
             <button type="button" class="create-button" (click)="openCreate('Personality')">
               <span class="material-icons" aria-hidden="true">library_add</span>Create Movie Personality
             </button>
-            <button type="button" class="create-button secondary" (click)="openCreateJson('Personality')">
-              <span class="material-icons" aria-hidden="true">upload_file</span>Import from JSON
-            </button>
           </div>
         }
       </header>
+      <p class="panel-description">
+        <strong>Movie Personality</strong> — a collection built around real or fictitious personalities: "What
+        Kubrick Would Watch," "Robert De Niro's Italian Neo-Realism Suggestions," "A Marvel Universe Fan's
+        Picks." Explore by point of view, curated by someone whose favorite movies we can imagine from their
+        interviews, work, or personality traits.
+      </p>
       <div class="guide-list">
         @if (personalities.length === 0) {
           <p class="empty">No Movie Personalities yet.</p>
@@ -91,11 +95,7 @@
   }
 
   @if (creatingType) {
-    <app-create-guide-wizard [initialType]="creatingType" (closed)="closeCreate()" (guideCreated)="onGuideCreated($event)" />
-  }
-
-  @if (creatingViaJson) {
-    <app-create-movie-guide-dialog [initialType]="creatingViaJson" (closed)="closeCreateJson()" (guideCreated)="onJsonGuideCreated($event)" />
+    <app-create-guide-dialog [initialType]="creatingType" (closed)="closeCreate()" (guideCreated)="onGuideCreated($event)" />
   }
 
   @if (editing; as e) {

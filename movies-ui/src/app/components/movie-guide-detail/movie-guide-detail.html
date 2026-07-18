@@ -1,7 +1,5 @@
 <section class="movie-page">
-  @if (resumeWizard) {
-    <app-create-guide-wizard [initialType]="wizardType" [resume]="resumeWizard" (completed)="onWizardCompleted()" />
-  } @else if (loading) {
+  @if (loading) {
     <div class="state">Loading Movie Guide…</div>
   } @else {
     <header class="guide-header">
@@ -13,7 +11,10 @@
 
       <div class="header-actions">
         @if (showAddMovies) {
-          <button type="button" class="icon-button" title="Add Movies" aria-label="Add Movies" (click)="openMovieSelector()"><span class="material-icons">playlist_add</span></button>
+          <button type="button" class="category-filter-button" title="Add Movies" aria-label="Add Movies" (click)="openMovieSelector()">
+            <span class="material-icons">playlist_add</span>
+            Add Movies
+          </button>
           <button type="button" class="icon-button" title="Import Movies from CSV" aria-label="Import Movies from CSV" (click)="openImportCsv()"><span class="material-icons">upload_file</span></button>
         }
         <div class="share-tools">
@@ -39,18 +40,44 @@
 
     @if (showAddMovies) {
       <div class="owner-actions">
+        <button type="button" class="category-filter-button" (click)="openSubscribeCategories()">
+          <span class="material-icons">subscriptions</span>
+          Subscribe to Categories
+        </button>
         <button type="button" class="category-filter-button" (click)="openCategoryDialog()">
           <span class="material-icons">account_tree</span>
-          {{ selectedCategory ? 'Sub-category selected' : 'Select a sub-category…' }}
+          {{ selectedCategory ? 'Sub-category selected' : 'Select Category' }}
         </button>
       </div>
       @if (categoryDialogVisible && movieGuideId) {
-        <app-category-tree-dialog mode="guide" [rootCategoryId]="categoryId" [excludedCategoryIds]="guideSubscribedCategoryIds"
+        <app-category-tree-dialog mode="guide" [rootCategoryId]="categoryId"
           [selectedCategoryIds]="selectedCategory != null ? [selectedCategory] : []" [allowCopy]="false"
-          (closed)="closeCategoryDialog()" (categoriesSelected)="onCategorySelected($event)" />
+          (closed)="closeCategoryDialog()" (categoriesSelected)="closeCategoryDialog()"
+          (selectionChanged)="onCategorySelectionChanged($event)" />
+      }
+      @if (subscribeCategoriesVisible) {
+        <div class="dialog-backdrop" (click)="closeSubscribeCategories()">
+          <section class="subscribe-categories-dialog" role="dialog" aria-modal="true" aria-labelledby="subscribe-categories-title" (click)="$event.stopPropagation()">
+            <header>
+              <h2 id="subscribe-categories-title">Subscribe to Categories</h2>
+              <button type="button" class="icon-button" title="Close" aria-label="Close" (click)="closeSubscribeCategories()" [disabled]="subscribing"><span class="material-icons">close</span></button>
+            </header>
+            @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+            <p class="subscribe-hint">
+              Subscribe to other categories and receive all their updates in this {{ entryType === 'Personality' ? 'personality' : 'guide' }} —
+              e.g. subscribe to "New 2026" and it always shows fresh movies from that category.
+            </p>
+            <app-category-tree-dialog mode="filter" [inline]="true" [selectedCategoryIds]="subscribingCategoryIds"
+              (selectionChanged)="onSubscribeCategorySelectionChanged($event)" />
+            <footer>
+              <button type="button" class="secondary" (click)="closeSubscribeCategories()" [disabled]="subscribing">Cancel</button>
+              <button type="button" (click)="saveSubscribeCategories()" [disabled]="subscribing">{{ subscribing ? 'Subscribing…' : 'Subscribe' }}</button>
+            </footer>
+          </section>
+        </div>
       }
     }
-    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies in this guide" [showNotRecommendedFilter]="true" [initialSelectedCategories]="defaultCategories" (internalSearch)="applyFilter($event)" />
+    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies in this guide" [showNotRecommendedFilter]="true" [showSelectCategories]="false" [initialSelectedCategories]="defaultCategories" (internalSearch)="applyFilter($event)" />
     <h2>Movie Results</h2>
 
     <app-movie-grid

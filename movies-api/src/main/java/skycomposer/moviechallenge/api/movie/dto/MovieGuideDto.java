@@ -10,6 +10,5 @@ public record MovieGuideDto(
         String description,
         String icon,
         String owner,
-        String status,
         List<Long> subscribedCategoryIds) {
 }

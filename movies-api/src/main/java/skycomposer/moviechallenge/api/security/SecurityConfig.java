@@ -2,7 +2,6 @@ package skycomposer.moviechallenge.api.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -69,12 +68,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/movie-guides/*/movies").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-guides/mine").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/wizard").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/subscribe").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/wizard-movies").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/complete").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/import-csv").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/import-csv/complete").authenticated()
-                        .requestMatchers("/api/movie-guides/existing", "/api/movie-guides/*/movies/existing").authenticated()
-                        .requestMatchers("/api/movie-guides", "/api/movie-guides/**").hasAnyRole(MOVIES_ADMIN, MOVIES_GUIDE)
                         .requestMatchers(HttpMethod.POST, "/api/movies").authenticated()
                         .requestMatchers("/api/movies", "/api/movies/**").hasRole(MOVIES_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/userextras/me").authenticated()
@@ -87,16 +84,6 @@ public class SecurityConfig {
                         jwt -> jwt.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthConverter)))
                 .sessionManagement(sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
-    }
-
-    // Sized for the JSON-upload bulk-import flow's large payloads; the interactive wizard's own endpoints
-    // (/wizard, /wizard-movies) are small, request-per-step calls and don't need this limit.
-    @Bean
-    FilterRegistrationBean<MaxRequestSizeFilter> movieGuideRequestSizeFilter() {
-        FilterRegistrationBean<MaxRequestSizeFilter> registration =
-                new FilterRegistrationBean<>(new MaxRequestSizeFilter(5_000_000));
-        registration.addUrlPatterns("/api/movie-guides", "/api/movie-guides/*");
-        return registration;
     }
 
     @Bean

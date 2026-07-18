@@ -8,14 +8,12 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 import skycomposer.moviechallenge.api.movie.dto.AssignGuideMoviesRequest;
 import skycomposer.moviechallenge.api.movie.dto.CompleteCsvImportRequest;
-import skycomposer.moviechallenge.api.movie.dto.CompleteMovieGuideRequest;
 import skycomposer.moviechallenge.api.movie.dto.CreateGuideRequest;
-import skycomposer.moviechallenge.api.movie.dto.CreateMovieGuideRequest;
-import skycomposer.moviechallenge.api.movie.dto.CreateMovieGuideResponse;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesRequest;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesResponse;
 import skycomposer.moviechallenge.api.movie.dto.MovieGuideDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
+import skycomposer.moviechallenge.api.movie.dto.SubscribeGuideCategoriesRequest;
 
 import java.util.List;
 
@@ -25,17 +23,23 @@ import java.util.List;
 public class MovieGuideController {
     private final MovieGuideService movieGuides;
 
-    // Step 1 of the interactive creation wizard: create the guide (and its anchor category) and subscribe it to
-    // any selected categories, in one transaction. Open to any authenticated user -- they become the guide's
-    // owner. Distinct path from the JSON-upload flow's own POST /api/movie-guides below.
+    // Creates the guide (and its anchor category) with just its name/description/icon. Open to any authenticated
+    // user -- they become the guide's owner. On success the client navigates straight to the guide's own page.
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/wizard")
     public MovieGuideDto createWizard(@Valid @RequestBody CreateGuideRequest request, Authentication authentication) {
         return movieGuides.createGuide(request, authentication.getName());
     }
 
-    // Lets a guide page decide whether to show/resume the creation wizard: compare `owner` to the current user
-    // and `status` client-side. Public read, same as GET /api/categories.
+    // Backs the guide page's "Subscribe to Categories" dialog: subscribes an already-created guide to additional
+    // categories, on demand (not tied to any creation flow).
+    @PostMapping("/{id}/subscribe")
+    public MovieGuideDto subscribe(@PathVariable long id, @Valid @RequestBody SubscribeGuideCategoriesRequest request,
+                                    Authentication authentication) {
+        return movieGuides.subscribeCategories(id, request.categoryIds(), authentication.getName(), isAdminOrGuide(authentication));
+    }
+
+    // Public read, same as GET /api/categories.
     @GetMapping("/by-category/{categoryId}")
     public MovieGuideDto getByCategory(@PathVariable long categoryId) {
         return movieGuides.getByCategory(categoryId);
@@ -48,8 +52,8 @@ public class MovieGuideController {
         return movieGuides.myGuideCategoryIds(authentication.getName());
     }
 
-    // Step 2 of the interactive wizard: assign movies picked in MovieSelector to the guide's own category (or one
-    // of its native sub-categories). Distinct path from the JSON-upload flow's own POST /{id}/movies below.
+    // Backs the guide page's "Add Movies" action (MovieSelector): assigns movies to the guide's own category, or
+    // one of its native sub-categories.
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PostMapping("/{id}/wizard-movies")
     public void assignMovies(@PathVariable long id, @Valid @RequestBody AssignGuideMoviesRequest request,
@@ -57,16 +61,8 @@ public class MovieGuideController {
         movieGuides.assignMovies(id, request, authentication.getName(), isAdminOrGuide(authentication));
     }
 
-    // Ends the interactive wizard: STARTED -> COMPLETED. From then on, visiting the guide's page (even as the
-    // owner) shows the normal, full guide view instead of resuming Step 2.
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PostMapping("/{id}/complete")
-    public void completeWizard(@PathVariable long id, Authentication authentication) {
-        movieGuides.completeGuide(id, authentication.getName(), isAdminOrGuide(authentication));
-    }
-
     // Movies already assigned to the guide, excluding ones that only show up there via a subscribed category --
-    // backs the interactive wizard's Step 2 list (must reflect only what the curator explicitly added).
+    // backs the guide page's movie list (must reflect only what the curator explicitly added).
     @GetMapping("/{id}/movies")
     public MoviePageDto guideMovies(@PathVariable long id,
                                      @RequestParam(required = false, defaultValue = "1") int page,
@@ -92,34 +88,6 @@ public class MovieGuideController {
     public void completeCsvImport(@PathVariable long id, @Valid @RequestBody CompleteCsvImportRequest request,
                                    Authentication authentication) {
         movieGuides.completeCsvImport(id, request, authentication.getName(), isAdminOrGuide(authentication));
-    }
-
-    // --- JSON-upload bulk-import flow (paste a hand-crafted/LLM-generated JSON file) ---
-
-    // Dot-separated category paths, auto-created as needed. Gated to MOVIES_GUIDE/MOVIES_ADMIN in SecurityConfig,
-    // since a single request can create arbitrarily many categories (bounded by MAX_CATEGORIES_WITH_CREATION).
-    @PostMapping
-    public CreateMovieGuideResponse create(@Valid @RequestBody CreateMovieGuideRequest request) {
-        return movieGuides.createGuide(request);
-    }
-
-    @PostMapping("/{id}/movies")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void complete(@PathVariable long id, @Valid @RequestBody CompleteMovieGuideRequest request) {
-        movieGuides.completeGuide(id, request);
-    }
-
-    // Same dot-separated category paths, but nothing is ever created — a path that doesn't already fully
-    // resolve is silently dropped. Open to any authenticated user in SecurityConfig.
-    @PostMapping("/existing")
-    public CreateMovieGuideResponse createExistingOnly(@Valid @RequestBody CreateMovieGuideRequest request) {
-        return movieGuides.createGuideExistingOnly(request);
-    }
-
-    @PostMapping("/{id}/movies/existing")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void completeExistingOnly(@PathVariable long id, @Valid @RequestBody CompleteMovieGuideRequest request) {
-        movieGuides.completeGuideExistingOnly(id, request);
     }
 
     private boolean isAdminOrGuide(Authentication authentication) {

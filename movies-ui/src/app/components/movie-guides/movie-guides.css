@@ -66,13 +66,19 @@ header h1 {
   gap: 0.5rem;
 }
 
-.create-button.secondary {
-  background: #ffffff;
-  color: #1b6fa8;
+.panel-description {
+  margin: 0.9rem 1.25rem 1rem;
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid #1b6fa8;
+  border-radius: 0 8px 8px 0;
+  background: #f6f9fc;
+  color: #4a5b6c;
+  font-size: 0.87rem;
+  line-height: 1.55;
 }
 
-.create-button.secondary:hover {
-  background: #eef6fb;
+.panel-description strong {
+  color: #1b6fa8;
 }
 
 .guide-list {

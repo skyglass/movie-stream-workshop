@@ -6,7 +6,6 @@ import { AuthService } from '../../services/auth';
 import { Movie, MovieCategory, MoviesApiService, ParsedMovieSearch } from '../../services/movies-api';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
 import { MovieGridComponent } from '../movie-grid/movie-grid';
-import { CreateGuideWizardComponent, GuideWizardResume } from '../create-guide-wizard/create-guide-wizard';
 import { MovieSelectorComponent } from '../movie-selector/movie-selector';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 import { ImportCsvDialogComponent } from '../import-csv-dialog/import-csv-dialog';
@@ -14,7 +13,7 @@ import { ImportCsvDialogComponent } from '../import-csv-dialog/import-csv-dialog
 @Component({
   standalone: true,
   selector: 'app-movie-guide-detail',
-  imports: [CommonModule, MovieFilterSearchComponent, MovieGridComponent, CreateGuideWizardComponent, MovieSelectorComponent,
+  imports: [CommonModule, MovieFilterSearchComponent, MovieGridComponent, MovieSelectorComponent,
     CategoryTreeDialogComponent, ImportCsvDialogComponent],
   templateUrl: './movie-guide-detail.html',
   styleUrl: './movie-guide-detail.css'
@@ -49,8 +48,6 @@ export class MovieGuideDetailComponent implements OnInit {
   shareDetailsVisible = false;
   copiedShareUrl = false;
   entryType: 'Guide' | 'Personality' | null = null;
-  resumeWizard: GuideWizardResume | null = null;
-  wizardType: 'Guide' | 'Personality' = 'Guide';
   movieGuideId: number | null = null;
   isOwner = false;
   movieSelectorVisible = false;
@@ -58,6 +55,9 @@ export class MovieGuideDetailComponent implements OnInit {
   selectedCategory: number | null = null;
   categoryDialogVisible = false;
   csvDialogVisible = false;
+  subscribeCategoriesVisible = false;
+  subscribingCategoryIds: number[] = [];
+  subscribing = false;
 
   ngOnInit(): void {
     this.categoryId = Number(this.route.snapshot.paramMap.get('id'));
@@ -65,18 +65,20 @@ export class MovieGuideDetailComponent implements OnInit {
     this.defaultCategories = [this.categoryId];
     this.loadCategory();
     this.loadMovies(1);
-    this.checkWizardResume();
+    this.loadGuideInfo();
   }
 
   get showAddMovies(): boolean {
     if (!this.movieGuideId) return false;
-    // A plain owner may add movies to the guide's own category or a native sub-category, but never directly to
-    // one of the guide's default/subscribed categories — those are read-only references to a category that
-    // lives (and is managed) elsewhere. Only MOVIES_GUIDE/MOVIES_ADMIN can bypass that (matches the backend's
-    // resolveAssignmentTarget check).
-    const targetingDefaultCategory = this.selectedCategory != null
+    // Subscribed/default categories are read-only references to a category that lives (and is managed)
+    // elsewhere — "Add Movies"/"Import from CSV" are hidden for absolutely everyone (owner, non-owner,
+    // MOVIES_GUIDE, MOVIES_ADMIN) while one is selected, no exceptions.
+    const targetingSubscribedCategory = this.selectedCategory != null
       && this.guideSubscribedCategoryIds.includes(this.selectedCategory);
-    return targetingDefaultCategory ? this.auth.canEditMovies : (this.isOwner || this.auth.canEditMovies);
+    if (targetingSubscribedCategory) return false;
+    // Otherwise (no sub-category selected, or a native one): the guide's owner, MOVIES_GUIDE, or MOVIES_ADMIN
+    // may add movies.
+    return this.isOwner || this.auth.canEditMovies;
   }
 
   openMovieSelector(): void {
@@ -103,9 +105,10 @@ export class MovieGuideDetailComponent implements OnInit {
     this.categoryDialogVisible = false;
   }
 
-  onCategorySelected(categoryIds: number[]): void {
+  // Fires on every check/uncheck (not just on OK) -- same live-refresh pattern as the Filter "Select Categories"
+  // dialog, so the movie list behind the dialog updates immediately instead of only after closing it.
+  onCategorySelectionChanged(categoryIds: number[]): void {
     this.selectedCategory = categoryIds.length ? categoryIds[0] : null;
-    this.categoryDialogVisible = false;
     // Unchecking without picking another category clears selectedCategory back to empty, which loadMovies()
     // already treats as "no selectedCategory filter applied" — falls back to the regular activeCategories scope.
     this.loadMovies(1);
@@ -139,23 +142,43 @@ export class MovieGuideDetailComponent implements OnInit {
     this.filterSearch.clear();
   }
 
-  onWizardCompleted(): void {
-    this.resumeWizard = null;
-    this.loadCategory();
-    this.loadMovies(1);
-    this.checkWizardResume();
+  openSubscribeCategories(): void {
+    this.subscribingCategoryIds = [...this.guideSubscribedCategoryIds];
+    this.subscribeCategoriesVisible = true;
   }
 
-  private checkWizardResume(): void {
+  closeSubscribeCategories(): void {
+    this.subscribeCategoriesVisible = false;
+  }
+
+  onSubscribeCategorySelectionChanged(categoryIds: number[]): void {
+    this.subscribingCategoryIds = categoryIds;
+  }
+
+  saveSubscribeCategories(): void {
+    if (!this.movieGuideId || this.subscribing) return;
+    this.subscribing = true;
+    this.errorMessage = '';
+    this.api.subscribeGuideToCategories(this.movieGuideId, this.subscribingCategoryIds).subscribe({
+      next: guide => {
+        this.subscribing = false;
+        this.guideSubscribedCategoryIds = guide.subscribedCategoryIds;
+        this.subscribeCategoriesVisible = false;
+        this.loadMovies(1);
+      },
+      error: err => {
+        this.subscribing = false;
+        this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not subscribe to the selected categories';
+      }
+    });
+  }
+
+  private loadGuideInfo(): void {
     this.api.getMovieGuideByCategory(this.categoryId).subscribe({
       next: guide => {
         this.movieGuideId = guide.id;
         this.isOwner = guide.owner === this.auth.currentUser?.username;
         this.guideSubscribedCategoryIds = guide.subscribedCategoryIds;
-        if (this.isOwner && guide.status === 'STARTED') {
-          this.wizardType = guide.type;
-          this.resumeWizard = { movieGuideId: guide.id, categoryId: guide.categoryId };
-        }
       },
       // 404 (not a movie_guide-backed entry) or any other failure just means: show the normal page.
       error: () => {}

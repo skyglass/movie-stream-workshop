@@ -1,0 +1,27 @@
+<div class="dialog-backdrop" (click)="cancel()">
+  <section class="create-guide-dialog" role="dialog" aria-modal="true" aria-labelledby="create-guide-title" (click)="$event.stopPropagation()">
+    <header>
+      <h2 id="create-guide-title">Create {{ initialType }}</h2>
+      <button type="button" class="icon-button" title="Cancel" aria-label="Cancel" (click)="cancel()" [disabled]="saving"><span class="material-icons">close</span></button>
+    </header>
+
+    @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+
+    <form (ngSubmit)="submit()">
+      <label>Name
+        <input type="text" [(ngModel)]="name" name="name" maxlength="200" required />
+      </label>
+      <label>Description
+        <input type="text" [(ngModel)]="description" name="description" maxlength="2000" />
+      </label>
+      <label class="icon-field">Icon
+        <input type="text" [(ngModel)]="icon" name="icon" maxlength="8" />
+      </label>
+
+      <footer>
+        <button type="button" class="secondary" (click)="cancel()" [disabled]="saving">Cancel</button>
+        <button type="submit" [disabled]="saving || !name.trim()">{{ saving ? 'Submitting…' : 'Submit' }}</button>
+      </footer>
+    </form>
+  </section>
+</div>

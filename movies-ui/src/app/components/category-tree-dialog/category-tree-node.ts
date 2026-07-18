@@ -24,12 +24,17 @@ export interface CategoryNodeAction {
         <label class="category-choice" [class.locked]="locked">
           <input type="checkbox" [checked]="checked" [disabled]="locked" (change)="toggle.emit({category, checked: $any($event.target).checked})" />
           <span class="category-label" [title]="category.description || category.name">
-            <span class="emoji">{{ category.icon || '📁' }}</span>
+            <span class="emoji">{{ subscribed ? '🔔' : (category.icon || '📁') }}</span>
             <span class="category-name">{{ category.name }}</span>
-            @if (category.referencedCategoryId) { <span class="material-icons reference-badge" title="Referenced from another guide/category">link</span> }
+            @if (category.referencedCategoryId && mode !== 'guide') {
+              <span class="material-icons reference-badge" title="Referenced from another guide/category">link</span>
+            }
+            @if (subscribed) {
+              <span class="subscribed-label" title="Subscribed category">Subscribed</span>
+            }
           </span>
         </label>
-        @if (management) {
+        @if (management && !(mode === 'guide' && subscribed)) {
           <div class="node-actions">
             @if (!category.referencedCategoryId) {
               <button type="button" class="node-action" title="Create sub-category" (click)="create.emit(category.id)"><span class="material-icons">create_new_folder</span></button>
@@ -66,12 +71,18 @@ export class CategoryTreeNodeComponent {
   @Output() move = new EventEmitter<CategoryNodeAction>();
   @Output() remove = new EventEmitter<CategoryNodeAction>();
 
+  // A node is "subscribed" if it's a reference itself, or lives under one -- e.g. "Genres > Crime" is just as
+  // read-only as "Genres" once "Genres" is a subscribed reference, since both belong to a tree managed elsewhere.
+  get subscribed(): boolean {
+    return !!this.category.referencedCategoryId || this.ancestors.some(ancestor => !!ancestor.referencedCategoryId);
+  }
+
   get childAncestors(): MovieCategory[] { return [...this.ancestors, this.category]; }
   get parentIdForActions(): number { return this.ancestors.length ? this.ancestors[this.ancestors.length - 1].id : this.category.id; }
   get locked(): boolean { return this.mode === 'filter' && this.ancestors.some(parent => this.explicitSelected.has(parent.id)); }
   get checked(): boolean {
     if (this.mode === 'assign') return this.assignmentSelected.has(this.category.id);
-    if (this.mode === 'journey' || this.mode === 'move' || this.mode === 'guide') return this.explicitSelected.has(this.category.id);
+    if (this.mode === 'move' || this.mode === 'guide') return this.explicitSelected.has(this.category.id);
     return this.explicitSelected.has(this.category.id) || this.ancestors.some(parent => this.explicitSelected.has(parent.id));
   }
 }

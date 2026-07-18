@@ -213,36 +213,24 @@ export interface MovieGuideDto {
   description: string | null;
   icon: string | null;
   owner: string;
-  status: 'STARTED' | 'COMPLETED';
   subscribedCategoryIds: number[];
 }
 
-// JSON-upload bulk-import flow (paste a hand-crafted/LLM-generated JSON file) -- kept alongside the interactive
-// wizard's MovieGuideDto above as a second, faster creation path for large/AI-assisted imports.
-export interface GuideMovieRef {
-  imdbId: string;
-  categories: string[];
-}
-
-export interface CreateMovieGuideResponse {
-  guideCategoryId: number;
-  failedImdbIds: string[];
-}
-
-export interface GuideMovieDetails {
-  movie: RecommendMovieFromSearchRequest;
-  categories: string[];
-}
-
-// CSV import (default guide view "Import from CSV" dialog). Either imdbId, or title+year, is non-blank.
+// CSV import (default guide view "Import from CSV" dialog). imdbId is always non-blank. categoryPaths are
+// dot-separated paths (e.g. "Genres.Drama"), resolved relative to the import's target category; empty means
+// "assign directly to the target".
 export interface CsvMovieRef {
   imdbId: string;
-  title: string;
-  year: string;
+  categoryPaths: string[];
 }
 
 export interface ImportCsvMoviesResponse {
   failedMovies: CsvMovieRef[];
+}
+
+export interface CsvMovieImport {
+  movie: RecommendMovieFromSearchRequest;
+  categoryPaths: string[];
 }
 
 export interface CourseMovie {
@@ -373,8 +361,6 @@ export class MoviesApiService {
     return this.http.post<void>(`${this.categoriesBase}/${categoryId}/movies-from-search`, this.movieFromOmdb(movie));
   }
 
-  // Interactive creation wizard -- distinct paths (/wizard, /wizard-movies) from the JSON-upload flow below,
-  // which owns the bare POST /api/movie-guides and POST /{id}/movies routes.
   createGuide(type: 'Guide' | 'Personality', name: string, description: string, icon: string,
               subscribedCategoryIds: number[]): Observable<MovieGuideDto> {
     return this.http.post<MovieGuideDto>(`${this.movieGuidesBase}/wizard`, { type, name, description, icon, subscribedCategoryIds });
@@ -382,6 +368,10 @@ export class MoviesApiService {
 
   getMovieGuideByCategory(categoryId: number): Observable<MovieGuideDto> {
     return this.http.get<MovieGuideDto>(`${this.movieGuidesBase}/by-category/${categoryId}`);
+  }
+
+  subscribeGuideToCategories(movieGuideId: number, categoryIds: number[]): Observable<MovieGuideDto> {
+    return this.http.post<MovieGuideDto>(`${this.movieGuidesBase}/${movieGuideId}/subscribe`, { categoryIds });
   }
 
   // Category ids of every guide/personality the current user owns — backs the "Delete" action on the Movie
@@ -392,10 +382,6 @@ export class MoviesApiService {
 
   assignMoviesToGuide(movieGuideId: number, imdbIds: string[], categoryId: number | null = null): Observable<void> {
     return this.http.post<void>(`${this.movieGuidesBase}/${movieGuideId}/wizard-movies`, { imdbIds, categoryId });
-  }
-
-  completeGuide(movieGuideId: number): Observable<void> {
-    return this.http.post<void>(`${this.movieGuidesBase}/${movieGuideId}/complete`, {});
   }
 
   listGuideMovies(movieGuideId: number, page = 1, pageSize = this.moviePageSize, filter = '', year = ''): Observable<MoviePage> {
@@ -409,25 +395,8 @@ export class MoviesApiService {
     return this.http.post<ImportCsvMoviesResponse>(`${this.movieGuidesBase}/${movieGuideId}/import-csv`, { movies, categoryId });
   }
 
-  completeCsvImport(movieGuideId: number, movies: RecommendMovieFromSearchRequest[], categoryId: number | null): Observable<void> {
+  completeCsvImport(movieGuideId: number, movies: CsvMovieImport[], categoryId: number | null): Observable<void> {
     return this.http.post<void>(`${this.movieGuidesBase}/${movieGuideId}/import-csv/complete`, { movies, categoryId });
-  }
-
-  // JSON-upload bulk-import flow (paste a hand-crafted/LLM-generated JSON file).
-  createMovieGuide(type: string, name: string, description: string, icon: string, movies: GuideMovieRef[]): Observable<CreateMovieGuideResponse> {
-    return this.http.post<CreateMovieGuideResponse>(this.movieGuidesBase, { type, name, description, icon, movies });
-  }
-
-  completeMovieGuide(guideCategoryId: number, movies: GuideMovieDetails[]): Observable<void> {
-    return this.http.post<void>(`${this.movieGuidesBase}/${guideCategoryId}/movies`, { movies });
-  }
-
-  createMovieGuideExistingOnly(type: string, name: string, description: string, icon: string, movies: GuideMovieRef[]): Observable<CreateMovieGuideResponse> {
-    return this.http.post<CreateMovieGuideResponse>(`${this.movieGuidesBase}/existing`, { type, name, description, icon, movies });
-  }
-
-  completeMovieGuideExistingOnly(guideCategoryId: number, movies: GuideMovieDetails[]): Observable<void> {
-    return this.http.post<void>(`${this.movieGuidesBase}/${guideCategoryId}/movies/existing`, { movies });
   }
 
   listFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {

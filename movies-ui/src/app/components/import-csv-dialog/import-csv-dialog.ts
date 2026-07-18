@@ -2,8 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
-import { CsvMovieRef, MoviesApiService, OmdbMovieSearchResult, RecommendMovieFromSearchRequest } from '../../services/movies-api';
+import { catchError } from 'rxjs/operators';
+import { CsvMovieImport, CsvMovieRef, MoviesApiService, OmdbMovieSearchResult } from '../../services/movies-api';
 
 @Component({
   standalone: true,
@@ -69,15 +69,15 @@ export class ImportCsvDialogComponent {
   private handleCsvText(text: string): void {
     const rows = this.parseCsv(text);
     if (rows.length === 0) {
-      this.errorMessage = 'No usable rows found — every line needs a non-blank imdb_id, or a non-blank title and a 4-digit year.';
+      this.errorMessage = 'No usable rows found — every line needs a non-blank imdb_id as the first column.';
       return;
     }
     this.errorMessage = '';
     this.runPhase1(rows);
   }
 
-  // Tolerant, best-effort parsing: a line that can't yield an imdb_id (column 1) or a title+year (columns 2-3)
-  // is dropped entirely, without ever reaching the server or the failed-movies list.
+  // Tolerant, best-effort parsing: a line whose first column isn't a non-blank imdb_id is dropped entirely,
+  // without ever reaching the server or the failed-movies list.
   private parseCsv(text: string): CsvMovieRef[] {
     const rows: CsvMovieRef[] = [];
     for (const line of text.split(/\r?\n/)) {
@@ -87,20 +87,20 @@ export class ImportCsvDialogComponent {
     return rows;
   }
 
+  // Column 1 is the imdb_id (never quoted, never contains a comma). Every column after that is one quoted,
+  // dot-separated suggested category path (splitCsvFields already strips the surrounding quotes and leaves
+  // commas inside them intact, e.g. "Narrative, Art & Characters.German Expressionism" stays one field).
   private parseCsvLine(line: string): CsvMovieRef | null {
     if (!line.trim()) return null;
     const fields = this.splitCsvFields(line);
     const imdbId = (fields[0] ?? '').trim();
-    const title = (fields[1] ?? '').trim();
-    const yearRaw = (fields[2] ?? '').trim();
-    const year = /^\d{4}$/.test(yearRaw) ? yearRaw : '';
-    if (imdbId) return { imdbId, title: '', year: '' };
-    if (title && year) return { imdbId: '', title, year };
-    return null;
+    if (!imdbId) return null;
+    const categoryPaths = fields.slice(1).map(field => field.trim()).filter(field => field.length > 0);
+    return { imdbId, categoryPaths };
   }
 
-  // Minimal CSV field splitter: handles double-quoted fields (with "" as an escaped quote) so a title
-  // containing a comma can be safely quoted; trailing columns beyond imdb_id/title/year are simply ignored.
+  // Minimal CSV field splitter: handles double-quoted fields (with "" as an escaped quote) so a category path
+  // containing a comma can be safely quoted.
   private splitCsvFields(line: string): string[] {
     const fields: string[] = [];
     let current = '';
@@ -147,9 +147,9 @@ export class ImportCsvDialogComponent {
     this.statusMessage = `Looking up ${failedMovies.length} movie(s) on OMDb…`;
     forkJoin(failedMovies.map(ref => this.lookupOmdb(ref))).subscribe({
       next: results => {
-        const movies: RecommendMovieFromSearchRequest[] = results
-          .filter((result): result is OmdbMovieSearchResult => result !== null)
-          .map(result => this.api.movieFromOmdb(result));
+        const movies: CsvMovieImport[] = results
+          .map((result, index) => (result ? { movie: this.api.movieFromOmdb(result), categoryPaths: failedMovies[index].categoryPaths } : null))
+          .filter((item): item is CsvMovieImport => item !== null);
         if (movies.length === 0) {
           this.finish();
           return;
@@ -165,15 +165,9 @@ export class ImportCsvDialogComponent {
   }
 
   // Any OMDb error (not found, rate-limited, unavailable, ...) is treated as "skip, no retry" per spec, same as
-  // the JSON-upload flow's getOmdbMoviesByIds. Title+year lookups additionally require exactly one OMDb result.
+  // the JSON-upload flow's getOmdbMoviesByIds.
   private lookupOmdb(ref: CsvMovieRef): Observable<OmdbMovieSearchResult | null> {
-    if (ref.imdbId) {
-      return this.api.getOmdbMovieById(ref.imdbId).pipe(catchError(() => of(null)));
-    }
-    return this.api.searchOmdbMovies({ title: ref.title, year: ref.year, type: 'movie', exactTitleMatch: false }).pipe(
-      map(page => (page.totalResults === 1 && page.movies.length === 1 ? page.movies[0] : null)),
-      catchError(() => of(null))
-    );
+    return this.api.getOmdbMovieById(ref.imdbId).pipe(catchError(() => of(null)));
   }
 
   private startTimeoutGuard(): void {

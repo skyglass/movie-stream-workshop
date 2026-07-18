@@ -3,14 +3,13 @@ import { Component, OnInit, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth';
 import { MovieCategory, MoviesApiService } from '../../services/movies-api';
-import { CreateGuideWizardComponent } from '../create-guide-wizard/create-guide-wizard';
-import { CreateMovieGuideDialogComponent } from '../create-movie-guide-dialog/create-movie-guide-dialog';
+import { CreateGuideDialogComponent } from '../create-guide-dialog/create-guide-dialog';
 import { EditGuideDialogComponent } from '../edit-guide-dialog/edit-guide-dialog';
 
 @Component({
   standalone: true,
   selector: 'app-movie-guides',
-  imports: [CommonModule, RouterLink, CreateGuideWizardComponent, CreateMovieGuideDialogComponent, EditGuideDialogComponent],
+  imports: [CommonModule, RouterLink, CreateGuideDialogComponent, EditGuideDialogComponent],
   templateUrl: './movie-guides.html',
   styleUrl: './movie-guides.css'
 })
@@ -27,7 +26,6 @@ export class MovieGuidesComponent implements OnInit {
   loading = true;
   errorMessage = '';
   creatingType: 'Guide' | 'Personality' | null = null;
-  creatingViaJson: 'Guide' | 'Personality' | null = null;
   editing: { category: MovieCategory; label: 'Guide' | 'Personality' } | null = null;
 
   ngOnInit(): void {
@@ -91,19 +89,6 @@ export class MovieGuidesComponent implements OnInit {
 
   onGuideCreated(guideCategoryId: number): void {
     this.creatingType = null;
-    this.router.navigate(['/movie-guides', guideCategoryId]);
-  }
-
-  openCreateJson(type: 'Guide' | 'Personality'): void {
-    this.creatingViaJson = type;
-  }
-
-  closeCreateJson(): void {
-    this.creatingViaJson = null;
-  }
-
-  onJsonGuideCreated(guideCategoryId: number): void {
-    this.creatingViaJson = null;
     this.router.navigate(['/movie-guides', guideCategoryId]);
   }
 

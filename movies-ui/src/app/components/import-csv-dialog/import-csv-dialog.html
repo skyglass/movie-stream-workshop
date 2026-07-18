@@ -15,21 +15,19 @@
     } @else {
       <section class="notes-section">
         <h3>Import comma-separated movies</h3>
-        <p>Each line is one movie. Two formats are accepted, and you can mix both in the same file:</p>
-        <ul>
-          <li><strong>By IMDb id</strong> — just the id: <code>tt0075314</code></li>
-          <li><strong>By title and year</strong> — a blank id, then title, then a 4-digit year: <code>,Taxi Driver,1976</code></li>
-        </ul>
+        <p>Each line is one movie. The first column is the IMDb id. Every column after that is optional — one
+          quoted, dot-separated category path to file the movie under, e.g. <code>"Genres.Drama"</code>. A movie
+          with no category paths is assigned directly to this guide (or its selected sub-category).</p>
         <p>
-          Extra trailing columns (e.g. a director) are read but ignored. Quote a title with a comma in it, e.g.
-          <code>,"Ocean's Eleven",2001</code>. Lines that don't have a usable id or a title with a valid year are
-          skipped entirely — they never show up as failed.
+          Quote each category path so a comma inside it (part of a category name) doesn't get mistaken for a
+          column separator, e.g. <code>"Narrative, Art &amp; Characters.German Expressionism"</code>. Lines whose
+          first column isn't a non-blank imdb_id are skipped entirely — they never show up as failed.
         </p>
         <p class="example-block">
           Example file:<br />
-          <code>tt0075314,,</code><br />
-          <code>,Taxi Driver,1976</code><br />
-          <code>,"Ocean's Eleven",2001,Steven Soderbergh</code>
+          <code>tt0075314</code><br />
+          <code>tt0468569,"Genres.Drama"</code><br />
+          <code>tt0246434,"Genres.Drama","Narrative, Art &amp; Characters.German Expressionism"</code>
         </p>
       </section>
 
@@ -37,7 +35,7 @@
         <h3>Import from CSV text</h3>
         <label for="guide-csv-paste">Paste CSV rows</label>
         <textarea id="guide-csv-paste" class="paste-textarea" rows="8" [(ngModel)]="pastedCsv"
-          placeholder="tt0075314,,&#10;,Taxi Driver,1976"></textarea>
+          placeholder="tt0075314&#10;tt0246434,&quot;Genres.Drama&quot;"></textarea>
         <button type="button" class="use-pasted-button" (click)="usePastedCsv()" [disabled]="!pastedCsv.trim()">
           <span class="material-icons">playlist_add_check</span>Use this CSV
         </button>

@@ -14,41 +14,28 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import skycomposer.moviechallenge.api.movie.dto.AssignGuideMoviesRequest;
 import skycomposer.moviechallenge.api.movie.dto.CompleteCsvImportRequest;
-import skycomposer.moviechallenge.api.movie.dto.CompleteMovieGuideRequest;
 import skycomposer.moviechallenge.api.movie.dto.CreateGuideRequest;
-import skycomposer.moviechallenge.api.movie.dto.CreateMovieGuideRequest;
-import skycomposer.moviechallenge.api.movie.dto.CreateMovieGuideResponse;
+import skycomposer.moviechallenge.api.movie.dto.CsvMovieImport;
 import skycomposer.moviechallenge.api.movie.dto.CsvMovieRef;
-import skycomposer.moviechallenge.api.movie.dto.GuideMovieDetails;
-import skycomposer.moviechallenge.api.movie.dto.GuideMovieRef;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesRequest;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesResponse;
 import skycomposer.moviechallenge.api.movie.dto.MoveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.MovieGuideDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
-import skycomposer.moviechallenge.api.movie.dto.RecommendMovieRequest;
 import skycomposer.moviechallenge.api.movie.mapper.MovieDtoMapper;
 import skycomposer.moviechallenge.api.movie.model.Movie;
-import skycomposer.moviechallenge.api.movie.model.MovieGuideStatus;
+import skycomposer.moviechallenge.api.movie.model.MovieGuideType;
 
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 @RequiredArgsConstructor
 @Service
 public class MovieGuideService {
-    // Path-based, auto-creating (MOVIES_GUIDE / admin only): a single request can create many categories, so the
-    // aggregate cap is generous but still bounded. Used only by the JSON-upload bulk-import flow below.
-    private static final int MAX_MOVIES_WITH_CATEGORY_CREATION = 1000;
-    private static final int MAX_CATEGORIES_WITH_CREATION = 20_000;
-    // Path-based, existing-only (any authenticated user): nothing is ever created here, but the cap still bounds
-    // DB load per request.
-    private static final int MAX_MOVIES_EXISTING_ONLY = 100;
-    private static final int MAX_CATEGORIES_EXISTING_ONLY = 700;
+    private static final int MAX_CSV_MOVIES = 2000;
 
     private final JdbcClient jdbc;
     private final JdbcTemplate jdbcTemplate;
@@ -56,19 +43,19 @@ public class MovieGuideService {
     private final CategoryService categories;
     private final MovieDtoMapper movieMapper;
 
-    private record Row(long id, long categoryId, String type, String name, String description, String icon,
-                       String owner, int status) {}
+    private record Row(long id, long categoryId, int type, String name, String description, String icon,
+                       String owner) {}
 
     @Transactional
     public MovieGuideDto createGuide(CreateGuideRequest request, String owner) {
-        String type = normalizeType(request.type());
-        String root = type.equals("Personality") ? "Personalities" : "Guides";
-        String defaultIcon = type.equals("Personality") ? "🌟" : "🗺️";
+        MovieGuideType type = normalizeType(request.type());
+        String root = type == MovieGuideType.PERSONALITY ? "Personalities" : "Guides";
+        String defaultIcon = type == MovieGuideType.PERSONALITY ? "🌟" : "🗺️";
         long rootId = getOrCreateCategory(null, root, defaultIcon);
         String trimmedName = request.name().trim();
         if (findExistingCategory(rootId, trimmedName) != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "A " + type + " named \"" + trimmedName + "\" already exists. Choose a different name.");
+                    "A " + type.getDescription() + " named \"" + trimmedName + "\" already exists. Choose a different name.");
         }
         String icon = (request.icon() != null && !request.icon().isBlank()) ? request.icon().trim() : defaultIcon;
         long categoryId = getOrCreateCategory(rootId, trimmedName, icon);
@@ -85,8 +72,7 @@ public class MovieGuideService {
         values.put("icon", icon);
         values.put("owner", owner);
         values.put("category_id", categoryId);
-        values.put("status", MovieGuideStatus.STARTED.getCode());
-        values.put("type", type);
+        values.put("type", type.getCode());
         Number key = new SimpleJdbcInsert(jdbcTemplate).withTableName("movie_guide")
                 .usingGeneratedKeyColumns("id").executeAndReturnKey(values);
         long guideId = key.longValue();
@@ -106,14 +92,32 @@ public class MovieGuideService {
         return toDto(requireGuide(guideId));
     }
 
+    // Step 2 of the interactive wizard: subscribe an already-created guide to additional categories. Split out
+    // from createGuide's own subscribedCategoryIds handling above because Step 1 no longer collects categories
+    // at creation time -- Step 1 now only creates the guide's name/description/icon, and category subscription
+    // happens here as its own step, on a guide that already exists.
+    @Transactional
+    public MovieGuideDto subscribeCategories(long guideId, List<Long> categoryIds, String username, boolean adminOrGuide) {
+        Row guide = requireGuide(guideId);
+        categories.requireGuideManage(guideId, username, adminOrGuide);
+        List<Long> distinct = categoryIds == null ? List.of() : categoryIds.stream().distinct().toList();
+        for (Long categoryId : distinct) {
+            requireCategoryExists(categoryId);
+            // Same bypass reasoning as createGuide's subscribedCategoryIds loop: the real authorization boundary
+            // is ownership of this guide, already verified by requireGuideManage above.
+            categories.move(categoryId, new MoveCategoryRequest(categoryId, guide.categoryId(), true), username, true);
+        }
+        return toDto(requireGuide(guideId));
+    }
+
     @Transactional(readOnly = true)
     public MovieGuideDto getByCategory(long categoryId) {
         Row row = jdbc.sql("""
-                select id, category_id, type, name, description, icon, owner, status
+                select id, category_id, type, name, description, icon, owner
                 from movie_guide where category_id=:categoryId
                 """).param("categoryId", categoryId).query((rs, n) -> new Row(
-                rs.getLong("id"), rs.getLong("category_id"), rs.getString("type"), rs.getString("name"),
-                rs.getString("description"), rs.getString("icon"), rs.getString("owner"), rs.getInt("status")))
+                rs.getLong("id"), rs.getLong("category_id"), rs.getInt("type"), rs.getString("name"),
+                rs.getString("description"), rs.getString("icon"), rs.getString("owner")))
                 .optional().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie Guide not found"));
         return toDto(row);
     }
@@ -166,20 +170,10 @@ public class MovieGuideService {
         return requestedCategoryId;
     }
 
-    @Transactional
-    public void completeGuide(long guideId, String username, boolean adminOrGuide) {
-        requireGuide(guideId);
-        categories.requireGuideManage(guideId, username, adminOrGuide);
-        jdbc.sql("update movie_guide set status=:status where id=:id")
-                .param("status", MovieGuideStatus.COMPLETED.getCode()).param("id", guideId).update();
-    }
-
-    // CSV import Phase 1 (default-view "Import from CSV" dialog): links every row that already resolves to an
-    // existing movie (by imdbId, or by exact title+year match) into the guide, in one transaction, and reports
-    // back any rows that couldn't be resolved -- the client re-attempts those against OMDb (Phase 2a) and, for
-    // ones that resolve to exactly one OMDb result, submits them to completeCsvImport below (Phase 2b).
-    private static final int MAX_CSV_MOVIES = 2000;
-
+    // CSV import Phase 1 (default-view "Import from CSV" dialog): links every row whose imdb_id already exists in
+    // the catalog into the guide, in one transaction, and reports back any rows that couldn't be resolved -- the
+    // client re-attempts those against OMDb (Phase 2a) and, for ones that resolve to exactly one OMDb result,
+    // submits them to completeCsvImport below (Phase 2b).
     @Transactional
     public ImportCsvMoviesResponse importCsv(long guideId, ImportCsvMoviesRequest request, String username, boolean adminOrGuide) {
         if (request.movies().size() > MAX_CSV_MOVIES) {
@@ -196,48 +190,57 @@ public class MovieGuideService {
                 failed.add(ref);
                 continue;
             }
-            try {
-                jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category)")
-                        .param("movie", imdbId).param("category", targetCategoryId).update();
-            } catch (DuplicateKeyException ignored) {
-                // Idempotent submission.
-            }
+            assignToPathsOrTarget(imdbId, targetCategoryId, ref.categoryPaths());
         }
         return new ImportCsvMoviesResponse(failed);
     }
 
     // CSV import Phase 2b: for rows Phase 1 couldn't resolve, the client looked them up on OMDb (Phase 2a) and
-    // only kept the ones that matched exactly one result -- those full movie payloads land here.
+    // only kept the ones that matched exactly one result -- those full movie payloads (each still carrying its
+    // own row's suggested category paths) land here.
     @Transactional
     public void completeCsvImport(long guideId, CompleteCsvImportRequest request, String username, boolean adminOrGuide) {
         Row guide = requireGuide(guideId);
         categories.requireGuideManage(guideId, username, adminOrGuide);
         long targetCategoryId = resolveAssignmentTarget(guide, request.categoryId(), adminOrGuide);
-        for (RecommendMovieRequest movieRequest : request.movies()) {
-            Movie movie = movieService.getOrCreateMovie(movieRequest);
-            try {
-                jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category)")
-                        .param("movie", movie.getImdbId()).param("category", targetCategoryId).update();
-            } catch (DuplicateKeyException ignored) {
-                // Idempotent submission.
-            }
+        for (CsvMovieImport item : request.movies()) {
+            Movie movie = movieService.getOrCreateMovie(item.movie());
+            assignToPathsOrTarget(movie.getImdbId(), targetCategoryId, item.categoryPaths());
+        }
+    }
+
+    // No suggested category paths: assign directly to the import's target (the guide's own category, or the
+    // selected sub-category). One or more paths: each is resolved/created relative to that same target (e.g.
+    // "Genres.Drama" under a guide anchored at "My Favorites" becomes "My Favorites -> Genres -> Drama") and the
+    // movie is linked to every resolved leaf -- reusing the exact path-walking helper the JSON-upload flow uses,
+    // just rooted at the guide's target instead of the global root.
+    private void assignToPathsOrTarget(String imdbId, long targetCategoryId, List<String> categoryPaths) {
+        if (categoryPaths == null || categoryPaths.isEmpty()) {
+            linkMovieToCategory(imdbId, targetCategoryId);
+            return;
+        }
+        for (String path : categoryPaths) {
+            if (path == null || path.isBlank()) continue;
+            long leafCategoryId = resolveCategoryPath(targetCategoryId, path);
+            linkMovieToCategory(imdbId, leafCategoryId);
+        }
+    }
+
+    private void linkMovieToCategory(String imdbId, long categoryId) {
+        try {
+            jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category)")
+                    .param("movie", imdbId).param("category", categoryId).update();
+        } catch (DuplicateKeyException ignored) {
+            // Idempotent submission.
         }
     }
 
     // null means "not found" (the row is well-formed -- the client never sends rows it couldn't parse an
-    // identity out of): resolves by imdbId first, else falls back to an exact title+year match, discarding the
-    // match entirely (same as "not found") if it's ambiguous (more than one movie sharing that title+year).
+    // imdb_id out of).
     private String resolveCsvMovie(CsvMovieRef ref) {
-        if (ref.imdbId() != null && !ref.imdbId().isBlank()) {
-            String imdbId = ref.imdbId().trim();
-            return movieExists(imdbId) ? imdbId : null;
-        }
-        if (ref.title() != null && !ref.title().isBlank() && ref.year() != null && !ref.year().isBlank()) {
-            List<String> matches = jdbc.sql("select imdb_id from movies where lower(title)=lower(:title) and release_year=:year")
-                    .param("title", ref.title().trim()).param("year", ref.year().trim()).query(String.class).list();
-            return matches.size() == 1 ? matches.get(0) : null;
-        }
-        return null;
+        if (ref.imdbId() == null || ref.imdbId().isBlank()) return null;
+        String imdbId = ref.imdbId().trim();
+        return movieExists(imdbId) ? imdbId : null;
     }
 
     @Transactional(readOnly = true)
@@ -251,11 +254,11 @@ public class MovieGuideService {
 
     private Row requireGuide(long guideId) {
         return jdbc.sql("""
-                select id, category_id, type, name, description, icon, owner, status
+                select id, category_id, type, name, description, icon, owner
                 from movie_guide where id=:id
                 """).param("id", guideId).query((rs, n) -> new Row(
-                rs.getLong("id"), rs.getLong("category_id"), rs.getString("type"), rs.getString("name"),
-                rs.getString("description"), rs.getString("icon"), rs.getString("owner"), rs.getInt("status")))
+                rs.getLong("id"), rs.getLong("category_id"), rs.getInt("type"), rs.getString("name"),
+                rs.getString("description"), rs.getString("icon"), rs.getString("owner")))
                 .optional().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie Guide not found"));
     }
 
@@ -267,12 +270,13 @@ public class MovieGuideService {
     }
 
     private MovieGuideDto toDto(Row row) {
-        return new MovieGuideDto(row.id(), row.categoryId(), row.type(), row.name(), row.description(), row.icon(),
-                row.owner(), MovieGuideStatus.fromCode(row.status()).name(), subscribedCategoryIds(row.id()));
+        return new MovieGuideDto(row.id(), row.categoryId(), MovieGuideType.fromCode(row.type()).getDescription(),
+                row.name(), row.description(), row.icon(), row.owner(), subscribedCategoryIds(row.id()));
     }
 
-    private String normalizeType(String type) {
-        if ("Guide".equals(type) || "Personality".equals(type)) return type;
+    private MovieGuideType normalizeType(String type) {
+        if ("Guide".equals(type)) return MovieGuideType.GUIDE;
+        if ("Personality".equals(type)) return MovieGuideType.PERSONALITY;
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "type must be \"Guide\" or \"Personality\"");
     }
 
@@ -301,108 +305,10 @@ public class MovieGuideService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie not found: " + imdbId);
     }
 
-    // --- JSON-upload bulk-import flow (paste a hand-crafted/LLM-generated JSON file): kept alongside the
-    // interactive wizard above as a second, faster creation path for large/AI-assisted imports. ---
-
-    @Transactional
-    public CreateMovieGuideResponse createGuide(CreateMovieGuideRequest request) {
-        requireWithinLimits(request.movies().size(), request.movies().stream().mapToLong(m -> m.categories().size()).sum(),
-                MAX_MOVIES_WITH_CATEGORY_CREATION, MAX_CATEGORIES_WITH_CREATION);
-        long guideCategoryId = resolveGuideCategory(request.type(), request.name(), request.description(), request.icon());
-        List<String> failedImdbIds = new ArrayList<>();
-        for (GuideMovieRef movieRef : request.movies()) {
-            List<Long> categoryIds = movieRef.categories().stream().map(this::resolveCategoryPath).toList();
-            if (movieExists(movieRef.imdbId())) {
-                linkMovie(movieRef.imdbId(), categoryIds, guideCategoryId);
-            } else {
-                failedImdbIds.add(movieRef.imdbId());
-            }
-        }
-        return new CreateMovieGuideResponse(guideCategoryId, failedImdbIds);
-    }
-
-    @Transactional
-    public void completeGuide(long guideCategoryId, CompleteMovieGuideRequest request) {
-        requireWithinLimits(request.movies().size(), request.movies().stream().mapToLong(m -> m.categories().size()).sum(),
-                MAX_MOVIES_WITH_CATEGORY_CREATION, MAX_CATEGORIES_WITH_CREATION);
-        requireCategory(guideCategoryId);
-        for (GuideMovieDetails details : request.movies()) {
-            Movie movie = movieService.getOrCreateMovie(details.movie());
-            List<Long> categoryIds = details.categories().stream().map(this::resolveCategoryPath).toList();
-            linkMovie(movie.getImdbId(), categoryIds, guideCategoryId);
-        }
-    }
-
-    @Transactional
-    public CreateMovieGuideResponse createGuideExistingOnly(CreateMovieGuideRequest request) {
-        requireWithinLimits(request.movies().size(), request.movies().stream().mapToLong(m -> m.categories().size()).sum(),
-                MAX_MOVIES_EXISTING_ONLY, MAX_CATEGORIES_EXISTING_ONLY);
-        long guideCategoryId = resolveGuideCategory(request.type(), request.name(), request.description(), request.icon());
-        List<String> failedImdbIds = new ArrayList<>();
-        for (GuideMovieRef movieRef : request.movies()) {
-            List<Long> categoryIds = movieRef.categories().stream()
-                    .map(this::resolveExistingCategoryPath).filter(Objects::nonNull).toList();
-            if (movieExists(movieRef.imdbId())) {
-                linkMovie(movieRef.imdbId(), categoryIds, guideCategoryId);
-            } else {
-                failedImdbIds.add(movieRef.imdbId());
-            }
-        }
-        return new CreateMovieGuideResponse(guideCategoryId, failedImdbIds);
-    }
-
-    @Transactional
-    public void completeGuideExistingOnly(long guideCategoryId, CompleteMovieGuideRequest request) {
-        requireWithinLimits(request.movies().size(), request.movies().stream().mapToLong(m -> m.categories().size()).sum(),
-                MAX_MOVIES_EXISTING_ONLY, MAX_CATEGORIES_EXISTING_ONLY);
-        requireCategory(guideCategoryId);
-        for (GuideMovieDetails details : request.movies()) {
-            Movie movie = movieService.getOrCreateMovie(details.movie());
-            List<Long> categoryIds = details.categories().stream()
-                    .map(this::resolveExistingCategoryPath).filter(Objects::nonNull).toList();
-            linkMovie(movie.getImdbId(), categoryIds, guideCategoryId);
-        }
-    }
-
-    private void requireWithinLimits(int movieCount, long categoryCount, int maxMovies, int maxCategories) {
-        if (movieCount > maxMovies) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Too many movies: " + movieCount + " (maximum " + maxMovies + ")");
-        }
-        if (categoryCount > maxCategories) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Too many categories across all movies: " + categoryCount + " (maximum " + maxCategories + ")");
-        }
-    }
-
-    private long resolveGuideCategory(String type, String name, String description, String icon) {
-        String root = switch (type) {
-            case "Guide" -> "Guides";
-            case "Personality" -> "Personalities";
-            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "type must be \"Guide\" or \"Personality\"");
-        };
-        String defaultIcon = type.equals("Personality") ? "🌟" : "🗺️";
-        long rootId = getOrCreateCategory(null, root, defaultIcon);
-        String trimmedName = name.trim();
-        // Bulk import must only ever create a brand-new Guide/Personality, never silently fold movies into an
-        // existing one under a reused name — refining an existing one is left to manual category/movie edits.
-        if (findExistingCategory(rootId, trimmedName) != null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "A " + type + " named \"" + trimmedName + "\" already exists. Choose a different name — to add "
-                            + "or remove movies and categories on the existing one, edit it directly instead of "
-                            + "re-importing.");
-        }
-        String guideIcon = (icon != null && !icon.isBlank()) ? icon.trim() : defaultIcon;
-        long guideId = getOrCreateCategory(rootId, trimmedName, guideIcon);
-        if (description != null && !description.isBlank()) {
-            jdbc.sql("update category set description=:description where id=:id and description is null")
-                    .param("description", description.trim()).param("id", guideId).update();
-        }
-        return guideId;
-    }
-
-    private long resolveCategoryPath(String dotPath) {
-        Long parentId = null;
+    // Same dot-separated path walk used by CSV import's suggested_categories, so "Genres.Drama" resolves under
+    // the guide's own target category (rootParentId) instead of as a top-level path.
+    private long resolveCategoryPath(Long rootParentId, String dotPath) {
+        Long parentId = rootParentId;
         long currentId = -1;
         for (String segment : dotPath.split("\\.")) {
             String trimmed = segment.trim();
@@ -416,40 +322,7 @@ public class MovieGuideService {
         return currentId;
     }
 
-    // Regular users cannot create categories: walks the path but never creates anything, returning null (and
-    // silently dropping that whole path in the caller) the moment any segment doesn't already exist.
-    private Long resolveExistingCategoryPath(String dotPath) {
-        Long parentId = null;
-        Long currentId = null;
-        for (String segment : dotPath.split("\\.")) {
-            String trimmed = segment.trim();
-            if (trimmed.isEmpty()) continue;
-            currentId = findExistingCategory(parentId, trimmed);
-            if (currentId == null) return null;
-            parentId = currentId;
-        }
-        return currentId;
-    }
-
-    // Uses ON CONFLICT rather than insert-then-catch(DuplicateKeyException): Postgres aborts the whole
-    // transaction at the server level the instant any statement raises a real error (SQLSTATE 25P02
-    // "current transaction is aborted" on everything that follows), so catching the exception in Java does
-    // not actually let the transaction keep going for the rest of this loop/request.
-    private void linkMovie(String movieId, List<Long> categoryIds, long guideCategoryId) {
-        List<Long> all = new ArrayList<>(categoryIds);
-        all.add(guideCategoryId);
-        for (Long categoryId : all) {
-            jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
-                    .param("movie", movieId).param("category", categoryId).update();
-        }
-    }
-
     private boolean movieExists(String imdbId) {
         return jdbc.sql("select exists(select 1 from movies where imdb_id=:id)").param("id", imdbId).query(Boolean.class).single();
-    }
-
-    private void requireCategory(long id) {
-        if (!jdbc.sql("select exists(select 1 from category where id=:id)").param("id", id).query(Boolean.class).single())
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found");
     }
 }
