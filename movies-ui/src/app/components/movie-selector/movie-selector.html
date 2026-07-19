@@ -16,7 +16,8 @@
       </button>
       @if (categoryDialogVisible) {
         <app-category-tree-dialog mode="filter" [selectedCategoryIds]="selectedCategoryIds"
-          (closed)="closeCategoryDialog()" (categoriesSelected)="onCategoriesSelected($event)" />
+          (closed)="closeCategoryDialog()" (categoriesSelected)="onCategoriesSelected($event)"
+          (selectionChanged)="onCategorySelectionChanged($event)" />
       }
 
       <section class="movie-results" aria-labelledby="movie-results-title">
@@ -63,7 +64,7 @@
     </div>
 
     <footer>
-      <button type="button" (click)="submit()">OK</button>
+      <button type="button" (click)="submit()">Submit</button>
     </footer>
   </section>
 </div>

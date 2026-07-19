@@ -1,13 +1,14 @@
 .dialog-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.58);display:grid;place-items:center;padding:1rem}
-.create-guide-dialog{width:min(420px,100%);background:#fff;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.3);padding:1.25rem}
+.create-guide-dialog{width:min(520px,100%);background:#fff;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.3);padding:1.25rem}
 .create-guide-dialog header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.75rem}
 .create-guide-dialog h2{margin:0;color:#0f172a;font-size:1.1rem}
 .icon-button{border:0;background:transparent;color:#334155;padding:.35rem;cursor:pointer}
 .error{color:#b91c1c;margin:0 0 .75rem}
 form{display:flex;flex-direction:column;gap:.75rem}
 label{display:flex;flex-direction:column;gap:.3rem;font-weight:700;color:#1e293b;font-size:.85rem}
-label input{border:1px solid #cbd5e1;border-radius:7px;padding:.5rem .6rem;font-size:.9rem;color:#0f172a;font-weight:400}
-label input:focus{outline:2px solid #1d4ed8;outline-offset:1px}
+label input,label textarea{border:1px solid #cbd5e1;border-radius:7px;padding:.5rem .6rem;font-size:.9rem;color:#0f172a;font-weight:400;font-family:inherit}
+label input:focus,label textarea:focus{outline:2px solid #1d4ed8;outline-offset:1px}
+label textarea{resize:vertical;line-height:1.5;min-height:6rem}
 label.icon-field input{width:5rem;text-align:center;font-size:1.1rem}
 footer{display:flex;justify-content:flex-end;gap:.6rem;margin-top:.5rem;padding-top:.9rem;border-top:1px solid #e2e8f0}
 footer button{border:0;border-radius:7px;padding:.6rem .9rem;font-weight:700;cursor:pointer;background:#1d4ed8;color:#fff}

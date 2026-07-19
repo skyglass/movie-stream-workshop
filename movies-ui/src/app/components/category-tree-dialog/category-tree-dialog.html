@@ -12,7 +12,7 @@
 
 <ng-template #body>
   <header>
-    <div><p class="eyebrow">Movie categories</p><h2 id="category-dialog-title">{{ mode === 'assign' ? 'Add to Categories' : mode === 'filter' || mode === 'guide' ? 'Select Categories' : 'Start Journey' }}</h2></div>
+    <div><p class="eyebrow">Movie categories</p><h2 id="category-dialog-title">{{ mode === 'assign' ? 'Set Categories' : mode === 'filter' || mode === 'guide' ? 'Select Categories' : 'Start Journey' }}</h2></div>
     @if (!inline) {
       <button type="button" class="icon-button" [title]="mode === 'filter' || mode === 'guide' ? 'Close' : 'Cancel'" [attr.aria-label]="mode === 'filter' || mode === 'guide' ? 'Close' : 'Cancel'" (click)="closed.emit()"><span class="material-icons">close</span></button>
     }
@@ -26,25 +26,10 @@
       @if (categories.length === 0) { <p class="empty">No categories yet.</p> }
       <ul class="category-tree">
         @for (category of categories; track category.id) {
-          <app-category-tree-node [category]="category" [mode]="mode" [expanded]="expanded" [explicitSelected]="explicitSelected" [assignmentSelected]="assignmentSelectedIds()" [management]="managementEnabled()"
+          <app-category-tree-node [category]="category" [mode]="mode" [rootCategoryId]="rootCategoryId" [expanded]="expanded" [explicitSelected]="explicitSelected" [assignmentSelected]="assignmentSelectedIds()" [management]="managementEnabled()"
             (expand)="toggleExpanded($event)" (toggle)="toggleCategory($event.category,$event.checked)" (create)="beginCreate($event)" (edit)="beginEdit($event)" (move)="beginMove($event)" (remove)="deleteCategory($event)" />
         }
       </ul>
-      @if (creatingParentId !== undefined || editingId !== null) {
-        <form class="category-editor" (ngSubmit)="saveEditor()">
-          <h3>{{ editorTitle() }}</h3>
-          @if (editorParentCategory(); as parent) {
-            <div class="parent-field">
-              <span class="parent-field-label">Parent category</span>
-              <span class="parent-field-value"><span class="emoji">{{ parent.icon || '📁' }}</span><span class="category-name">{{ parent.name }}</span></span>
-            </div>
-          }
-          <label>Name<input name="categoryName" [(ngModel)]="name" maxlength="200" required /></label>
-          <label>Emoji icon<input name="categoryIcon" [(ngModel)]="icon" maxlength="32" placeholder="📁" /></label>
-          <label>Description<textarea name="categoryDescription" [(ngModel)]="description" maxlength="2000" rows="3"></textarea></label>
-          <div class="editor-actions"><button type="button" class="secondary" (click)="cancelEditor()">Cancel</button><button type="submit" [disabled]="saving || !name.trim()"><span class="material-icons">check</span>Save</button></div>
-        </form>
-      }
       @if (movingAction) {
         <app-move-category-dialog [category]="movingAction.category" [sourceParentId]="movingAction.parentId" [allowCopy]="allowCopy" (closed)="cancelMove()" (moved)="onMoved()" />
       }
@@ -59,5 +44,30 @@
         <button type="button" (click)="submit()" [disabled]="saving || !canSubmit()">{{ saving ? 'Saving…' : 'Submit' }}</button>
       }
     </footer>
+  }
+  @if (creatingParentId !== undefined || editingId !== null) {
+    <div class="dialog-backdrop" (click)="cancelEditor()">
+      <section class="category-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="category-editor-title" (click)="$event.stopPropagation()">
+        <header>
+          <h2 id="category-editor-title">{{ editorTitle() }}</h2>
+          <button type="button" class="icon-button" title="Cancel" aria-label="Cancel" (click)="cancelEditor()" [disabled]="saving"><span class="material-icons">close</span></button>
+        </header>
+        <form (ngSubmit)="saveEditor()">
+          @if (editorParentCategory(); as parent) {
+            <div class="parent-field">
+              <span class="parent-field-label">Parent category</span>
+              <span class="parent-field-value"><span class="emoji">{{ parent.icon || '📁' }}</span><span class="category-name">{{ parent.name }}</span></span>
+            </div>
+          }
+          <label>Name<input name="categoryName" [(ngModel)]="name" maxlength="200" required /></label>
+          <label>Emoji icon<input name="categoryIcon" [(ngModel)]="icon" maxlength="32" placeholder="📁" /></label>
+          <label>Description<textarea name="categoryDescription" [(ngModel)]="description" maxlength="2000" rows="3"></textarea></label>
+          <footer class="editor-actions">
+            <button type="button" class="secondary" (click)="cancelEditor()" [disabled]="saving">Cancel</button>
+            <button type="submit" [disabled]="saving || !name.trim()"><span class="material-icons">check</span>Save</button>
+          </footer>
+        </form>
+      </section>
+    </div>
   }
 </ng-template>

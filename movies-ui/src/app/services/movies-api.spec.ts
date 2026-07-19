@@ -256,39 +256,36 @@ describe('MoviesApiService', () => {
     request.flush({ movies: [], totalCount: 0 });
   });
 
-  it('requests movie rank history', (done) => {
-    service.getMovieRankHistory('tt101').subscribe(rankHistory => {
-      expect(rankHistory.higherRanks.map(movie => movie.imdbId)).toEqual(['tt100']);
-      expect(rankHistory.lowerRanks.map(movie => movie.imdbId)).toEqual(['tt102']);
+  it('requests similar to favorite movies', (done) => {
+    service.listSimilarToFavoriteMovies(2, 5, ' matrix ').subscribe(page => {
+      expect(page.movies).toEqual([]);
+      expect(page.totalCount).toBe(0);
       done();
     });
 
-    const request = http.expectOne(`${appConfig.apiBaseUrl}${appConfig.moviesApiPath}/tt101/rank-history`);
+    const request = http.expectOne(req =>
+      req.url === `${appConfig.apiBaseUrl}${appConfig.favoriteMoviesPath}/similar`
+      && req.params.get('page') === '2'
+      && req.params.get('pageSize') === '5'
+      && req.params.get('filter') === 'matrix');
     expect(request.request.method).toBe('GET');
-    request.flush({
-      higherRanks: [
-        {
-          imdbId: 'tt100',
-          title: 'Higher Movie',
-          poster: '',
-          year: '1998',
-          director: 'Higher Director',
-          rankPosition: 1,
-          rating: 10
-        }
-      ],
-      lowerRanks: [
-        {
-          imdbId: 'tt102',
-          title: 'Lower Movie',
-          poster: '',
-          year: '2000',
-          director: 'Lower Director',
-          rankPosition: 3,
-          rating: 1
-        }
-      ]
+    request.flush({ movies: [], totalCount: 0 });
+  });
+
+  it('requests movies similar to a given movie', (done) => {
+    service.listSimilarMovies('tt101', 2, 5, ' matrix ').subscribe(page => {
+      expect(page.movies).toEqual([]);
+      expect(page.totalCount).toBe(0);
+      done();
     });
+
+    const request = http.expectOne(req =>
+      req.url === `${appConfig.apiBaseUrl}${appConfig.moviesApiPath}/tt101/similar-movies`
+      && req.params.get('page') === '2'
+      && req.params.get('pageSize') === '5'
+      && req.params.get('filter') === 'matrix');
+    expect(request.request.method).toBe('GET');
+    request.flush({ movies: [], totalCount: 0 });
   });
 
   it('requests paginated suggested movie challenges', (done) => {

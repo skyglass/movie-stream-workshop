@@ -22,12 +22,23 @@ export class CategoryTreeDialogComponent implements OnInit {
   @Input() movieId = '';
   @Input() selectedCategoryIds: number[] = [];
   @Input() inline = false;
-  // 'guide' mode only: scopes the tree to one category's direct children (e.g. a Movie Guide's own anchor
-  // category) instead of the whole global tree.
+  // 'guide' mode, or 'filter' mode with rootCategoryId set: scopes the tree to one category's direct children
+  // (e.g. a Movie Guide's own anchor category) instead of the whole global tree.
   @Input() rootCategoryId?: number;
+  // Used together with rootCategoryId: excludes these category ids from the subtree -- e.g. the "Delete Movies"
+  // category picker excludes a guide's subscribed/default categories, since movies can't be removed from those.
+  @Input() excludedCategoryIds: number[] = [];
   // Threaded down to the Move dialog: false suppresses the "Copy instead of move" checkbox (e.g. inside a Movie
   // Guide's own sandbox, where subscribing to one of its own categories would be nonsensical).
   @Input() allowCopy = true;
+  // 'filter' mode only: hides these top-level roots (and everything under them) from the tree -- e.g. the
+  // "Subscribe to Categories" dialog excludes "Guides"/"Personalities" so a guide can't subscribe to itself,
+  // another guide, or a personality, which is unsupported and untested.
+  @Input() excludeRootNames: string[] = [];
+  // 'guide' mode only: whether the current viewer owns this guide -- 'guide' mode is now shown to anonymous and
+  // non-owner viewers too (as a read-only "Select Category" browser), so management can no longer be assumed
+  // just from the mode; it's only actually enabled for the true owner (or MOVIES_GUIDE/MOVIES_ADMIN).
+  @Input() isOwner = false;
   @Output() closed = new EventEmitter<void>();
   @Output() categoriesSelected = new EventEmitter<number[]>();
   @Output() selectionChanged = new EventEmitter<number[]>();
@@ -59,12 +70,14 @@ export class CategoryTreeDialogComponent implements OnInit {
   load(): void {
     this.loading = true;
     this.errorMessage = '';
-    const request = this.mode === 'guide' && this.rootCategoryId != null
-      ? this.api.getCategorySubtree(this.rootCategoryId)
+    const request = (this.mode === 'guide' || this.mode === 'filter') && this.rootCategoryId != null
+      ? this.api.getCategorySubtree(this.rootCategoryId, this.excludedCategoryIds)
       : this.api.getCategoryTree(this.mode === 'assign' ? this.movieId : undefined);
     request.subscribe({
       next: categories => {
-        this.categories = categories;
+        this.categories = this.excludeRootNames.length
+          ? categories.filter(category => !this.excludeRootNames.includes(category.name))
+          : categories;
         this.originalChecked = new Set(this.flatten(categories).filter(category => category.checked).map(category => category.id));
         this.expandAncestorsOf(this.selectedCategoryIds, categories);
         this.loading = false;
@@ -195,9 +208,11 @@ export class CategoryTreeDialogComponent implements OnInit {
   }
 
   managementEnabled(): boolean {
-    // 'guide' mode is only ever rendered for a confirmed guide owner (enforced by the caller before mounting this
-    // component), so it unconditionally enables management here regardless of MOVIES_GUIDE/MOVIES_ADMIN role.
-    return this.mode === 'guide' || (this.mode !== 'filter' && this.auth.canEditMovies);
+    // 'guide' mode is shown to every viewer (owner, non-owner, anonymous) as a read-only "Select Category"
+    // browser -- management (create/edit/move/delete) is only actually enabled for the true owner or a
+    // MOVIES_GUIDE/MOVIES_ADMIN account, same as everywhere else.
+    if (this.mode === 'guide') return this.isOwner || this.auth.canEditMovies;
+    return this.mode !== 'filter' && this.auth.canEditMovies;
   }
 
   assignmentSelectedIds(): Set<number> {

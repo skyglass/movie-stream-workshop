@@ -1,0 +1,32 @@
+@startuml
+title UC curate-movie-guide
+left to right direction
+
+actor "Authenticated User (owner)" as owner
+actor "MOVIES_GUIDE / MOVIES_ADMIN" as curatorRole
+actor "Other authenticated user" as intruder
+actor "Anonymous viewer" as visitor
+
+rectangle "movie-guides" {
+    usecase "curate-movie-guide" as UC
+    entity "MOVIE_GUIDE" as guide
+    entity "MOVIE_GUIDE_DEFAULT_CATEGORY" as defaultCategory
+}
+
+rectangle "movie-catalog (external collaborator)" {
+    entity "CATEGORY" as category
+    entity "MOVIE" as movie
+}
+
+owner --> UC : create, subscribe, add movies, import CSV, delete
+curatorRole --> UC : subscribe, add movies (even to subscribed categories)
+intruder -[#red,dashed]-> UC : blocked unless owner or MOVIES_GUIDE/MOVIES_ADMIN
+visitor --> UC : read-only (GET by category)
+
+UC --> guide : creates / reads / deletes
+UC --> defaultCategory : records subscriptions
+guide --> category : anchored to
+defaultCategory --> category : references (2nd parent edge)
+UC --> category : links movies into anchor or subscribed subtree
+category --> movie : movie_category
+@enduml

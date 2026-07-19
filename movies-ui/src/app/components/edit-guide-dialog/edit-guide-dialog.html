@@ -12,7 +12,7 @@
         <input type="text" [(ngModel)]="name" name="name" maxlength="200" required />
       </label>
       <label>Description
-        <input type="text" [(ngModel)]="description" name="description" maxlength="2000" />
+        <textarea [(ngModel)]="description" name="description" maxlength="2000" rows="8"></textarea>
       </label>
       <label class="icon-field">Icon
         <input type="text" [(ngModel)]="icon" name="icon" maxlength="8" />

@@ -292,6 +292,196 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                                                      @Param("selectedCategories") List<Long> selectedCategories,
                                                      Pageable pageable);
 
+    // Category-taste recommender: works from a rated-movies pool and the categories those movies belong to (no
+    // cross-user similarity math, unlike findUsersRecommendedMoviesByUsername above). :seedMovieId is null for the
+    // favorites-wide "Recommend Similar Movies" page (scored categories = every category touched by any movie in
+    // the pool) or a single movie's imdbId for the Movie Details single-movie variant (scored categories = only
+    // that movie's own categories; its own rating is excluded from the pool so it never pollutes the very
+    // averages used to score it).
+    //
+    // :username selects whose ratings make up that pool: a specific viewer's own ratings when signed in, or --
+    // since :username is null is never true for a real username in SQL -- EVERY user's ratings when the viewer is
+    // anonymous (the single-movie variant is reachable without an account). This falls back cleanly to a
+    // catalog-wide "what do people generally rate highly in this category" signal instead of going empty, and the
+    // per-viewer "already recommended" exclusion below degrades the same way: recommendation.user_id = null is
+    // never true either, so nothing gets excluded for an anonymous viewer (there's no personal judgement to
+    // exclude by), while a signed-in viewer's own liked/disliked movies are still excluded as before.
+    //
+    // Each scored category's average is Bayesian-shrunk toward the pool's own overall rating baseline by
+    // :priorWeight / (:priorWeight + ratedCount) -- same shrinkage shape as findAllByUsersFavoritePopularity's
+    // homepage ranking and findUsersRecommendedMoviesByUsername's similarity weighting above, so a category
+    // with only 1-2 rated movies never outranks one with dozens just because its lone rating happened to be a 10.
+    // A candidate's final score is the SUM of every scored category it belongs to, rewarding movies that overlap
+    // multiple things the pool rates highly.
+    //
+    // candidate_score alone frequently ties: two candidates that both match only "Genre: Drama" and nothing else
+    // score identically, since the score depends solely on which categories a candidate belongs to, never on the
+    // candidate's own reception -- a movie nobody has ever rated scores exactly the same as one forty people
+    // loved. Without a further tiebreaker that collapses to alphabetical title/imdbId, which looks arbitrary.
+    // candidate_popularity/shrunk_candidate_popularity break that tie with a real signal: the candidate's own
+    // catalog-wide average rating (everyone who's rated it, regardless of who's asking), Bayesian-shrunk the same
+    // way so one lucky 10 from a single voter doesn't outrank dozens of solid ratings. A candidate nobody has
+    // rated at all falls back to the catalog average via coalesce (voter_count=0 would shrink to exactly that
+    // anyway), rather than being penalized to the bottom.
+    @Query(value = """
+            with user_ratings as (
+                select rating.movie_id, rating.rating
+                from user_movie_rating rating
+                where (:username is null or rating.user_id = :username)
+                    and (:seedMovieId is null or rating.movie_id <> :seedMovieId)
+            ),
+            baseline as (
+                select avg(rating) as baseline_average
+                from user_ratings
+            ),
+            catalog_prior as (
+                select avg(rating) as catalog_average
+                from user_movie_rating
+            ),
+            seed_categories as (
+                select distinct mc.category_id
+                from movie_category mc
+                where (:seedMovieId is not null and mc.movie_id = :seedMovieId)
+                    or (:seedMovieId is null and exists (select 1 from user_ratings ur where ur.movie_id = mc.movie_id))
+            ),
+            category_scores as (
+                select mc.category_id,
+                    count(1) as rated_count,
+                    avg(ur.rating) as category_average
+                from movie_category mc
+                join user_ratings ur on ur.movie_id = mc.movie_id
+                where mc.category_id in (select category_id from seed_categories)
+                group by mc.category_id
+            ),
+            shrunk_category_scores as (
+                select category_scores.category_id,
+                    baseline.baseline_average
+                        + (cast(category_scores.rated_count as numeric(12, 6))
+                            / cast(category_scores.rated_count + :priorWeight as numeric(12, 6)))
+                        * (category_scores.category_average - baseline.baseline_average) as score
+                from category_scores
+                cross join baseline
+            ),
+            candidates as (
+                select mc.movie_id,
+                    sum(shrunk_category_scores.score) as candidate_score,
+                    count(distinct mc.category_id) as matched_category_count
+                from movie_category mc
+                join shrunk_category_scores on shrunk_category_scores.category_id = mc.category_id
+                where (:seedMovieId is null or mc.movie_id <> :seedMovieId)
+                    and not exists (
+                        select 1
+                        from movie_recommendations recommendation
+                        where recommendation.user_id = :username
+                            and recommendation.movie_id = mc.movie_id
+                    )
+                group by mc.movie_id
+            ),
+            candidate_popularity as (
+                select rating.movie_id,
+                    count(distinct rating.user_id) as voter_count,
+                    avg(rating.rating) as average_rating
+                from user_movie_rating rating
+                where rating.movie_id in (select movie_id from candidates)
+                group by rating.movie_id
+            ),
+            shrunk_candidate_popularity as (
+                select candidate_popularity.movie_id,
+                    catalog_prior.catalog_average
+                        + (cast(candidate_popularity.voter_count as numeric(12, 6))
+                            / cast(candidate_popularity.voter_count + :priorWeight as numeric(12, 6)))
+                        * (candidate_popularity.average_rating - catalog_prior.catalog_average) as popularity_score
+                from candidate_popularity
+                cross join catalog_prior
+            )
+            select m.*
+            from candidates
+            join movies m
+                on m.imdb_id = candidates.movie_id
+            left join shrunk_candidate_popularity
+                on shrunk_candidate_popularity.movie_id = candidates.movie_id
+            cross join catalog_prior
+            where (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+            order by candidates.candidate_score desc,
+                candidates.matched_category_count desc,
+                coalesce(shrunk_candidate_popularity.popularity_score, catalog_prior.catalog_average) desc,
+                m.title asc,
+                m.imdb_id asc
+            """, countQuery = """
+            with user_ratings as (
+                select rating.movie_id, rating.rating
+                from user_movie_rating rating
+                where (:username is null or rating.user_id = :username)
+                    and (:seedMovieId is null or rating.movie_id <> :seedMovieId)
+            ),
+            baseline as (
+                select avg(rating) as baseline_average
+                from user_ratings
+            ),
+            seed_categories as (
+                select distinct mc.category_id
+                from movie_category mc
+                where (:seedMovieId is not null and mc.movie_id = :seedMovieId)
+                    or (:seedMovieId is null and exists (select 1 from user_ratings ur where ur.movie_id = mc.movie_id))
+            ),
+            category_scores as (
+                select mc.category_id,
+                    count(1) as rated_count,
+                    avg(ur.rating) as category_average
+                from movie_category mc
+                join user_ratings ur on ur.movie_id = mc.movie_id
+                where mc.category_id in (select category_id from seed_categories)
+                group by mc.category_id
+            ),
+            shrunk_category_scores as (
+                select category_scores.category_id,
+                    baseline.baseline_average
+                        + (cast(category_scores.rated_count as numeric(12, 6))
+                            / cast(category_scores.rated_count + :priorWeight as numeric(12, 6)))
+                        * (category_scores.category_average - baseline.baseline_average) as score
+                from category_scores
+                cross join baseline
+            ),
+            candidates as (
+                select mc.movie_id
+                from movie_category mc
+                join shrunk_category_scores on shrunk_category_scores.category_id = mc.category_id
+                where (:seedMovieId is null or mc.movie_id <> :seedMovieId)
+                    and not exists (
+                        select 1
+                        from movie_recommendations recommendation
+                        where recommendation.user_id = :username
+                            and recommendation.movie_id = mc.movie_id
+                    )
+                group by mc.movie_id
+            )
+            select count(1)
+            from candidates
+            join movies m
+                on m.imdb_id = candidates.movie_id
+            where (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+            """, nativeQuery = true)
+    Page<Movie> findCategorySimilarMovies(@Param("username") String username,
+                                          @Param("seedMovieId") String seedMovieId,
+                                          @Param("filter") String filter,
+                                          @Param("year") String year,
+                                          @Param("selectedCategoryCount") int selectedCategoryCount,
+                                          @Param("selectedCategories") List<Long> selectedCategories,
+                                          @Param("priorWeight") int priorWeight,
+                                          Pageable pageable);
+
     // Movies already assigned to a Movie Guide's own category tree, excluding any that only appear there via a
     // subscribed/referenced category (movie_guide_default_category) -- used by the guide-creation wizard's Step 2
     // so the curator only ever sees movies they explicitly added, not ones that arrive "for free" via subscription.

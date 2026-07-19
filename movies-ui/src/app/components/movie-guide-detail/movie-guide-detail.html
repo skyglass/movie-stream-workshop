@@ -6,7 +6,14 @@
       <div>
         <p class="eyebrow">{{ category?.icon || '📁' }} {{ entryType === 'Personality' ? 'Movie Personality' : 'Movie Guide' }}</p>
         <h1>{{ category?.name || 'Movie Guide' }}</h1>
-        @if (category?.description) { <p class="guide-description">{{ category?.description }}</p> }
+        @if (category?.description) {
+          <div class="description-preview">
+            <p class="guide-description">{{ category?.description }}</p>
+            <button type="button" class="icon-button" title="Read full description" aria-label="Read full description" (click)="openDescriptionDialog()">
+              <span class="material-icons">read_more</span>
+            </button>
+          </div>
+        }
       </div>
 
       <div class="header-actions">
@@ -16,6 +23,7 @@
             Add Movies
           </button>
           <button type="button" class="icon-button" title="Import Movies from CSV" aria-label="Import Movies from CSV" (click)="openImportCsv()"><span class="material-icons">upload_file</span></button>
+          <button type="button" class="icon-button danger" title="Delete Movies" aria-label="Delete Movies" (click)="openDeleteMovies()"><span class="material-icons">delete</span></button>
         }
         <div class="share-tools">
           <div class="share-panel" aria-label="Movie Guide sharing">
@@ -38,24 +46,38 @@
 
     @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
 
-    @if (showAddMovies) {
+    @if (movieGuideId) {
       <div class="owner-actions">
-        <button type="button" class="category-filter-button" (click)="openSubscribeCategories()">
-          <span class="material-icons">subscriptions</span>
-          Subscribe to Categories
-        </button>
+        @if (canManageGuide) {
+          <button type="button" class="category-filter-button" (click)="openSubscribeCategories()">
+            <span class="material-icons">subscriptions</span>
+            Subscribe to Categories
+          </button>
+        }
         <button type="button" class="category-filter-button" (click)="openCategoryDialog()">
           <span class="material-icons">account_tree</span>
-          {{ selectedCategory ? 'Sub-category selected' : 'Select Category' }}
+          {{ selectedCategory ? 'Sub-Category Selected' : 'Select Category' }}
         </button>
+        @if (selectedCategory && selectedCategoryPath.length) {
+          <span class="selected-category-path">
+            @for (segment of selectedCategoryPath; track segment.id; let last = $last) {
+              <span class="emoji">{{ segment.icon || '📁' }}</span><span class="path-segment-name">{{ segment.name }}</span>@if (!last) { <span class="path-arrow">→</span> }
+            }
+          </span>
+          @if (selectedCategoryLeaf?.description?.trim()) {
+            <button type="button" class="icon-button small" title="View category description" aria-label="View category description" (click)="openSelectedCategoryDescription()">
+              <span class="material-icons">visibility</span>
+            </button>
+          }
+        }
       </div>
-      @if (categoryDialogVisible && movieGuideId) {
-        <app-category-tree-dialog mode="guide" [rootCategoryId]="categoryId"
+      @if (categoryDialogVisible) {
+        <app-category-tree-dialog mode="guide" [rootCategoryId]="categoryId" [isOwner]="isOwner"
           [selectedCategoryIds]="selectedCategory != null ? [selectedCategory] : []" [allowCopy]="false"
           (closed)="closeCategoryDialog()" (categoriesSelected)="closeCategoryDialog()"
           (selectionChanged)="onCategorySelectionChanged($event)" />
       }
-      @if (subscribeCategoriesVisible) {
+      @if (canManageGuide && subscribeCategoriesVisible) {
         <div class="dialog-backdrop" (click)="closeSubscribeCategories()">
           <section class="subscribe-categories-dialog" role="dialog" aria-modal="true" aria-labelledby="subscribe-categories-title" (click)="$event.stopPropagation()">
             <header>
@@ -63,15 +85,18 @@
               <button type="button" class="icon-button" title="Close" aria-label="Close" (click)="closeSubscribeCategories()" [disabled]="subscribing"><span class="material-icons">close</span></button>
             </header>
             @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
-            <p class="subscribe-hint">
-              Subscribe to other categories and receive all their updates in this {{ entryType === 'Personality' ? 'personality' : 'guide' }} —
-              e.g. subscribe to "New 2026" and it always shows fresh movies from that category.
-            </p>
-            <app-category-tree-dialog mode="filter" [inline]="true" [selectedCategoryIds]="subscribingCategoryIds"
-              (selectionChanged)="onSubscribeCategorySelectionChanged($event)" />
+            <div class="subscribe-categories-body">
+              <p class="subscribe-hint">
+                Subscribe to other categories and receive all their updates in this {{ entryType === 'Personality' ? 'personality' : 'guide' }} —
+                e.g. subscribe to "New 2026" and it always shows fresh movies from that category.
+              </p>
+              <app-category-tree-dialog mode="filter" [inline]="true" [selectedCategoryIds]="subscribingCategoryIds"
+                [excludeRootNames]="['Guides', 'Personalities']"
+                (selectionChanged)="onSubscribeCategorySelectionChanged($event)" />
+            </div>
             <footer>
               <button type="button" class="secondary" (click)="closeSubscribeCategories()" [disabled]="subscribing">Cancel</button>
-              <button type="button" (click)="saveSubscribeCategories()" [disabled]="subscribing">{{ subscribing ? 'Subscribing…' : 'Subscribe' }}</button>
+              <button type="button" (click)="saveSubscribeCategories()" [disabled]="subscribing">{{ subscribing ? 'Submitting…' : 'Submit' }}</button>
             </footer>
           </section>
         </div>
@@ -96,5 +121,28 @@
   @if (csvDialogVisible && movieGuideId) {
     <app-import-csv-dialog [movieGuideId]="movieGuideId" [categoryId]="selectedCategory" (closed)="closeImportCsv()"
       (imported)="onCsvImported()" (importFailed)="onCsvImportFailed($event)" />
+  }
+  @if (deleteMoviesSelectorVisible && movieGuideId) {
+    <app-delete-movies-selector [movieGuideId]="movieGuideId" [guideCategoryId]="categoryId" [initialCategoryId]="selectedCategory"
+      [excludedCategoryIds]="guideSubscribedCategoryIds"
+      (closed)="closeDeleteMovies()" (moviesDeleted)="onMoviesDeleted()" />
+  }
+  @if (descriptionDialogVisible) {
+    <div class="description-dialog-backdrop" (click)="closeDescriptionDialog()">
+      <section class="description-dialog" role="dialog" aria-modal="true" aria-labelledby="guide-description-title" (click)="$event.stopPropagation()">
+        <header><h2 id="guide-description-title">{{ category?.name }}</h2></header>
+        <p class="description-dialog-text">{{ category?.description }}</p>
+        <footer><button type="button" (click)="closeDescriptionDialog()">OK</button></footer>
+      </section>
+    </div>
+  }
+  @if (selectedCategoryDescriptionVisible && selectedCategoryLeaf; as leaf) {
+    <div class="description-dialog-backdrop" (click)="closeSelectedCategoryDescription()">
+      <section class="description-dialog" role="dialog" aria-modal="true" aria-labelledby="selected-category-description-title" (click)="$event.stopPropagation()">
+        <header><h2 id="selected-category-description-title">{{ leaf.icon || '📁' }} {{ leaf.name }}</h2></header>
+        <p class="description-dialog-text">{{ leaf.description || 'No description yet.' }}</p>
+        <footer><button type="button" (click)="closeSelectedCategoryDescription()">OK</button></footer>
+      </section>
+    </div>
   }
 </section>

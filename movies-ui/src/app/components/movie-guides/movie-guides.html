@@ -20,10 +20,14 @@
           </div>
         }
       </header>
-      <p class="panel-description">
-        <strong>Movie Guide</strong> — a collection built around a topic: "Essential Heist Films," "80s Sci-Fi
-        You Can't Miss." Explore by theme, curated by someone who actually knows the subject.
-      </p>
+      <div class="panel-description">
+        <p><strong>Movie Guide</strong> — a collection built around a special topic. Explore by theme, curated
+          by movie guide experts.</p>
+        <ul class="panel-examples">
+          <li>Essential Heist Films</li>
+          <li>80s Sci-Fi You Can't Miss</li>
+        </ul>
+      </div>
       <div class="guide-list">
         @if (guides.length === 0) {
           <p class="empty">No Movie Guides yet.</p>
@@ -61,12 +65,15 @@
           </div>
         }
       </header>
-      <p class="panel-description">
-        <strong>Movie Personality</strong> — a collection built around real or fictitious personalities: "What
-        Kubrick Would Watch," "Robert De Niro's Italian Neo-Realism Suggestions," "A Marvel Universe Fan's
-        Picks." Explore by point of view, curated by someone whose favorite movies we can imagine from their
-        interviews, work, or personality traits.
-      </p>
+      <div class="panel-description">
+        <p><strong>Movie Personality</strong> — a collection built around a real or fictitious personality.
+          Explore by point of view, curated from someone's interviews, work, or personality traits.</p>
+        <ul class="panel-examples">
+          <li>What Kubrick Would Watch</li>
+          <li>Robert De Niro's Italian Neo-Realism Suggestions</li>
+          <li>A Marvel Universe Fan's Picks</li>
+        </ul>
+      </div>
       <div class="guide-list">
         @if (personalities.length === 0) {
           <p class="empty">No Movie Personalities yet.</p>

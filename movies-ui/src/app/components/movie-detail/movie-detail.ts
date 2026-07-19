@@ -4,12 +4,10 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription, combineLatest } from 'rxjs';
 import { AuthService } from '../../services/auth';
-import { Movie, MovieCategory, MovieRankHistory, MovieRankHistoryMovie, MoviesApiService } from '../../services/movies-api';
+import { Movie, MovieCategory, MoviesApiService } from '../../services/movies-api';
 import { BackButtonComponent } from '../back-button/back-button';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 import { MovieCategoryPathViewComponent } from '../movie-category-path-view/movie-category-path-view';
-
-type RankHistoryHelpSection = 'winners' | 'losers';
 
 @Component({
   standalone: true,
@@ -25,36 +23,31 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService);
   private pageSub?: Subscription;
   private movieSub?: Subscription;
-  private rankHistorySub?: Subscription;
   private categoriesSub?: Subscription;
   private imdbId = '';
 
   movie: Movie | null = null;
-  rankHistory: MovieRankHistory | null = null;
   categories: MovieCategory[] = [];
   categoriesLoading = false;
   categoriesErrorMessage = '';
   editCategoriesOpen = false;
   loading = false;
-  rankHistoryLoading = false;
   saving = false;
   recommendationSaving = false;
   replaySaving = false;
   errorMessage = '';
-  rankHistoryErrorMessage = '';
-  visibleRankHistoryHelp: RankHistoryHelpSection | '' = '';
-
-  readonly winnersHelpText = 'Movies that won curent movie in comparisons';
-  readonly losersHelpText = 'Movies that lost to current movie in comparisons';
 
   readonly commentForm = this.fb.group({
     text: ['', [Validators.required, Validators.maxLength(4000)]]
   });
 
+  // Movie details are public (viewable by anonymous visitors); isAuthenticated$ stays in the trigger so that
+  // signing in or out while already on the page reloads the movie/categories with the viewer's own
+  // recommended/rating fields (or without them, on logout) rather than leaving stale data on screen.
   ngOnInit(): void {
-    this.pageSub = combineLatest([this.route.paramMap, this.auth.isAuthenticated$]).subscribe(([params, authenticated]) => {
+    this.pageSub = combineLatest([this.route.paramMap, this.auth.isAuthenticated$]).subscribe(([params]) => {
       this.imdbId = params.get('imdbId') ?? '';
-      if (!authenticated || !this.imdbId) {
+      if (!this.imdbId) {
         this.clearMovie();
       } else {
         this.loadMovie(this.imdbId);
@@ -65,29 +58,23 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.pageSub?.unsubscribe();
     this.movieSub?.unsubscribe();
-    this.rankHistorySub?.unsubscribe();
     this.categoriesSub?.unsubscribe();
   }
 
   loadMovie(imdbId: string): void {
     this.movieSub?.unsubscribe();
-    this.rankHistorySub?.unsubscribe();
     this.categoriesSub?.unsubscribe();
     this.loading = true;
-    this.rankHistoryLoading = false;
     this.errorMessage = '';
-    this.rankHistoryErrorMessage = '';
-    this.rankHistory = null;
     this.movieSub = this.moviesApi.getMovie(imdbId).subscribe({
       next: movie => {
-        if (!this.auth.token || this.imdbId !== imdbId) return;
+        if (this.imdbId !== imdbId) return;
         this.movie = movie;
         this.loading = false;
-        this.loadRankHistory(imdbId);
         this.loadCategories(imdbId);
       },
       error: err => {
-        if (!this.auth.token || this.imdbId !== imdbId) return;
+        if (this.imdbId !== imdbId) return;
         this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not load movie';
         this.loading = false;
       }
@@ -100,12 +87,12 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
     this.categoriesErrorMessage = '';
     this.categoriesSub = this.moviesApi.getCategoryTree(imdbId).subscribe({
       next: categories => {
-        if (!this.auth.token || this.imdbId !== imdbId) return;
+        if (this.imdbId !== imdbId) return;
         this.categories = categories;
         this.categoriesLoading = false;
       },
       error: err => {
-        if (!this.auth.token || this.imdbId !== imdbId) return;
+        if (this.imdbId !== imdbId) return;
         this.categoriesErrorMessage = err?.error?.message ?? err?.message ?? 'Could not load categories';
         this.categoriesLoading = false;
       }
@@ -127,24 +114,6 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
 
   private categoryHasCheckedDescendant(category: MovieCategory): boolean {
     return category.children.some(child => child.checked || this.categoryHasCheckedDescendant(child));
-  }
-
-  loadRankHistory(imdbId: string): void {
-    this.rankHistorySub?.unsubscribe();
-    this.rankHistoryLoading = true;
-    this.rankHistoryErrorMessage = '';
-    this.rankHistorySub = this.moviesApi.getMovieRankHistory(imdbId).subscribe({
-      next: rankHistory => {
-        if (!this.auth.token || this.imdbId !== imdbId) return;
-        this.rankHistory = rankHistory;
-        this.rankHistoryLoading = false;
-      },
-      error: err => {
-        if (!this.auth.token || this.imdbId !== imdbId) return;
-        this.rankHistoryErrorMessage = err?.error?.message ?? err?.message ?? 'Could not load rank history';
-        this.rankHistoryLoading = false;
-      }
-    });
   }
 
   addComment(): void {
@@ -188,7 +157,6 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
         if (!this.auth.token) return;
         this.movie = movie;
         this.recommendationSaving = false;
-        this.loadRankHistory(movie.imdbId);
       },
       error: err => {
         if (!this.auth.token) return;
@@ -208,7 +176,6 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
         if (!this.auth.token) return;
         this.movie = movie;
         this.replaySaving = false;
-        this.loadRankHistory(movie.imdbId);
       },
       error: err => {
         if (!this.auth.token) return;
@@ -218,23 +185,8 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  poster(movie: Movie | MovieRankHistoryMovie): string {
+  poster(movie: Movie): string {
     return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';
-  }
-
-  rankLabel(movie: MovieRankHistoryMovie): string {
-    if (movie.rankPosition == null || movie.rating == null) {
-      return '-';
-    }
-    return `#${movie.rankPosition}(${movie.rating.toFixed(2)})`;
-  }
-
-  toggleRankHistoryHelp(section: RankHistoryHelpSection): void {
-    this.visibleRankHistoryHelp = this.visibleRankHistoryHelp === section ? '' : section;
-  }
-
-  rankHistoryHelpVisible(section: RankHistoryHelpSection): boolean {
-    return this.visibleRankHistoryHelp === section;
   }
 
   avatar(seed: string): string {
@@ -243,19 +195,15 @@ export class MovieDetailComponent implements OnInit, OnDestroy {
 
   private clearMovie(): void {
     this.movie = null;
-    this.rankHistory = null;
     this.categories = [];
     this.categoriesLoading = false;
     this.categoriesErrorMessage = '';
     this.editCategoriesOpen = false;
     this.loading = false;
-    this.rankHistoryLoading = false;
     this.saving = false;
     this.recommendationSaving = false;
     this.replaySaving = false;
     this.errorMessage = '';
-    this.rankHistoryErrorMessage = '';
-    this.visibleRankHistoryHelp = '';
     this.commentForm.reset();
   }
 }

@@ -7,10 +7,10 @@
   <div class="movie-grid">
     @for (movie of movies; track movie.imdbId) {
       <article class="movie-card" itemscope itemtype="https://schema.org/Movie">
+        <a class="poster-link" [routerLink]="['/movies', movie.imdbId]" [attr.aria-labelledby]="'movie-title-' + movie.imdbId">
+          <img itemprop="image" [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+        </a>
         @if (auth.token) {
-          <a class="poster-link" [routerLink]="['/movies', movie.imdbId]" [attr.aria-labelledby]="'movie-title-' + movie.imdbId">
-            <img itemprop="image" [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-          </a>
           @if (movie.recommended) {
             <button
               type="button"
@@ -53,52 +53,30 @@
               </button>
             </div>
           }
-        } @else {
-          <div class="poster-link">
-            <img itemprop="image" [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-          </div>
         }
-        @if (auth.token) {
-          <a class="movie-link" [routerLink]="['/movies', movie.imdbId]" [attr.aria-labelledby]="'movie-title-' + movie.imdbId">
-            <h3 class="movie-title" [id]="'movie-title-' + movie.imdbId" itemprop="name">{{ movie.title }}</h3>
-            <dl>
-              <div>
-                <dt>Year:</dt>
-                <dd itemprop="datePublished">{{ movie.year }}</dd>
-              </div>
-              <div>
-                <dt>Director:</dt>
-                <dd itemprop="director">{{ movie.director }}</dd>
-              </div>
-              <div>
-                <dt>Genre:</dt>
-                <dd itemprop="genre">{{ movie.genre || 'N/A' }}</dd>
-              </div>
+        <a class="movie-link" [routerLink]="['/movies', movie.imdbId]" [attr.aria-labelledby]="'movie-title-' + movie.imdbId">
+          <h3 class="movie-title" [id]="'movie-title-' + movie.imdbId" itemprop="name">{{ movie.title }}</h3>
+          <dl>
+            <div>
+              <dt>Year:</dt>
+              <dd itemprop="datePublished">{{ movie.year }}</dd>
+            </div>
+            <div>
+              <dt>Director:</dt>
+              <dd itemprop="director">{{ movie.director }}</dd>
+            </div>
+            <div>
+              <dt>Genre:</dt>
+              <dd itemprop="genre">{{ movie.genre || 'N/A' }}</dd>
+            </div>
+            @if (auth.token) {
               <div>
                 <dt>Your Rating:</dt>
                 <dd>{{ movie.rating != null && movie.rankPosition != null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-' }}</dd>
               </div>
-            </dl>
-          </a>
-        } @else {
-          <div class="movie-link">
-            <h3 class="movie-title" [id]="'movie-title-' + movie.imdbId" itemprop="name">{{ movie.title }}</h3>
-            <dl>
-              <div>
-                <dt>Year:</dt>
-                <dd itemprop="datePublished">{{ movie.year }}</dd>
-              </div>
-              <div>
-                <dt>Director:</dt>
-                <dd itemprop="director">{{ movie.director }}</dd>
-              </div>
-              <div>
-                <dt>Genre:</dt>
-                <dd itemprop="genre">{{ movie.genre || 'N/A' }}</dd>
-              </div>
-            </dl>
-          </div>
-        }
+            }
+          </dl>
+        </a>
       </article>
     }
   </div>

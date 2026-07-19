@@ -9,7 +9,7 @@
       <button type="button" class="secondary" (click)="clear()">Clear</button>
     }
   </div>
-  @if (auth.token && value) {
+  @if (showOmdbSearch && auth.token && value) {
     <label class="omdb-toggle">
       <input type="checkbox" [checked]="searchOmdb" (change)="toggleOmdb($event)" />
       <span>Search OMDb</span>

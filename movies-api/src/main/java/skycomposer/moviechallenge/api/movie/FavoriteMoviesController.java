@@ -1,6 +1,7 @@
 package skycomposer.moviechallenge.api.movie;
 
 import skycomposer.moviechallenge.api.movie.application.service.ViewFavoriteMoviesUseCase;
+import skycomposer.moviechallenge.api.movie.application.service.ViewCategorySimilarMoviesUseCase;
 import skycomposer.moviechallenge.api.movie.application.service.ShareMyFavoriteMoviesUseCase;
 import skycomposer.moviechallenge.api.movie.dto.FavoriteMoviesShareDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
@@ -25,6 +26,7 @@ import java.util.List;
 public class FavoriteMoviesController {
 
     private final ViewFavoriteMoviesUseCase viewFavoriteMovies;
+    private final ViewCategorySimilarMoviesUseCase viewCategorySimilarMovies;
     private final ShareMyFavoriteMoviesUseCase shareMyFavoriteMovies;
     private final MoviePaging moviePaging;
 
@@ -37,6 +39,17 @@ public class FavoriteMoviesController {
                                           @RequestParam(required = false) String year,
                                           @RequestParam(required = false) List<Long> selectedCategories) {
         return viewFavoriteMovies.viewFavoriteMovies(jwt, moviePaging.pageable(page, pageSize), filter, year, selectedCategories);
+    }
+
+    @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
+    @GetMapping("/similar")
+    public MoviePageDto getSimilarToFavoriteMovies(@AuthenticationPrincipal Jwt jwt,
+                                                   @RequestParam(required = false) Integer page,
+                                                   @RequestParam(required = false) Integer pageSize,
+                                                   @RequestParam(required = false) String filter,
+                                                   @RequestParam(required = false) String year,
+                                                   @RequestParam(required = false) List<Long> selectedCategories) {
+        return viewCategorySimilarMovies.viewSimilarToFavorites(jwt, moviePaging.pageable(page, pageSize), filter, year, selectedCategories);
     }
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})

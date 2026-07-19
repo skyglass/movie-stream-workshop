@@ -1,7 +1,6 @@
 package skycomposer.moviechallenge.api.movie;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,9 +27,11 @@ import skycomposer.moviechallenge.api.movie.model.MovieGuideType;
 
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RequiredArgsConstructor
 @Service
@@ -96,16 +97,26 @@ public class MovieGuideService {
     // from createGuide's own subscribedCategoryIds handling above because Step 1 no longer collects categories
     // at creation time -- Step 1 now only creates the guide's name/description/icon, and category subscription
     // happens here as its own step, on a guide that already exists.
+    //
+    // categoryIds is the full desired set (matching the dialog's live checkbox state, sent whole on Submit, not
+    // just newly-checked ones) -- reconciled against what's currently subscribed: missing ones are subscribed,
+    // no-longer-present ones are unsubscribed (unchecking a category removes it).
     @Transactional
     public MovieGuideDto subscribeCategories(long guideId, List<Long> categoryIds, String username, boolean adminOrGuide) {
         Row guide = requireGuide(guideId);
         categories.requireGuideManage(guideId, username, adminOrGuide);
-        List<Long> distinct = categoryIds == null ? List.of() : categoryIds.stream().distinct().toList();
-        for (Long categoryId : distinct) {
+        Set<Long> desired = categoryIds == null ? Set.of() : new HashSet<>(categoryIds);
+        Set<Long> current = new HashSet<>(subscribedCategoryIds(guideId));
+        for (Long categoryId : desired) {
+            if (current.contains(categoryId)) continue;
             requireCategoryExists(categoryId);
             // Same bypass reasoning as createGuide's subscribedCategoryIds loop: the real authorization boundary
             // is ownership of this guide, already verified by requireGuideManage above.
             categories.move(categoryId, new MoveCategoryRequest(categoryId, guide.categoryId(), true), username, true);
+        }
+        for (Long categoryId : current) {
+            if (desired.contains(categoryId)) continue;
+            categories.unsubscribeGuideCategory(guideId, guide.categoryId(), categoryId);
         }
         return toDto(requireGuide(guideId));
     }
@@ -138,13 +149,24 @@ public class MovieGuideService {
         List<String> imdbIds = request.imdbIds().stream().distinct().toList();
         imdbIds.forEach(this::requireMovieExists);
         for (String imdbId : imdbIds) {
-            try {
-                jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category)")
-                        .param("movie", imdbId).param("category", targetCategoryId).update();
-            } catch (DuplicateKeyException ignored) {
-                // Idempotent submission.
-            }
+            // ON CONFLICT DO NOTHING rather than insert-then-catch(DuplicateKeyException): Postgres aborts the
+            // whole transaction server-side the instant any statement raises a real error, so catching it in
+            // Java would not actually let this loop keep going for the rest of the batch.
+            jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
+                    .param("movie", imdbId).param("category", targetCategoryId).update();
         }
+    }
+
+    // Backs the "Delete Movies" dialog: removes a movie from every category within the given scope's transitive
+    // subtrees (each scope id itself, plus all its descendants) -- e.g. scope=[guide's own category] reaches the
+    // movie no matter which native sub-category it's actually filed under, matching how the movie list itself is
+    // matched via the same transitive closure (category_parent_child_all).
+    @Transactional
+    public void removeMovie(long guideId, String imdbId, List<Long> categoryIds, String username, boolean adminOrGuide) {
+        requireGuide(guideId);
+        categories.requireGuideManage(guideId, username, adminOrGuide);
+        requireMovieExists(imdbId);
+        categories.removeMovieFromCategorySubtree(imdbId, categoryIds);
     }
 
     // Movies may be assigned directly to the guide's own anchor category, or to one of its native sub-categories
@@ -227,12 +249,8 @@ public class MovieGuideService {
     }
 
     private void linkMovieToCategory(String imdbId, long categoryId) {
-        try {
-            jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category)")
-                    .param("movie", imdbId).param("category", categoryId).update();
-        } catch (DuplicateKeyException ignored) {
-            // Idempotent submission.
-        }
+        jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
+                .param("movie", imdbId).param("category", categoryId).update();
     }
 
     // null means "not found" (the row is well-formed -- the client never sends rows it couldn't parse an

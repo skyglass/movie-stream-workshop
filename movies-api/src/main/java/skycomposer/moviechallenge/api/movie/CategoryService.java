@@ -1,7 +1,6 @@
 package skycomposer.moviechallenge.api.movie;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -46,6 +45,7 @@ public class CategoryService {
                         and not exists(select 1 from category_parent_child child
                             where child.parent_id=c.id and child.child_id<>c.id) empty,
                     (select d.referenced_category_id from movie_guide_default_category d
+                        join movie_guide g on g.id=d.movie_guide_id and g.category_id=direct.parent_id
                         where d.category_id=c.id and d.referenced_category_id is not null limit 1) referenced_category_id
                 from category c
                 join category_parent_child direct on direct.child_id=c.id
@@ -124,12 +124,13 @@ public class CategoryService {
             jdbc.sql("delete from category_parent_child where parent_id=:parent and child_id=:id")
                     .param("parent", request.sourceParentId()).param("id", id).update();
         }
-        try {
-            jdbc.sql("insert into category_parent_child(parent_id,child_id) values (:parent,:id)")
-                    .param("parent", target).param("id", id).update();
-        } catch (DuplicateKeyException ignored) {
-            // Already linked under this parent.
-        }
+        // ON CONFLICT DO NOTHING rather than insert-then-catch(DuplicateKeyException): Postgres aborts the whole
+        // transaction at the server level the instant any statement raises a real error (SQLSTATE 25P02 "current
+        // transaction is aborted" on everything that follows), so catching the exception in Java does not
+        // actually let the transaction keep going for the rest of this request -- e.g. re-subscribing to an
+        // already-subscribed category (the client resends the full checked list, not just newly-added ones).
+        jdbc.sql("insert into category_parent_child(parent_id,child_id) values (:parent,:id) on conflict do nothing")
+                .param("parent", target).param("id", id).update();
         if (request.copy()) {
             recordGuideReference(target, id);
         }
@@ -170,26 +171,33 @@ public class CategoryService {
                     .param("movie", movieId).param("category", categoryId).update();
         }
         for (Long categoryId : added) {
-            try {
-                jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category)")
-                        .param("movie", movieId).param("category", categoryId).update();
-            } catch (DuplicateKeyException ignored) {
-                // Idempotent submission.
-            }
+            jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
+                    .param("movie", movieId).param("category", categoryId).update();
         }
         return tree(movieId);
+    }
+
+    // Removes a movie from every category within these scope ids' transitive subtrees (each scope id itself,
+    // plus all its descendants) -- e.g. the "Delete Movies" dialog passes the guide's own category (or a picked
+    // sub-category) as scope, and this reaches the movie regardless of which exact descendant category it's
+    // actually filed under, matching how the movie list itself is matched via the same transitive closure.
+    @Transactional
+    public void removeMovieFromCategorySubtree(String movieId, List<Long> scopeCategoryIds) {
+        requireMovie(movieId);
+        if (scopeCategoryIds.isEmpty()) return;
+        jdbc.sql("""
+                delete from movie_category
+                where movie_id=:movie
+                  and category_id in (select descendant_id from category_parent_child_all where ancestor_id in (:scope))
+                """).param("movie", movieId).param("scope", scopeCategoryIds).update();
     }
 
     @Transactional
     public void addMovieFromSearchToCategory(long categoryId, RecommendMovieRequest movieRequest) {
         requireCategory(categoryId);
         Movie movie = movieService.getOrCreateMovie(movieRequest);
-        try {
-            jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category)")
-                    .param("movie", movie.getImdbId()).param("category", categoryId).update();
-        } catch (DuplicateKeyException ignored) {
-            // Idempotent submission.
-        }
+        jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
+                .param("movie", movie.getImdbId()).param("category", categoryId).update();
     }
 
     private CategoryDto findInTree(long id) {
@@ -323,6 +331,14 @@ public class CategoryService {
                 """).param("category", categoryId).param("parent", parentId).query(Long.class).optional().orElse(null);
     }
 
+    // Backs the "Subscribe to Categories" dialog's unsubscribe path (unchecking a previously-subscribed category):
+    // removes the guide's own reference edge and its movie_guide_default_category tracking row, leaving the
+    // category's original position (and any other guide's subscription to it) untouched.
+    @Transactional
+    public void unsubscribeGuideCategory(long guideId, long guideCategoryId, long categoryId) {
+        unlinkGuideReference(guideId, guideCategoryId, categoryId);
+    }
+
     private void unlinkGuideReference(long guideId, long parentId, long categoryId) {
         jdbc.sql("delete from movie_guide_default_category where movie_guide_id=:guide and category_id=:category")
                 .param("guide", guideId).param("category", categoryId).update();
@@ -342,14 +358,10 @@ public class CategoryService {
                 order by g.id limit 1
                 """).param("target", targetParentId).query(Long.class).optional().orElse(null);
         if (guideId == null) return;
-        try {
-            jdbc.sql("""
-                    insert into movie_guide_default_category(movie_guide_id, category_id, referenced_category_id)
-                    values (:guide, :category, :category)
-                    """).param("guide", guideId).param("category", categoryId).update();
-        } catch (DuplicateKeyException ignored) {
-            // Already tracked for this guide.
-        }
+        jdbc.sql("""
+                insert into movie_guide_default_category(movie_guide_id, category_id, referenced_category_id)
+                values (:guide, :category, :category) on conflict do nothing
+                """).param("guide", guideId).param("category", categoryId).update();
     }
 
     // Cascade-deletes id and its native descendants, but never destroys a category still reachable through some

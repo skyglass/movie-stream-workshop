@@ -48,7 +48,7 @@ export interface CategoryNodeAction {
       @if (!category.leaf && expanded.has(category.id)) {
         <ul>
           @for (child of category.children; track child.id) {
-            <app-category-tree-node [category]="child" [mode]="mode" [ancestors]="childAncestors" [expanded]="expanded" [explicitSelected]="explicitSelected" [assignmentSelected]="assignmentSelected" [management]="management"
+            <app-category-tree-node [category]="child" [mode]="mode" [ancestors]="childAncestors" [rootCategoryId]="rootCategoryId" [expanded]="expanded" [explicitSelected]="explicitSelected" [assignmentSelected]="assignmentSelected" [management]="management"
               (expand)="expand.emit($event)" (toggle)="toggle.emit($event)" (create)="create.emit($event)" (edit)="edit.emit($event)" (move)="move.emit($event)" (remove)="remove.emit($event)" />
           }
         </ul>
@@ -60,6 +60,11 @@ export class CategoryTreeNodeComponent {
   @Input({ required: true }) category!: MovieCategory;
   @Input() mode: CategoryTreeMode = 'assign';
   @Input() ancestors: MovieCategory[] = [];
+  // The real parent of a top-level (ancestor-less) node when this tree is a subtree rooted somewhere other than
+  // the global category forest (e.g. 'guide' mode's getCategorySubtree) -- those top-level nodes are the root
+  // category's direct children, not genuine self-parented roots, so parentIdForActions must fall back to this
+  // instead of the node's own id.
+  @Input() rootCategoryId?: number;
   @Input() expanded = new Set<number>();
   @Input() explicitSelected = new Set<number>();
   @Input() assignmentSelected = new Set<number>();
@@ -78,7 +83,10 @@ export class CategoryTreeNodeComponent {
   }
 
   get childAncestors(): MovieCategory[] { return [...this.ancestors, this.category]; }
-  get parentIdForActions(): number { return this.ancestors.length ? this.ancestors[this.ancestors.length - 1].id : this.category.id; }
+  get parentIdForActions(): number {
+    if (this.ancestors.length) return this.ancestors[this.ancestors.length - 1].id;
+    return this.rootCategoryId ?? this.category.id;
+  }
   get locked(): boolean { return this.mode === 'filter' && this.ancestors.some(parent => this.explicitSelected.has(parent.id)); }
   get checked(): boolean {
     if (this.mode === 'assign') return this.assignmentSelected.has(this.category.id);

@@ -16,6 +16,7 @@ import java.util.List;
 public class MovieService {
 
     private static final int HOMEPAGE_RATING_PRIOR_WEIGHT = 10;
+    private static final int CATEGORY_SIMILARITY_PRIOR_WEIGHT = 10;
 
     private final MovieRepository movieRepository;
 
@@ -143,6 +144,17 @@ public class MovieService {
     public Page<Movie> getUsersRecommendedMovies(String username, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
         return movieRepository.findUsersRecommendedMoviesByUsername(username, normalizedFilter(filter), normalizedFilter(year),
                 categoryCount(selectedCategories), categoryParameters(selectedCategories), pageable);
+    }
+
+    // seedMovieId null = "Recommend Similar Movies" scored from every category touched by any of the user's own
+    // rated movies (My Favorite Movies page); a real imdbId = scored only from that one movie's own categories,
+    // averaged over the user's OTHER ratings (Movie Details page's single-movie variant).
+    @Transactional(readOnly = true)
+    public Page<Movie> getCategorySimilarMovies(String username, String seedMovieId, Pageable pageable, String filter,
+                                                 String year, List<Long> selectedCategories) {
+        return movieRepository.findCategorySimilarMovies(username, seedMovieId, normalizedFilter(filter),
+                normalizedFilter(year), categoryCount(selectedCategories), categoryParameters(selectedCategories),
+                CATEGORY_SIMILARITY_PRIOR_WEIGHT, pageable);
     }
 
     @Transactional

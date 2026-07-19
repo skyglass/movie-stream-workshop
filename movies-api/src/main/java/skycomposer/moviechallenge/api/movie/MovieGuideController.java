@@ -13,6 +13,7 @@ import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesRequest;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesResponse;
 import skycomposer.moviechallenge.api.movie.dto.MovieGuideDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
+import skycomposer.moviechallenge.api.movie.dto.RemoveGuideMovieRequest;
 import skycomposer.moviechallenge.api.movie.dto.SubscribeGuideCategoriesRequest;
 
 import java.util.List;
@@ -88,6 +89,15 @@ public class MovieGuideController {
     public void completeCsvImport(@PathVariable long id, @Valid @RequestBody CompleteCsvImportRequest request,
                                    Authentication authentication) {
         movieGuides.completeCsvImport(id, request, authentication.getName(), isAdminOrGuide(authentication));
+    }
+
+    // Backs the guide page's "Delete Movies" action: removes a movie from every category within the given scope's
+    // transitive subtrees (see MovieGuideService.removeMovie / CategoryService.removeMovieFromCategorySubtree).
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PostMapping("/{id}/movies/{imdbId}/remove")
+    public void removeMovie(@PathVariable long id, @PathVariable String imdbId,
+                             @Valid @RequestBody RemoveGuideMovieRequest request, Authentication authentication) {
+        movieGuides.removeMovie(id, imdbId, request.categoryIds(), authentication.getName(), isAdminOrGuide(authentication));
     }
 
     private boolean isAdminOrGuide(Authentication authentication) {

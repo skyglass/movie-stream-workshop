@@ -107,61 +107,6 @@ dd {
   font-size: 1.1rem;
 }
 
-.rank-history-panel {
-  display: grid;
-  gap: 1rem;
-}
-
-.rank-history-group {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.rank-history-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1rem;
-  justify-items: center;
-}
-
-.rank-history-card {
-  width: 100%;
-  max-width: 220px;
-  border: 1px solid #dededf;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #1f2933;
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
-}
-
-.rank-poster-link,
-.rank-movie-link {
-  display: block;
-  color: inherit;
-  text-decoration: none;
-}
-
-.rank-poster-link img {
-  width: 100%;
-  aspect-ratio: 2 / 3;
-  object-fit: cover;
-  display: block;
-  background: #eef1f5;
-}
-
-.rank-movie-title {
-  min-height: 3rem;
-  padding: 0.65rem;
-  border-bottom: 1px solid #eceff3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
 h2,
 h3 {
   margin: 0 0 0.75rem;
@@ -177,36 +122,6 @@ h3 {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-}
-
-.rank-history-info {
-  width: 1.35rem;
-  min-width: 1.35rem;
-  height: 1.35rem;
-  min-height: 1.35rem;
-  border: 0;
-  border-radius: 999px;
-  padding: 0;
-  background: transparent;
-  color: #1b6fa8;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rank-history-info .material-icons {
-  font-size: 1rem;
-}
-
-.rank-history-help {
-  border: 1px solid #b9d8ef;
-  border-radius: 6px;
-  background: #f5fbff;
-  color: #244c73;
-  padding: 0.5rem;
-  font-size: 0.86rem;
-  font-weight: 700;
-  line-height: 1.35;
 }
 
 .comment-form {
@@ -366,6 +281,35 @@ button:disabled {
 
 .edit-button .material-icons {
   font-size: 1.15rem;
+}
+
+.similar-movies-button {
+  width: calc(100% - 1rem);
+  min-height: 2.4rem;
+  margin: 0 0.5rem 0.5rem;
+  border: 1px solid #b58900;
+  border-radius: 6px;
+  color: #8a6600;
+  background: #ffffff;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.similar-movies-button .material-icons {
+  font-size: 1.15rem;
+  color: #b58900;
+}
+
+/* Anonymous viewers see none of the Like/Dislike/Edit Movie elements above this button, so it would otherwise
+   sit flush against the poster with no breathing room -- add top margin only when it directly follows the
+   poster image (nothing else in between), leaving the authenticated layout (where a button already precedes
+   it, supplying its own bottom margin) unchanged. */
+.movie-card > img + .similar-movies-button {
+  margin-top: 0.5rem;
 }
 
 .comment-list {

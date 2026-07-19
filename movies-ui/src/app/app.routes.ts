@@ -6,6 +6,8 @@ import { MovieEditComponent } from './components/movie-edit/movie-edit';
 import { MovieWizardComponent } from './components/movie-wizard/movie-wizard';
 import { FavoriteMoviesComponent } from './components/favorite-movies/favorite-movies';
 import { UsersRecommendedMoviesComponent } from './components/users-recommended-movies/users-recommended-movies';
+import { SimilarFavoriteMoviesComponent } from './components/similar-favorite-movies/similar-favorite-movies';
+import { SimilarMoviesComponent } from './components/similar-movies/similar-movies';
 import { AdminLayoutComponent } from './components/admin-layout/admin-layout';
 import { AdminUsersComponent } from './components/admin-users/admin-users';
 import { ProfileComponent } from './components/profile/profile';
@@ -22,8 +24,10 @@ export const routes: Routes = [
   { path: 'movie-guides/:id', component: MovieGuideDetailComponent },
   { path: 'movie-challenge', component: MovieChallengePageComponent, canActivate: [authGuard] },
   { path: 'movies/:imdbId/edit', component: MovieEditComponent, canActivate: [movieEditGuard] },
-  { path: 'movies/:imdbId', component: MovieDetailComponent, canActivate: [authGuard] },
+  { path: 'movies/:imdbId/similar', component: SimilarMoviesComponent },
+  { path: 'movies/:imdbId', component: MovieDetailComponent },
   { path: 'wizard', component: MovieWizardComponent, canActivate: [adminGuard] },
+  { path: 'favorites/similar', component: SimilarFavoriteMoviesComponent, canActivate: [authGuard] },
   { path: 'favorites', component: FavoriteMoviesComponent, canActivate: [authGuard] },
   { path: 'my-favorite-movies/:username', component: FavoriteMoviesComponent },
   { path: 'movie-journeys', component: MovieCoursesComponent },

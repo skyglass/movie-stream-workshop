@@ -68,7 +68,7 @@ header h1 {
 
 .panel-description {
   margin: 0.9rem 1.25rem 1rem;
-  padding: 0.7rem 0.9rem;
+  padding: 0.85rem 1rem;
   border-left: 3px solid #1b6fa8;
   border-radius: 0 8px 8px 0;
   background: #f6f9fc;
@@ -77,8 +77,31 @@ header h1 {
   line-height: 1.55;
 }
 
+.panel-description p {
+  margin: 0;
+}
+
 .panel-description strong {
   color: #1b6fa8;
+}
+
+.panel-examples {
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.panel-examples li {
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #d8e6f0;
+  color: #1b6fa8;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .guide-list {

@@ -1,7 +1,5 @@
 <section class="detail-page">
-  @if (!auth.token) {
-    <div class="empty">Sign in to see movie details</div>
-  } @else if (loading) {
+  @if (loading) {
     <div class="state">Loading movie</div>
   } @else if (errorMessage && !movie) {
     <div class="state error">{{ errorMessage }}</div>
@@ -10,47 +8,49 @@
     <div class="detail-layout">
       <article class="movie-card">
         <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-        @if (movie.recommended) {
-          <button
-            type="button"
-            class="recommend-button recommended"
-            title="Clear like"
-            [disabled]="recommendationSaving"
-            (click)="clearRecommendation()">
-            <span class="material-icons" aria-hidden="true">check_circle</span>
-            Liked
-          </button>
-        } @else if (movie.disliked) {
-          <button
-            type="button"
-            class="recommend-button disliked"
-            title="Clear dislike"
-            [disabled]="recommendationSaving"
-            (click)="clearRecommendation()">
-            <span class="material-icons" aria-hidden="true">thumb_down</span>
-            Disliked
-          </button>
-        } @else {
-          <div class="recommendation-actions">
+        @if (auth.token) {
+          @if (movie.recommended) {
             <button
               type="button"
-              class="recommend-action like"
-              title="Like"
+              class="recommend-button recommended"
+              title="Clear like"
               [disabled]="recommendationSaving"
-              (click)="likeMovie()">
-              <span class="material-icons" aria-hidden="true">thumb_up</span>
-              Like
+              (click)="clearRecommendation()">
+              <span class="material-icons" aria-hidden="true">check_circle</span>
+              Liked
             </button>
+          } @else if (movie.disliked) {
             <button
               type="button"
-              class="recommend-action dislike"
-              title="Dislike"
+              class="recommend-button disliked"
+              title="Clear dislike"
               [disabled]="recommendationSaving"
-              (click)="dislikeMovie()">
+              (click)="clearRecommendation()">
               <span class="material-icons" aria-hidden="true">thumb_down</span>
-              Dislike
+              Disliked
             </button>
-          </div>
+          } @else {
+            <div class="recommendation-actions">
+              <button
+                type="button"
+                class="recommend-action like"
+                title="Like"
+                [disabled]="recommendationSaving"
+                (click)="likeMovie()">
+                <span class="material-icons" aria-hidden="true">thumb_up</span>
+                Like
+              </button>
+              <button
+                type="button"
+                class="recommend-action dislike"
+                title="Dislike"
+                [disabled]="recommendationSaving"
+                (click)="dislikeMovie()">
+                <span class="material-icons" aria-hidden="true">thumb_down</span>
+                Dislike
+              </button>
+            </div>
+          }
         }
         @if (auth.canEditMovies) {
           <a class="edit-button" [routerLink]="['/movies', movie.imdbId, 'edit']">
@@ -58,6 +58,10 @@
             Edit Movie
           </a>
         }
+        <a class="similar-movies-button" [routerLink]="['/movies', movie.imdbId, 'similar']" title="Recommend movies similar to this one" aria-label="Recommend Similar Movies">
+          <span class="material-icons" aria-hidden="true">auto_awesome</span>
+          Recommend Similar Movies
+        </a>
         <div class="movie-title">{{ movie.title }}</div>
         <dl>
           <div>
@@ -84,28 +88,32 @@
             <dt>Genre:</dt>
             <dd>{{ movie.genre || 'N/A' }}</dd>
           </div>
-          <div>
-            <dt>Your Rank:</dt>
-            <dd>{{ movie.rankPosition ?? '-' }}</dd>
-          </div>
-          <div>
-            <dt>Your Rating:</dt>
-            <dd>{{ movie.rating != null ? (movie.rating | number:'1.2-2') : '-' }}</dd>
-          </div>
+          @if (auth.token) {
+            <div>
+              <dt>Your Rank:</dt>
+              <dd>{{ movie.rankPosition ?? '-' }}</dd>
+            </div>
+            <div>
+              <dt>Your Rating:</dt>
+              <dd>{{ movie.rating != null ? (movie.rating | number:'1.2-2') : '-' }}</dd>
+            </div>
+          }
           <div>
             <dt>Country:</dt>
             <dd>{{ movie.country || 'N/A' }}</dd>
           </div>
         </dl>
-        <button
-          type="button"
-          class="replay-button"
-          title="Replay movie challenges"
-          [disabled]="replaySaving || recommendationSaving"
-          (click)="replayMovie()">
-          <span class="material-icons" aria-hidden="true">replay</span>
-          {{ replaySaving ? 'Replaying' : 'Replay' }}
-        </button>
+        @if (auth.token) {
+          <button
+            type="button"
+            class="replay-button"
+            title="Replay movie challenges"
+            [disabled]="replaySaving || recommendationSaving"
+            (click)="replayMovie()">
+            <span class="material-icons" aria-hidden="true">replay</span>
+            {{ replaySaving ? 'Replaying' : 'Replay' }}
+          </button>
+        }
       </article>
 
       <div class="detail-main">
@@ -145,10 +153,12 @@
         <section class="categories-panel" aria-labelledby="categories-title">
           <div class="categories-header">
             <h2 id="categories-title">Categories</h2>
-            <button type="button" class="edit-categories-button" (click)="openEditCategories()">
-              <span class="material-icons" aria-hidden="true">category</span>
-              Edit Categories
-            </button>
+            @if (auth.token) {
+              <button type="button" class="edit-categories-button" (click)="openEditCategories()">
+                <span class="material-icons" aria-hidden="true">category</span>
+                Edit Categories
+              </button>
+            }
           </div>
           @if (categoriesLoading) {
             <div class="state">Loading categories</div>
@@ -163,107 +173,6 @@
         @if (editCategoriesOpen) {
           <app-category-tree-dialog mode="assign" [movieId]="movie.imdbId" (closed)="closeEditCategories()" (assignmentsSaved)="onCategoriesSaved()" />
         }
-
-        <section class="rank-history-panel" aria-labelledby="rank-history-title">
-          <h2 id="rank-history-title">Rank History</h2>
-          @if (rankHistoryLoading) {
-            <div class="state">Loading rank history</div>
-          } @else if (rankHistoryErrorMessage) {
-            <div class="state error">{{ rankHistoryErrorMessage }}</div>
-          } @else if (rankHistory) {
-            <section class="rank-history-group" aria-labelledby="higher-ranks-title">
-              <h3 id="higher-ranks-title">
-                Ranked Higher
-                <button
-                  type="button"
-                  class="rank-history-info"
-                  aria-label="Show winners explanation"
-                  (click)="toggleRankHistoryHelp('winners')">
-                  <span class="material-icons" aria-hidden="true">info</span>
-                </button>
-              </h3>
-              @if (rankHistoryHelpVisible('winners')) {
-                <div class="rank-history-help">{{ winnersHelpText }}</div>
-              }
-              @if (rankHistory.higherRanks.length > 0) {
-                <div class="rank-history-grid">
-                  @for (rankedMovie of rankHistory.higherRanks; track rankedMovie.imdbId) {
-                    <article class="rank-history-card">
-                      <a class="rank-poster-link" [routerLink]="['/movies', rankedMovie.imdbId]">
-                        <img [src]="poster(rankedMovie)" [alt]="rankedMovie.title + ' poster'" />
-                      </a>
-                      <a class="rank-movie-link" [routerLink]="['/movies', rankedMovie.imdbId]">
-                        <div class="rank-movie-title">{{ rankedMovie.title }}</div>
-                        <dl>
-                          <div>
-                            <dt>Year:</dt>
-                            <dd>{{ rankedMovie.year }}</dd>
-                          </div>
-                          <div>
-                            <dt>Director:</dt>
-                            <dd>{{ rankedMovie.director }}</dd>
-                          </div>
-                          <div>
-                            <dt>Your Rank:</dt>
-                            <dd>{{ rankLabel(rankedMovie) }}</dd>
-                          </div>
-                        </dl>
-                      </a>
-                    </article>
-                  }
-                </div>
-              } @else {
-                <div class="empty">No higher ranked movies yet</div>
-              }
-            </section>
-
-            <section class="rank-history-group" aria-labelledby="lower-ranks-title">
-              <h3 id="lower-ranks-title">
-                Ranked Lower
-                <button
-                  type="button"
-                  class="rank-history-info"
-                  aria-label="Show losers explanation"
-                  (click)="toggleRankHistoryHelp('losers')">
-                  <span class="material-icons" aria-hidden="true">info</span>
-                </button>
-              </h3>
-              @if (rankHistoryHelpVisible('losers')) {
-                <div class="rank-history-help">{{ losersHelpText }}</div>
-              }
-              @if (rankHistory.lowerRanks.length > 0) {
-                <div class="rank-history-grid">
-                  @for (rankedMovie of rankHistory.lowerRanks; track rankedMovie.imdbId) {
-                    <article class="rank-history-card">
-                      <a class="rank-poster-link" [routerLink]="['/movies', rankedMovie.imdbId]">
-                        <img [src]="poster(rankedMovie)" [alt]="rankedMovie.title + ' poster'" />
-                      </a>
-                      <a class="rank-movie-link" [routerLink]="['/movies', rankedMovie.imdbId]">
-                        <div class="rank-movie-title">{{ rankedMovie.title }}</div>
-                        <dl>
-                          <div>
-                            <dt>Year:</dt>
-                            <dd>{{ rankedMovie.year }}</dd>
-                          </div>
-                          <div>
-                            <dt>Director:</dt>
-                            <dd>{{ rankedMovie.director }}</dd>
-                          </div>
-                          <div>
-                            <dt>Your Rank:</dt>
-                            <dd>{{ rankLabel(rankedMovie) }}</dd>
-                          </div>
-                        </dl>
-                      </a>
-                    </article>
-                  }
-                </div>
-              } @else {
-                <div class="empty">No lower ranked movies yet</div>
-              }
-            </section>
-          }
-        </section>
       </div>
     </div>
   }

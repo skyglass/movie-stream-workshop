@@ -3,8 +3,6 @@ package skycomposer.moviechallenge.api.movie;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto.MovieChallengeMovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieRatingDto;
-import skycomposer.moviechallenge.api.movie.dto.MovieRankHistoryDto;
-import skycomposer.moviechallenge.api.movie.dto.MovieRankHistoryDto.RankHistoryMovieDto;
 import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengeDto.SuggestedMovieChallengeMovieDto;
 import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengePageDto;
@@ -123,47 +121,6 @@ public class MovieChallengeRepository {
                         suggestedRefinementChallengeOrderSql(ordering)),
                 pageParams(refinementParams, pageable),
                 refinementCount);
-    }
-
-    public MovieRankHistoryDto findRankHistory(String username, String movieId) {
-        return new MovieRankHistoryDto(
-                rankHistoryMovies(username, movieId, "loser_id", "winner_id"),
-                rankHistoryMovies(username, movieId, "winner_id", "loser_id"));
-    }
-
-    private List<RankHistoryMovieDto> rankHistoryMovies(String username,
-                                                        String movieId,
-                                                        String currentMovieColumn,
-                                                        String historyMovieColumn) {
-        String sql = """
-                select history_movie.imdb_id,
-                    history_movie.title,
-                    history_movie.poster,
-                    history_movie.release_year,
-                    history_movie.director,
-                    rating.rank_position,
-                    rating.rating
-                from user_movie_challenge_vote vote
-                join movies history_movie
-                    on history_movie.imdb_id = vote.%s
-                join user_movie_rating rating
-                    on rating.user_id = vote.user_id
-                    and rating.movie_id = history_movie.imdb_id
-                where vote.user_id = :username
-                    and vote.%s = :movieId
-                order by rating.rank_position asc,
-                    lower(history_movie.title) asc,
-                    history_movie.imdb_id asc
-                """.formatted(historyMovieColumn, currentMovieColumn);
-        return jdbcTemplate.query(sql, Map.of("username", username, "movieId", movieId), (rs, rowNum) ->
-                new RankHistoryMovieDto(
-                        rs.getString("imdb_id"),
-                        rs.getString("title"),
-                        rs.getString("poster"),
-                        rs.getString("release_year"),
-                        rs.getString("director"),
-                        nullableInteger(rs, "rank_position"),
-                        rs.getBigDecimal("rating")));
     }
 
     private Optional<MovieChallengeDto> findExplorationChallenge(String username) {

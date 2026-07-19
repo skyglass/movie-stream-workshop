@@ -9,12 +9,13 @@ import { MovieGridComponent } from '../movie-grid/movie-grid';
 import { MovieSelectorComponent } from '../movie-selector/movie-selector';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 import { ImportCsvDialogComponent } from '../import-csv-dialog/import-csv-dialog';
+import { DeleteMoviesSelectorComponent } from '../delete-movies-selector/delete-movies-selector';
 
 @Component({
   standalone: true,
   selector: 'app-movie-guide-detail',
   imports: [CommonModule, MovieFilterSearchComponent, MovieGridComponent, MovieSelectorComponent,
-    CategoryTreeDialogComponent, ImportCsvDialogComponent],
+    CategoryTreeDialogComponent, ImportCsvDialogComponent, DeleteMoviesSelectorComponent],
   templateUrl: './movie-guide-detail.html',
   styleUrl: './movie-guide-detail.css'
 })
@@ -55,9 +56,12 @@ export class MovieGuideDetailComponent implements OnInit {
   selectedCategory: number | null = null;
   categoryDialogVisible = false;
   csvDialogVisible = false;
+  deleteMoviesSelectorVisible = false;
   subscribeCategoriesVisible = false;
   subscribingCategoryIds: number[] = [];
   subscribing = false;
+  descriptionDialogVisible = false;
+  selectedCategoryDescriptionVisible = false;
 
   ngOnInit(): void {
     this.categoryId = Number(this.route.snapshot.paramMap.get('id'));
@@ -68,17 +72,22 @@ export class MovieGuideDetailComponent implements OnInit {
     this.loadGuideInfo();
   }
 
-  get showAddMovies(): boolean {
+  // Gates "Subscribe to Categories"/"Select Category" -- these are the controls that change the selection itself,
+  // so unlike showAddMovies below they must stay visible no matter which category is currently selected;
+  // otherwise selecting a subscribed category would hide the only way to pick a different one again.
+  get canManageGuide(): boolean {
     if (!this.movieGuideId) return false;
+    return this.isOwner || this.auth.canEditMovies;
+  }
+
+  get showAddMovies(): boolean {
+    if (!this.canManageGuide) return false;
     // Subscribed/default categories are read-only references to a category that lives (and is managed)
     // elsewhere — "Add Movies"/"Import from CSV" are hidden for absolutely everyone (owner, non-owner,
     // MOVIES_GUIDE, MOVIES_ADMIN) while one is selected, no exceptions.
     const targetingSubscribedCategory = this.selectedCategory != null
       && this.guideSubscribedCategoryIds.includes(this.selectedCategory);
-    if (targetingSubscribedCategory) return false;
-    // Otherwise (no sub-category selected, or a native one): the guide's owner, MOVIES_GUIDE, or MOVIES_ADMIN
-    // may add movies.
-    return this.isOwner || this.auth.canEditMovies;
+    return !targetingSubscribedCategory;
   }
 
   openMovieSelector(): void {
@@ -135,11 +144,67 @@ export class MovieGuideDetailComponent implements OnInit {
     this.errorMessage = message;
   }
 
+  openDeleteMovies(): void {
+    this.deleteMoviesSelectorVisible = true;
+  }
+
+  closeDeleteMovies(): void {
+    this.deleteMoviesSelectorVisible = false;
+  }
+
+  // The Delete Movies dialog refreshes its own list after every deletion -- this just keeps the guide page's own
+  // "Movie Results" grid behind it in sync too, same as after a CSV import.
+  onMoviesDeleted(): void {
+    this.refreshAfterImport();
+  }
+
   // Resets filter text, the "Search OMDb" checkbox, and External Results, and returns the category scope to the
   // guide's own default -- but never touches selectedCategory (this component's own state, independent of
   // movie-filter-search), so loadMovies() keeps scoping to it when it's set.
   private refreshAfterImport(): void {
     this.filterSearch.clear();
+    // filterSearch.clear() only reloads via applyFilter()'s own change-detection guard, which silently no-ops
+    // when the filter was already at its default state (e.g. importing right after opening the page, without
+    // ever touching the filter first) -- an import always changes the underlying movies, never just the filter,
+    // so reload unconditionally here regardless of whether clear() already triggered one.
+    this.loadMovies(1);
+  }
+
+  openDescriptionDialog(): void {
+    this.descriptionDialogVisible = true;
+  }
+
+  closeDescriptionDialog(): void {
+    this.descriptionDialogVisible = false;
+  }
+
+  // Ancestor chain from the guide's own direct children down to the selected sub-category (inclusive) -- e.g.
+  // "Guides -> Heist Movies -> Genres -> Drama" becomes just ["Genres", "Drama"], relative to the guide itself.
+  get selectedCategoryPath(): MovieCategory[] {
+    if (this.selectedCategory == null || !this.category) return [];
+    return this.findCategoryPath(this.category.children, this.selectedCategory) ?? [];
+  }
+
+  get selectedCategoryLeaf(): MovieCategory | null {
+    const path = this.selectedCategoryPath;
+    return path.length ? path[path.length - 1] : null;
+  }
+
+  openSelectedCategoryDescription(): void {
+    this.selectedCategoryDescriptionVisible = true;
+  }
+
+  closeSelectedCategoryDescription(): void {
+    this.selectedCategoryDescriptionVisible = false;
+  }
+
+  private findCategoryPath(categories: MovieCategory[], targetId: number): MovieCategory[] | null {
+    for (const category of categories) {
+      if (category.id === targetId) return [category];
+      const found = this.findCategoryPath(category.children, targetId);
+      if (found) return [category, ...found];
+    }
+    return null;
   }
 
   openSubscribeCategories(): void {

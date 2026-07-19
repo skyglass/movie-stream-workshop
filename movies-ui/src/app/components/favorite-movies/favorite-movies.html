@@ -42,6 +42,10 @@
 
       @if (auth.token) {
         <div class="favorite-tools">
+          <a class="similar-movies-button" routerLink="/favorites/similar" title="Recommend movies similar to your favorites" aria-label="Recommend Similar Movies">
+            <span class="material-icons" aria-hidden="true">auto_awesome</span>
+            Recommend Similar Movies
+          </a>
           <div class="share-panel" aria-label="Favorite movies sharing">
             @if (share?.myFavoriteMoviesPublic && !shareDetailsVisible) {
               <button type="button" class="share-button" [disabled]="shareLoading" (click)="shareFavoriteMovies()">

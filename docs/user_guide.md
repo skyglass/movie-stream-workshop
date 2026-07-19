@@ -143,237 +143,63 @@ supported movies remain eligible but receive scores close to the catalog average
 stronger or broader support. If the user's Pearson correlation is zero or negative, their uniquely contributed movies
 are not eligible.
 
-## Movie Guide JSON Import Format
+## Movie Guides and Movie Personalities
 
-"Create Movie Guide" (Movie Guides page, any signed-in user) bulk-imports a hand-curated movie list from a JSON file.
-Uploading it creates a `Guides > <name>` or `Personalities > <name>` category, links every listed movie to it, and
-lands you on the catalog filtered to that category. A name that's already taken by an existing Guide/Personality is
-rejected — bulk import only ever creates a brand-new one; to add or remove movies/categories on an existing one, edit
-it directly on its own page instead of re-importing.
+A **Movie Guide** is a themed, hand-curated collection built around a topic (e.g. "Essential Heist Films"). A
+**Movie Personality** is a collection built around a real or fictitious taste — a director, critic, or persona
+(e.g. "What Kubrick Would Watch") — recommending movies the way that persona genuinely would. Both are the same
+underlying mechanism (an owner, an anchor category, subscribed categories, curated movies); the only structural
+difference is which root they live under: a Guide's anchor sits under `Guides`, a Personality's under
+`Personalities`.
 
-A **Guide** is a themed list (e.g. "Heist Movies"). A **Personality** is a real film expert, critic, or movie fan
-whose taste is publicly known — the "personality" is the one *doing the recommending*, not necessarily the subject
-of the movies. An actor or director can absolutely be the persona (e.g. "Robert De Niro — Italian Neorealism Picks"),
-but only because of their well-known taste and opinions; their own filmography belongs under `Directors`/`Writers`
-instead, not under a Personality category named after them.
+### Creating one
 
-### Two account tiers — same JSON format, different category resolution
+"Create Movie Guide" / "Create Movie Personality" (Movie Guides page, any signed-in user) opens a small dialog for
+just a name, description, and icon. Submitting it creates the `Guides > <name>` or `Personalities > <name>`
+category and takes you straight to its page — you become its owner. A name already taken by an existing
+Guide/Personality under the same root is rejected (409); to change an existing one, edit it directly rather than
+creating a new one with the same name.
 
-The JSON shape is identical either way. Creating the `Guides > <name>` / `Personalities > <name>` container itself is
-open to everyone. What differs is how a movie's `categories` dot-paths get resolved:
+### Adding movies
 
-- **`MOVIES_GUIDE` role or admin** — each path segment is created if it doesn't already exist (walking root to leaf).
-  This role is assigned per-user in Keycloak by an admin, precisely because unrestricted category creation at
-  bulk-import scale is a real abuse surface (spam/obscene category names, resource exhaustion) — see the request-size
-  and count limits below.
-- **Everyone else (any signed-in user)** — nothing is ever created. Each path is walked root to leaf against
-  *existing* categories only; the moment any segment (including the root) doesn't match, that whole path is silently
-  dropped for that movie rather than erroring. Browse "Select Categories" in the filter bar to see the current tree
-  before writing (or generating) your file, and copy a path from there exactly.
+From the guide's own page, the owner (or a `MOVIES_GUIDE`/`MOVIES_ADMIN` account) has two ways to add movies:
 
-Either way, any `imdbId` your account can't resolve (nonexistent, or OMDb can't find it either) is silently skipped
-rather than failing the whole upload — but the request as a whole is still capped: **1000 movies / 20,000 total
-category references** for `MOVIES_GUIDE`/admin accounts, **100 movies / 700 total category references** for everyone
-else. A file over 5 MB is rejected before it's even read.
+- **Add Movies** — opens a movie picker (search the catalog or OMDb, multi-select, confirm) and links the chosen
+  movies directly to the guide's own category or whichever native sub-category is currently selected via
+  "Select Category".
+- **Import from CSV** — paste, upload, or drag in comma-separated rows. Each row is one movie:
 
-### Top-level fields
+  ```text
+  tt0075314
+  tt0468569,"Genres.Drama"
+  tt0246434,"Genres.Drama","Narrative, Art & Characters.German Expressionism"
+  ```
 
-| Field | Type | Required | Meaning |
-|---|---|---|---|
-| `type` | `"Guide"` \| `"Personality"` | yes | Exact casing. Chooses the `Guides` or `Personalities` root. |
-| `name` | string | yes | The guide/personality's own category name, e.g. `"Heist Movies"` or `"Robert De Niro — Italian Neorealism Picks"`. |
-| `description` | string | no | Stored on that category the first time it's created; left alone on later uploads. |
-| `icon` | string | no | A single emoji for the guide/personality's category (e.g. `"🔫"` for a heist guide). Falls back to a generic 🗺️/🌟 if omitted. |
-| `movies` | array | yes | See below. |
+  The first column is the IMDb id — the only required field. Every column after that is optional: one quoted,
+  dot-separated category path to file the movie under, rooted at the guide's own category (so `"Genres.Drama"`
+  actually becomes `<Guide name> > Genres > Drama`, auto-created as needed). Quote a path if it contains a comma
+  (e.g. a category name like `"Narrative, Art & Characters"`). A movie with no category paths is linked directly
+  to the guide's own category. Rows whose imdb_id already exists in the catalog are linked in one pass; rows that
+  don't are looked up on OMDb automatically and added if exactly one match is found — anything OMDb can't resolve
+  either is silently skipped, not treated as a failure.
 
-### Each `movies[]` entry
+Movies can only ever be added to the guide's own anchor or a category the guide created natively — never directly
+to a category the guide has subscribed to (see below), except by `MOVIES_GUIDE`/`MOVIES_ADMIN` accounts.
 
-| Field | Type | Required | Meaning |
-|---|---|---|---|
-| `imdbId` | string | yes | A real IMDb id (`tt...`). Every movie must have one — this is what's actually used to match or create the movie. |
-| `title` | string | yes | The movie's title. Used only to render the pre-upload preview (see below) — never sent for reconciliation. |
-| `year` | string | yes | The movie's release year. Preview-only, same as `title`. |
-| `director` | string | yes | The movie's director. Preview-only, same as `title`. |
-| `categories` | array of strings | yes | One or more **dot-separated full paths**, root to leaf, e.g. `"Directors.Vittorio De Sica"` or `"Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"`. Any number of levels is allowed. `MOVIES_GUIDE`/admin accounts auto-create any segment that doesn't exist; other accounts must match an existing path exactly, or it's dropped (see above). |
+### Subscribing to categories
 
-`title`/`year`/`director` exist purely so the app can show you a **preview** of every movie before anything is created —
-a chance to catch an AI hallucinating a movie into the wrong category, or picking a movie that doesn't actually fit.
-On that preview screen you can edit a movie's categories or remove it from the list entirely before submitting.
+"Subscribe to Categories" links an *existing* category elsewhere in the tree into the guide, so its movies show up
+in the guide automatically — including movies added to it later, with nothing copied or duplicated. Subscribing to
+"New 2026" once means the guide always reflects whatever's currently in "New 2026", with zero manual upkeep. A
+subscribed category is marked 🔔 and read-only from the guide's side (no create/edit/move/delete, for anyone,
+including `MOVIES_GUIDE`/`MOVIES_ADMIN`) — it's still fully manageable at its own, original location. The same
+category can be subscribed to by any number of different guides at once.
 
-Every movie is also linked to the guide/personality category itself — you don't need to (and shouldn't) repeat the
-`type`/`name` as one of its own `categories` entries.
+To unsubscribe, uncheck the category in the same dialog and submit — this only removes the guide's own link; the
+category itself, and everything else that subscribes to it, is untouched.
 
-### What "categories" should actually contain
+### Deleting a guide
 
-A category path can be:
-- **A reuse of something that already exists** — `"Genres.Crime"`, `"Directors.Vittorio De Sica"`, or one of the
-  curated narrative paths (`"Narratives.Greek & Roman Mythology.Prometheus"`) all resolve to the existing category
-  instead of creating a duplicate.
-- **A brand-new, invented path** that captures *why this specific movie belongs in this specific guide/personality* —
-  this is the interesting part. When you (or an AI assistant) curate the list, write a short private note for each
-  movie explaining the judgment call — what makes it fit the theme, or why this persona would recommend it — and turn
-  that note into a category path instead of leaving it as prose. A deeper path is fine and often better:
-  `"Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"` says far more than a flat
-  `"Neorealism"` tag would. For a Personality specifically, remember the path should describe *why the persona
-  recommends it*, not a fact about the persona's own career — their own filmography belongs under `Directors`/`Writers`.
-
-Re-uploading the same file is always safe — every step is idempotent (existing categories are reused, existing
-`movie_category` links are no-ops).
-
-### Minimal 2-movie example
-
-```json
-{
-  "type": "Personality",
-  "name": "Robert De Niro — Italian Neorealism Picks",
-  "description": "The postwar Italian films De Niro has cited as formative to his own sense of screen truth.",
-  "icon": "🤌",
-  "movies": [
-    {
-      "imdbId": "tt0040959",
-      "title": "Bicycle Thieves",
-      "year": "1948",
-      "director": "Vittorio De Sica",
-      "categories": ["Directors.Vittorio De Sica", "Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"]
-    },
-    {
-      "imdbId": "tt0038650",
-      "title": "Rome, Open City",
-      "year": "1945",
-      "director": "Roberto Rossellini",
-      "categories": ["Directors.Roberto Rossellini", "Recommended By.Robert De Niro's Italian Neorealism Picks.Wartime Resistance Under Occupation"]
-    }
-  ]
-}
-```
-
-### Generating a file with an AI assistant
-
-This format is deliberately easy for an AI assistant (ChatGPT, Claude, Codex, etc.) to produce: ask it to role-play a
-domain expert curating a Guide, or a real, publicly-known film expert/critic/movie fan *recommending* movies for a
-Personality — hand-pick a real, specific movie list for that topic/persona, and translate its own judgment notes
-directly into category paths. A reusable prompt template:
-
-```text
-For a Guide: you are <a real or invented domain expert>, curating a movie guide called "<Guide name>".
-For a Personality: you are simulating <a real film expert, critic, or movie fan whose taste is publicly known, e.g.
-"Robert De Niro" or "a Cahiers du Cinéma critic">, recommending movies the way this person genuinely would, for a
-list called "<Personality name>". The personality is the expert doing the recommending, not necessarily the subject
-of the movies — an actor/director can be the persona, but only for their known taste, not their own filmography
-(which belongs under Directors/Writers instead).
-
-Hand-pick <12–25, or fewer for a tightly-scoped theme> real movies that best represent this topic/persona. For each
-movie:
-1. Look up (or recall) its real IMDb id (tt...), title, release year, and director — double-check these are real
-   and accurate, not invented.
-2. Write yourself a one-sentence note on *why* this specific movie earned its place on the list.
-3. Turn that note into one or more dot-separated category paths (root → ... → leaf, any depth) that capture why it
-   fits — e.g. "Genres.Thriller" or a new, specific path under a topic-relevant root.
-
-Output only this JSON shape (no commentary). Include "title", "year" and "director" for every movie so they can be
-previewed before upload — "imdbId" is still what's actually used to match/create the movie:
-{
-  "type": "Guide" or "Personality",
-  "name": "<title>",
-  "description": "<one sentence>",
-  "icon": "<a single emoji>",
-  "movies": [ { "imdbId": "tt...", "title": "...", "year": "...", "director": "...", "categories": ["...", "..."] }, ... ]
-}
-```
-
-### Worked examples
-
-Three different framings of the same Personality persona, and three unrelated Guide topics — each trimmed to 2
-movies here for brevity (a real upload would typically include far more). Note that none of the movies in the
-Personality examples star or were directed by Robert De Niro — he's the expert doing the recommending, not the
-subject.
-
-**Personality 1 — Robert De Niro's Italian Neorealism picks** (postwar films he's cited as formative to his own sense of screen truth):
-
-```json
-{
-  "type": "Personality",
-  "name": "Robert De Niro — Italian Neorealism Picks",
-  "description": "The postwar Italian films De Niro has cited as formative to his own sense of screen truth.",
-  "icon": "🤌",
-  "movies": [
-    { "imdbId": "tt0040959", "title": "Bicycle Thieves", "year": "1948", "director": "Vittorio De Sica", "categories": ["Directors.Vittorio De Sica", "Recommended By.Robert De Niro's Italian Neorealism Picks.The Human Cost of Poverty"] },
-    { "imdbId": "tt0038650", "title": "Rome, Open City", "year": "1945", "director": "Roberto Rossellini", "categories": ["Directors.Roberto Rossellini", "Recommended By.Robert De Niro's Italian Neorealism Picks.Wartime Resistance Under Occupation"] }
-  ]
-}
-```
-
-**Personality 2 — Robert De Niro's classic Hollywood noir favorites** (the studio-era films he's pointed to as touchstones):
-
-```json
-{
-  "type": "Personality",
-  "name": "Robert De Niro — Classic Hollywood Noir Favorites",
-  "description": "The studio-era noirs whose moral shading De Niro has named as touchstones.",
-  "icon": "🕵️",
-  "movies": [
-    { "imdbId": "tt0043014", "title": "Sunset Boulevard", "year": "1950", "director": "Billy Wilder", "categories": ["Directors.Billy Wilder", "Styles.Influences.Classical Hollywood Style", "Recommended By.Robert De Niro's Classic Hollywood Noir Favorites.Faded Stardom's Dark Side"] },
-    { "imdbId": "tt0036775", "title": "Double Indemnity", "year": "1944", "director": "Billy Wilder", "categories": ["Directors.Billy Wilder", "Styles.Influences.Film Noir", "Recommended By.Robert De Niro's Classic Hollywood Noir Favorites.Greed Disguised as Romance"] }
-  ]
-}
-```
-
-**Personality 3 — Robert De Niro's method acting masters** (the performances he's credited with shaping his own approach):
-
-```json
-{
-  "type": "Personality",
-  "name": "Robert De Niro — Method Acting Masters",
-  "description": "The performances De Niro has credited as shaping his own approach to the craft.",
-  "icon": "🎭",
-  "movies": [
-    { "imdbId": "tt0047296", "title": "On the Waterfront", "year": "1954", "director": "Elia Kazan", "categories": ["Directors.Elia Kazan", "Recommended By.Robert De Niro's Method Acting Masters.The Conflicted Conscience"] },
-    { "imdbId": "tt0044081", "title": "A Streetcar Named Desire", "year": "1951", "director": "Elia Kazan", "categories": ["Directors.Elia Kazan", "Writers.Tennessee Williams", "Narratives.Classic Theatre & Tragedy.Blanche DuBois", "Recommended By.Robert De Niro's Method Acting Masters.Raw Emotional Volatility"] }
-  ]
-}
-```
-
-**Guide 1 — Heist movies: masterworks of the perfect plan** (judged by how deliberately the plan/execution/twist structure is built, not just genre):
-
-```json
-{
-  "type": "Guide",
-  "name": "Heist Movies: Masterworks of the Perfect Plan",
-  "description": "Films built entirely around the construction, execution, and unraveling of a meticulous plan.",
-  "icon": "🔫",
-  "movies": [
-    { "imdbId": "tt0070735", "title": "The Sting", "year": "1973", "director": "George Roy Hill", "categories": ["Genres.Comedy", "Heist Mechanics.The Perfect Plan.The Long Con"] },
-    { "imdbId": "tt0105236", "title": "Reservoir Dogs", "year": "1992", "director": "Quentin Tarantino", "categories": ["Directors.Quentin Tarantino", "Heist Mechanics.The Perfect Plan.The Job Gone Wrong"] }
-  ]
-}
-```
-
-**Guide 2 — Existential sci-fi: questioning what it means to be human** (judged by philosophical weight, not spectacle):
-
-```json
-{
-  "type": "Guide",
-  "name": "Existential Sci-Fi: Questioning What It Means to Be Human",
-  "description": "Science fiction that uses its premise to interrogate identity, memory, and consciousness.",
-  "icon": "🤖",
-  "movies": [
-    { "imdbId": "tt0083658", "title": "Blade Runner", "year": "1982", "director": "Ridley Scott", "categories": ["Genres.Sci-Fi", "Philosophical Questions.What Makes Us Human.Manufactured Memory"] },
-    { "imdbId": "tt2543164", "title": "Arrival", "year": "2016", "director": "Denis Villeneuve", "categories": ["Genres.Sci-Fi", "Philosophical Questions.What Makes Us Human.Language Reshapes Time"] }
-  ]
-}
-```
-
-**Guide 3 — Underdog sports dramas: triumph against the odds** (judged by the shape of the underdog arc, across different sports):
-
-```json
-{
-  "type": "Guide",
-  "name": "Underdog Sports Dramas: Triumph Against the Odds",
-  "description": "Sports films where the emotional core is the unlikely rise, not the sport itself.",
-  "icon": "🏆",
-  "movies": [
-    { "imdbId": "tt0075148", "title": "Rocky", "year": "1976", "director": "John G. Avildsen", "categories": ["Genres.Sport", "Narrative Arcs.Triumph Against the Odds.The Unlikely Contender"] },
-    { "imdbId": "tt0405159", "title": "Cinderella Man", "year": "2005", "director": "Ron Howard", "categories": ["Genres.Sport", "Narrative Arcs.Triumph Against the Odds.The Late-Blooming Fighter"] }
-  ]
-}
-```
+Only the owner can delete their own Guide/Personality (from the Movie Guides list). Deleting it removes its own
+category and everything created natively under it, but never a category it only subscribed to — subscribed
+categories are simply unlinked, exactly like unsubscribing.

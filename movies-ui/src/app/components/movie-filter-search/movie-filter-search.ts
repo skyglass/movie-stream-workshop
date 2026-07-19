@@ -26,6 +26,7 @@ export class MovieFilterSearchComponent implements OnDestroy, OnChanges {
   @Input() externalActions: ExternalMovieAction[] = ['add', 'like'];
   @Input() showSelectCategories = true;
   @Input() showNotRecommendedFilter = false;
+  @Input() showOmdbSearch = true;
   @Input() initialSelectedCategories: number[] = [];
   @Output() valueChange = new EventEmitter<string>();
   @Output() internalSearch = new EventEmitter<ParsedMovieSearch>();

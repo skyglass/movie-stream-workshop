@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import skycomposer.moviechallenge.api.bdd.CucumberFixtureConfiguration;
 import skycomposer.moviechallenge.api.bdd.movie.fixture.MovieCatalogFixture;
+import skycomposer.moviechallenge.api.movie.dto.CategoryDto;
 import skycomposer.moviechallenge.api.movie.dto.MoveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.SaveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.SaveMovieCategoriesRequest;
@@ -18,13 +19,12 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+// Datasource comes from PostgresTestcontainerConfiguration (a real PostgreSQL container, picked up automatically
+// via component scanning) -- CategoryService's move()/delete() rely on genuine Postgres transaction-abort
+// semantics that H2 doesn't replicate.
 @Transactional
 @Import(CucumberFixtureConfiguration.class)
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:category_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS TIMESTAMPTZ AS TIMESTAMP WITH TIME ZONE",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=validate",
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8180/realms/movies"
 })
@@ -44,9 +44,12 @@ class CategoryServiceTest {
         assertThatThrownBy(() -> categories.move(root.id(), new MoveCategoryRequest(root.id(), leaf.id(), false), "guide", true))
                 .isInstanceOf(ResponseStatusException.class).hasMessageContaining("cycle");
 
+        // Looked up by id, not list position -- movies.saveMovie() below triggers automatic Director/Writer/Genre
+        // category creation (V35's sync_movie_categories trigger), so the top-level category list isn't just
+        // whatever this test itself created.
         var tree = categories.saveMovieCategories("tt-category",
                 new SaveMovieCategoriesRequest(List.of(leaf.id()), List.of()));
-        assertThat(tree.getFirst().children().getFirst().children().getFirst().checked()).isTrue();
+        assertThat(findById(tree, leaf.id())).isNotNull().extracting(CategoryDto::checked).isEqualTo(true);
 
         // Deleting a leaf is now allowed even though it still has a movie assigned to it.
         categories.delete(leaf.id(), child.id(), "guide", true);
@@ -61,12 +64,14 @@ class CategoryServiceTest {
 
         var tree = categories.saveMovieCategories("tt-category-2",
                 new SaveMovieCategoriesRequest(List.of(child.id()), List.of()));
-        var childDto = tree.getFirst().children().getFirst();
+        var childDto = findById(tree, child.id());
+        assertThat(childDto).isNotNull();
         assertThat(childDto.checked()).isTrue();
         assertThat(childDto.leaf()).isTrue();
 
         var leaf = categories.create(request("Courtroom", "⚖️", child.id()), "guide", true);
-        var reloaded = categories.tree(null).getFirst().children().getFirst();
+        var reloaded = findById(categories.tree(null), child.id());
+        assertThat(reloaded).isNotNull();
         assertThat(reloaded.leaf()).isFalse();
         assertThat(reloaded.children()).extracting("id").containsExactly(leaf.id());
     }
@@ -79,7 +84,7 @@ class CategoryServiceTest {
 
         categories.delete(child.id(), root.id(), "guide", true);
 
-        assertThat(categories.tree(null).getFirst().children()).isEmpty();
+        assertThat(findById(categories.tree(null), root.id())).isNotNull().extracting(CategoryDto::children).isEqualTo(List.of());
     }
 
     @Test
@@ -138,6 +143,15 @@ class CategoryServiceTest {
 
         assertThat(categories.tree(null)).extracting("id").contains(referenceRoot.id());
         assertThat(closureExists(referenceRoot.id(), referenceRoot.id())).isTrue();
+    }
+
+    private CategoryDto findById(List<CategoryDto> tree, long id) {
+        for (CategoryDto category : tree) {
+            if (category.id() == id) return category;
+            CategoryDto found = findById(category.children(), id);
+            if (found != null) return found;
+        }
+        return null;
     }
 
     private boolean closureExists(long ancestor, long descendant) {

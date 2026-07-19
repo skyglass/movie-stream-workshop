@@ -7,12 +7,12 @@ import skycomposer.moviechallenge.api.movie.application.service.AddMovieToCatalo
 import skycomposer.moviechallenge.api.movie.application.service.AdministerMovieCatalogUseCase;
 import skycomposer.moviechallenge.api.movie.application.service.AdministerMovieCatalogUseCase.UpdateMovieCommand;
 import skycomposer.moviechallenge.api.movie.application.service.RecommendMovieUseCase;
+import skycomposer.moviechallenge.api.movie.application.service.ViewCategorySimilarMoviesUseCase;
 import skycomposer.moviechallenge.api.movie.application.service.ViewMovieCatalogUseCase;
 import skycomposer.moviechallenge.api.movie.application.service.ViewMovieDetailsUseCase;
 import skycomposer.moviechallenge.api.movie.dto.CreateMovieRequest;
 import skycomposer.moviechallenge.api.movie.dto.MovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
-import skycomposer.moviechallenge.api.movie.dto.MovieRankHistoryDto;
 import skycomposer.moviechallenge.api.movie.dto.RecommendMovieRequest;
 import skycomposer.moviechallenge.api.userextra.dto.UpdateMovieRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -49,6 +49,7 @@ public class MoviesController {
     private final AddMovieCommentUseCase addMovieComment;
     private final AdministerMovieCatalogUseCase administerMovieCatalog;
     private final RecommendMovieUseCase recommendMovie;
+    private final ViewCategorySimilarMoviesUseCase viewCategorySimilarMovies;
     private final MoviePaging moviePaging;
 
     @GetMapping
@@ -73,10 +74,19 @@ public class MoviesController {
         return username == null ? viewMovieDetails.viewMovie(imdbId) : viewMovieDetails.viewMovie(imdbId, username);
     }
 
-    @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
-    @GetMapping("/{imdbId}/rank-history")
-    public MovieRankHistoryDto getMovieRankHistory(@PathVariable String imdbId, @AuthenticationPrincipal Jwt jwt) {
-        return viewMovieDetails.viewRankHistory(imdbId, username(jwt));
+    // Open to anonymous viewers (same as getMovie above): a signed-in viewer's own rated movies personalize the
+    // categories being scored; an anonymous one has no rating history of their own, so MovieRepository falls back
+    // to every user's ratings for that category (a catalog-wide "what people generally rate highly here" signal)
+    // instead of going empty -- see findCategorySimilarMovies' :username handling for the exact mechanics.
+    @GetMapping("/{imdbId}/similar-movies")
+    public MoviePageDto getSimilarMovies(@PathVariable String imdbId,
+                                         @AuthenticationPrincipal Jwt jwt,
+                                         @RequestParam(required = false) Integer page,
+                                         @RequestParam(required = false) Integer pageSize,
+                                         @RequestParam(required = false) String filter,
+                                         @RequestParam(required = false) String year,
+                                         @RequestParam(required = false) List<Long> selectedCategories) {
+        return viewCategorySimilarMovies.viewSimilarMoviesTo(username(jwt), imdbId, moviePaging.pageable(page, pageSize), filter, year, selectedCategories);
     }
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})

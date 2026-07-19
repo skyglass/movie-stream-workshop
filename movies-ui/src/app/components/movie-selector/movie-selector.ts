@@ -69,6 +69,13 @@ export class MovieSelectorComponent implements OnInit {
     this.categoryDialogVisible = false;
   }
 
+  // Fires on every check/uncheck (not just OK) -- same live-refresh pattern used by the other category dialogs,
+  // so the movie list behind this picker updates immediately instead of only after closing it.
+  onCategorySelectionChanged(categoryIds: number[]): void {
+    this.selectedCategoryIds = categoryIds;
+    this.loadMovies(1);
+  }
+
   onCategoriesSelected(categoryIds: number[]): void {
     this.selectedCategoryIds = categoryIds;
     this.categoryDialogVisible = false;

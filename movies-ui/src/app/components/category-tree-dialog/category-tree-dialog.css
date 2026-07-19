@@ -17,9 +17,14 @@ footer button{padding:.65rem .9rem;font-size:1rem}
 .create-root .material-icons{font-size:1.3rem;display:block}
 .secondary{background:#e2e8f0!important;color:#334155!important}
 .category-dialog button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
-.category-editor{display:grid;gap:.75rem;margin-top:1rem;padding:1rem;border:1px solid #cbd5e1;border-radius:9px;background:#f8fafc}
-.category-editor label{display:grid;gap:.3rem;font-weight:700}
-.category-editor input,.category-editor textarea{padding:.6rem;border:1px solid #94a3b8;border-radius:6px;font:inherit}
+.category-editor-dialog{width:min(420px,100%);background:#fff;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.3);padding:1.25rem}
+.category-editor-dialog header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.75rem}
+.category-editor-dialog h2{margin:.1rem 0}
+.category-editor-dialog form{display:grid;gap:.75rem}
+.category-editor-dialog label{display:grid;gap:.3rem;font-weight:700}
+.category-editor-dialog input,.category-editor-dialog textarea{padding:.6rem;border:1px solid #94a3b8;border-radius:6px;font:inherit}
+.category-editor-dialog .editor-actions{margin-top:.5rem;padding-top:.9rem;border-top:1px solid #e2e8f0}
+.category-editor-dialog button:disabled{opacity:.45;cursor:not-allowed}
 .parent-field{display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;border-radius:8px;background:#e2e8f0}
 .parent-field-label{color:#475569;font-weight:700;font-size:.85rem}
 .parent-field-value{display:flex;align-items:center;gap:.4rem;font-weight:700;color:#1e293b}

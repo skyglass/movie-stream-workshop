@@ -55,21 +55,6 @@ export interface SaveMovieCategory {
   parentId: number | null;
 }
 
-export interface MovieRankHistoryMovie {
-  imdbId: string;
-  title: string;
-  poster: string;
-  year: string;
-  director: string;
-  rankPosition: number | null;
-  rating: number | null;
-}
-
-export interface MovieRankHistory {
-  higherRanks: MovieRankHistoryMovie[];
-  lowerRanks: MovieRankHistoryMovie[];
-}
-
 export interface FavoriteMoviesShare {
   myFavoriteMoviesPublic: boolean;
   encodedUsername: string;
@@ -384,6 +369,12 @@ export class MoviesApiService {
     return this.http.post<void>(`${this.movieGuidesBase}/${movieGuideId}/wizard-movies`, { imdbIds, categoryId });
   }
 
+  // Backs the "Delete Movies" dialog: removes a movie from every category within the given scope's transitive
+  // subtrees (each scope id itself, plus all its descendants).
+  removeGuideMovie(movieGuideId: number, imdbId: string, categoryIds: number[]): Observable<void> {
+    return this.http.post<void>(`${this.movieGuidesBase}/${movieGuideId}/movies/${encodeURIComponent(imdbId)}/remove`, { categoryIds });
+  }
+
   listGuideMovies(movieGuideId: number, page = 1, pageSize = this.moviePageSize, filter = '', year = ''): Observable<MoviePage> {
     return this.http.get<MoviePage>(`${this.movieGuidesBase}/${movieGuideId}/movies`, {
       params: this.pageParams(page, pageSize, filter, year)
@@ -433,12 +424,16 @@ export class MoviesApiService {
     return this.http.get<MoviePage>(this.usersRecommendedMoviesBase, { params: this.pageParams(page, pageSize, filter, year, selectedCategories) });
   }
 
-  getMovie(imdbId: string): Observable<Movie> {
-    return this.http.get<Movie>(`${this.moviesBase}/${imdbId}`);
+  listSimilarToFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
+    return this.http.get<MoviePage>(`${this.favoriteMoviesBase}/similar`, { params: this.pageParams(page, pageSize, filter, year, selectedCategories) });
   }
 
-  getMovieRankHistory(imdbId: string): Observable<MovieRankHistory> {
-    return this.http.get<MovieRankHistory>(`${this.moviesBase}/${imdbId}/rank-history`);
+  listSimilarMovies(imdbId: string, page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
+    return this.http.get<MoviePage>(`${this.moviesBase}/${imdbId}/similar-movies`, { params: this.pageParams(page, pageSize, filter, year, selectedCategories) });
+  }
+
+  getMovie(imdbId: string): Observable<Movie> {
+    return this.http.get<Movie>(`${this.moviesBase}/${imdbId}`);
   }
 
   createMovie(movie: Partial<Movie>): Observable<Movie> {
