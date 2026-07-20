@@ -2,17 +2,18 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
-import { Subscription } from 'rxjs';
+import { Observable, Subscription, map } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { FavoriteMoviesShare, Movie, MoviesApiService, ParsedMovieSearch } from '../../services/movies-api';
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
+import { ShareDialogComponent } from '../share-dialog/share-dialog';
 
 @Component({
   standalone: true,
   selector: 'app-favorite-movies',
-  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent, CategoryTreeDialogComponent],
+  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent, CategoryTreeDialogComponent, ShareDialogComponent],
   templateUrl: './favorite-movies.html',
   styleUrl: './favorite-movies.css'
 })
@@ -31,11 +32,13 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   shareLoading = false;
   shareErrorMessage = '';
   shareUrl = '';
-  copiedShareUrl = false;
-  shareDetailsVisible = false;
+  shareDialogVisible = false;
   share?: FavoriteMoviesShare;
   isPublicView = false;
   publicUsername = '';
+  // The raw (still URL-encoded) :username route param, used as-is to build the "Recommend Similar Movies" link
+  // on this public page -- re-encoding the already-decoded publicUsername risks double-encoding edge cases.
+  encodedUsernameParam = '';
   currentPage = 1;
   totalCount = 0;
   readonly pageSize = this.moviesApi.moviePageSize;
@@ -43,6 +46,7 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   activeFilter = '';
   activeYear = '';
   activeCategories: number[] = [];
+  hasActiveFilter = false;
   categoryMovie: Movie | null = null;
 
   ngOnInit(): void {
@@ -50,6 +54,7 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
       const encodedUsername = params.get('username');
       this.isPublicView = encodedUsername !== null;
       this.publicUsername = encodedUsername ? this.decodeUsername(encodedUsername) : '';
+      this.encodedUsernameParam = encodedUsername ?? '';
       this.applySeoMetadata();
       this.resetMovies();
       this.resetFilter();
@@ -110,11 +115,8 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     this.activeFilter = search.keyword;
     this.activeYear = search.year;
     this.activeCategories = categories;
+    this.hasActiveFilter = search.hasActiveFilter ?? false;
     this.loadFavoriteMovies(1);
-  }
-
-  hasActiveFilter(): boolean {
-    return !!this.activeFilter || !!this.activeYear || this.activeCategories.length > 0;
   }
 
   loadShareStatus(): void {
@@ -134,27 +136,19 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
 
   shareFavoriteMovies(): void {
     if (!this.share?.myFavoriteMoviesPublic) return;
-    this.copiedShareUrl = false;
     this.shareUrl = this.moviesApi.favoriteMoviesShareUrl(this.share);
-    this.shareDetailsVisible = true;
+    this.shareDialogVisible = true;
   }
 
-  closeShareDetails(): void {
-    this.shareDetailsVisible = false;
-    this.shareUrl = '';
-    this.copiedShareUrl = false;
+  closeShareDialog(): void {
+    this.shareDialogVisible = false;
   }
 
-  async copyShareUrl(): Promise<void> {
-    if (!this.shareUrl) return;
-
-    try {
-      await navigator.clipboard.writeText(this.shareUrl);
-    } catch {
-      this.copyShareUrlWithFallback();
-    }
-    this.copiedShareUrl = true;
-  }
+  // Fetches up to maxMovies movies in the exact order shown on-screen for the current filter, without
+  // touching this component's own movies/currentPage/totalCount state.
+  fetchOrderedMovies = (maxMovies: number): Observable<Movie[]> =>
+    this.moviesApi.listFavoriteMovies(1, maxMovies, this.activeFilter, this.activeYear, this.activeCategories)
+      .pipe(map(page => page.movies));
 
   poster(movie: Movie): string {
     return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';
@@ -166,7 +160,7 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   private applyShare(share: FavoriteMoviesShare): void {
     this.share = share;
     if (!share.myFavoriteMoviesPublic) {
-      this.closeShareDetails();
+      this.closeShareDialog();
     }
   }
 
@@ -183,6 +177,7 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     this.activeFilter = '';
     this.activeYear = '';
     this.activeCategories = [];
+    this.hasActiveFilter = false;
   }
 
   private resetShareState(): void {
@@ -190,8 +185,7 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     this.shareUrl = '';
     this.shareErrorMessage = '';
     this.shareLoading = false;
-    this.copiedShareUrl = false;
-    this.shareDetailsVisible = false;
+    this.shareDialogVisible = false;
   }
 
   private decodeUsername(value: string): string {
@@ -217,17 +211,5 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     this.meta.updateTag({ property: 'og:description', content: description });
     this.meta.updateTag({ name: 'twitter:title', content: pageTitle });
     this.meta.updateTag({ name: 'twitter:description', content: description });
-  }
-
-  private copyShareUrlWithFallback(): void {
-    const textarea = document.createElement('textarea');
-    textarea.value = this.shareUrl;
-    textarea.setAttribute('readonly', '');
-    textarea.style.position = 'fixed';
-    textarea.style.left = '-9999px';
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
   }
 }

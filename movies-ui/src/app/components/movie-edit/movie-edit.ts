@@ -32,7 +32,9 @@ export class MovieEditComponent implements OnInit, OnDestroy {
   loading = false;
   refreshing = false;
   saving = false;
+  deleting = false;
   errorMessage = '';
+  private deleteSub?: Subscription;
 
   readonly movieForm = this.fb.group({
     imdbId: ['', Validators.required],
@@ -59,6 +61,7 @@ export class MovieEditComponent implements OnInit, OnDestroy {
     this.movieSub?.unsubscribe();
     this.omdbSub?.unsubscribe();
     this.saveSub?.unsubscribe();
+    this.deleteSub?.unsubscribe();
   }
 
   updateFromOmdb(): void {
@@ -95,6 +98,32 @@ export class MovieEditComponent implements OnInit, OnDestroy {
       error: err => {
         this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not update movie';
         this.saving = false;
+      }
+    });
+  }
+
+  // Admin-only (gated in the template via auth.isAdmin, and enforced server-side regardless): permanently
+  // removes this movie from the catalog. Every table that references it (challenges/votes/ranks, recommendations,
+  // comments, category assignments, journey/watchlist entries) cascade-deletes at the database level, so this is
+  // irreversible and affects every user who has that movie in a challenge, favorites, a journey, etc. -- not just
+  // the admin performing the delete.
+  deleteMovie(): void {
+    if (this.deleting || this.saving) return;
+    const title = this.movieForm.getRawValue().title || this.imdbId;
+    if (!confirm(`Delete "${title}" from the catalog? This also removes it from every user's favorites, `
+      + `challenges, recommendations, journeys, watchlists, and comments. This cannot be undone.`)) {
+      return;
+    }
+    this.deleting = true;
+    this.errorMessage = '';
+    this.deleteSub?.unsubscribe();
+    this.deleteSub = this.moviesApi.deleteMovie(this.imdbId).subscribe({
+      next: () => {
+        this.router.navigateByUrl('/home');
+      },
+      error: err => {
+        this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not delete movie';
+        this.deleting = false;
       }
     });
   }

@@ -1,4 +1,5 @@
 <section class="courses-page">
+  <app-my-watchlists-section />
   <header><div><p class="eyebrow">Explore through film</p><h1>Movie Journeys</h1><p>Follow curated watch lists, rate every movie, and become a Journey Expert.</p></div>
     @if(auth.token){<div class="header-actions"><button type="button" (click)="creating=!creating">{{ creating ? 'Cancel' : 'Create Movie Journey' }}</button></div>}</header>
   @if (auth.token && creating) { <form class="course-form" (ngSubmit)="create()"><label>Type<select name="type" [(ngModel)]="type">@for(journeyType of journeyTypes;track journeyType.value){<option [value]="journeyType.value">{{journeyType.label}}</option>}</select></label><label>Header<input name="header" [(ngModel)]="header" maxlength="200" required placeholder="The main journey heading"></label><label>Title<input name="title" [(ngModel)]="title" maxlength="200" required placeholder="A concise journey subtitle"></label>

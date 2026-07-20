@@ -48,9 +48,17 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/categories/*/movies-from-search").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/categories", "/api/categories/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/my-favorite-movies/**").permitAll()
+                        // Public shared view of a user's Recommended Movies page, once they've opted in via
+                        // Share -- read-only, gated server-side on is_my_recommended_movies_public (see
+                        // ShareUsersRecommendedMoviesUseCase). The owner-only Share status/toggle endpoints stay
+                        // under the existing authenticated "/api/users-recommended-movies/**" rule below.
+                        .requestMatchers(HttpMethod.GET, "/api/my-recommended-movies/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-journeys/*", "/api/movie-courses/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-journeys", "/api/movie-courses").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movies/*/similar-movies").permitAll()
+                        // "Download Poster Collage": renders a poster collage from already-public catalog data
+                        // (posters, imdb ids), same public-read posture as GET /api/movies.
+                        .requestMatchers(HttpMethod.POST, "/api/movie-cards/collage").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movies/*").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/movies/*").hasAnyRole(MOVIES_ADMIN, MOVIES_GUIDE)
                         .requestMatchers("/api/movies/*/comments").hasRole(MOVIES_ADMIN)
@@ -66,6 +74,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/users-recommended-movies", "/api/users-recommended-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers(HttpMethod.GET, "/api/movie-guides/by-category/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-guides/*/movies").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/movie-guides/*/similar-movies").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-guides/mine").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/wizard").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/subscribe").authenticated()
@@ -73,6 +82,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/import-csv").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/import-csv/complete").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/movies/*/remove").authenticated()
+                        // "My Watchlists": private data, unlike the public /api/movie-guides and /api/categories
+                        // above -- every method needs authentication, and WatchlistService/PrivateCategoryService
+                        // additionally enforce an owner-or-MOVIES_ADMIN check on every single call.
+                        .requestMatchers("/api/watchlists", "/api/watchlists/**").authenticated()
+                        .requestMatchers("/api/private-categories", "/api/private-categories/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movies").authenticated()
                         .requestMatchers("/api/movies", "/api/movies/**").hasRole(MOVIES_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/userextras/me").authenticated()

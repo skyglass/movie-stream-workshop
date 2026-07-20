@@ -60,6 +60,27 @@
         }
       </section>
 
+      <section class="settings-section" aria-label="Recommended movies privacy">
+        <label class="settings-checkbox">
+          <input
+            type="checkbox"
+            [checked]="recommendedMoviesPrivate"
+            [disabled]="recommendedPrivacyLoading || recommendedPrivacySaving"
+            (change)="setRecommendedMoviesPrivate($event)" />
+          <span>Make Your Recommended Movies Private</span>
+        </label>
+
+        @if (recommendedPrivacyLoading) {
+          <div class="settings-note">Loading recommended movies privacy</div>
+        }
+        @if (recommendedPrivacySavedMessage) {
+          <div class="settings-note success-text">{{ recommendedPrivacySavedMessage }}</div>
+        }
+        @if (recommendedPrivacyErrorMessage) {
+          <div class="settings-note error-text">{{ recommendedPrivacyErrorMessage }}</div>
+        }
+      </section>
+
       @if (savedMessage) {
         <div class="state success">{{ savedMessage }}</div>
       }

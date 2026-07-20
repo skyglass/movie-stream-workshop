@@ -54,9 +54,14 @@ public class MovieGuideService {
         String defaultIcon = type == MovieGuideType.PERSONALITY ? "🌟" : "🗺️";
         long rootId = getOrCreateCategory(null, root, defaultIcon);
         String trimmedName = request.name().trim();
-        if (findExistingCategory(rootId, trimmedName) != null) {
+        // movie_guide.name is globally unique (uq_movie_guide_name) -- a friendly pre-check ahead of the DB
+        // constraint. This subsumes the old same-root-only category-name check: since movie_guide.name is now
+        // unique across both Guides and Personalities, no two guides can ever collide on a category name within
+        // one root either.
+        if (jdbc.sql("select exists(select 1 from movie_guide where lower(name)=lower(:name))")
+                .param("name", trimmedName).query(Boolean.class).single()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "A " + type.getDescription() + " named \"" + trimmedName + "\" already exists. Choose a different name.");
+                    "Movie Guide with the name \"" + trimmedName + "\" already Exists");
         }
         String icon = (request.icon() != null && !request.icon().isBlank()) ? request.icon().trim() : defaultIcon;
         long categoryId = getOrCreateCategory(rootId, trimmedName, icon);
@@ -270,6 +275,19 @@ public class MovieGuideService {
         return new MoviePageDto(movies.getContent().stream().map(movieMapper::toMovieDto).toList(), movies.getTotalElements());
     }
 
+    // Backs the guide page's bottom "Recommend Similar Movies" section -- public (username nullable for an
+    // anonymous viewer, see MovieService.getCategorySimilarToGuideMovies).
+    @Transactional(readOnly = true)
+    public MoviePageDto similarMovies(long guideId, int page, int pageSize, String username, String filter,
+                                       String year, List<Long> selectedCategories) {
+        Row guide = requireGuide(guideId);
+        List<Long> subscribed = subscribedCategoryIds(guideId);
+        Pageable pageable = PageRequest.of(Math.max(page - 1, 0), pageSize);
+        Page<Movie> movies = movieService.getCategorySimilarToGuideMovies(
+                guide.categoryId(), subscribed, username, pageable, filter, year, selectedCategories);
+        return new MoviePageDto(movies.getContent().stream().map(movieMapper::toMovieDto).toList(), movies.getTotalElements());
+    }
+
     private Row requireGuide(long guideId) {
         return jdbc.sql("""
                 select id, category_id, type, name, description, icon, owner
@@ -296,15 +314,6 @@ public class MovieGuideService {
         if ("Guide".equals(type)) return MovieGuideType.GUIDE;
         if ("Personality".equals(type)) return MovieGuideType.PERSONALITY;
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "type must be \"Guide\" or \"Personality\"");
-    }
-
-    private Long findExistingCategory(Long parentId, String name) {
-        return jdbc.sql("""
-                select c.id from category c join category_parent_child pc on pc.child_id=c.id
-                where pc.parent_id = coalesce(:parent, c.id) and lower(c.name) = lower(:name)
-                """)
-                .param("parent", parentId, Types.BIGINT).param("name", name)
-                .query(Long.class).optional().orElse(null);
     }
 
     private long getOrCreateCategory(Long parentId, String name, String icon) {

@@ -4,8 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MovieCourse, MovieJourneyType, MoviesApiService } from '../../services/movies-api';
 import { AuthService } from '../../services/auth';
+import { MyWatchlistsSectionComponent } from '../my-watchlists-section/my-watchlists-section';
 
-@Component({ standalone: true, selector: 'app-movie-courses', imports: [CommonModule, FormsModule, RouterLink],
+@Component({ standalone: true, selector: 'app-movie-courses', imports: [CommonModule, FormsModule, RouterLink, MyWatchlistsSectionComponent],
   templateUrl: './movie-courses.html', styleUrls: ['./movie-courses.css'] })
 export class MovieCoursesComponent implements OnInit {
   private api = inject(MoviesApiService); private router = inject(Router);

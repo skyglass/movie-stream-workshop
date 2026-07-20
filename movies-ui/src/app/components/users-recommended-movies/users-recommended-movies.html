@@ -1,81 +1,105 @@
 <section class="movie-page">
-  @if (!auth.token) {
+  @if (isPublicView) {
+    <header class="recommended-header">
+      <h1>{{ publicUsername }}'s Recommended Movies</h1>
+    </header>
+  }
+
+  @if (!isPublicView && !auth.token) {
     <div class="empty">Sign in to see users recommended movies</div>
   } @else {
-    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter users recommended movies" (internalSearch)="applyFilter($event)" />
+    <app-movie-filter-search [(value)]="filterText" [ariaLabel]="isPublicView ? 'Filter recommended movies' : 'Filter users recommended movies'" (internalSearch)="applyFilter($event)">
+      @if (!isPublicView && auth.token && shareStatus?.myRecommendedMoviesPublic) {
+        <button filterLineExtra type="button" class="share-button" [disabled]="shareLoading" (click)="share()">Share</button>
+      }
+    </app-movie-filter-search>
     <h2>Movie Results</h2>
   }
 
-  @if (auth.token && loading) {
+  @if (shareDialogVisible) {
+    <app-share-dialog [shareUrl]="shareUrl" shareLabel="Recommended movies link" [fetchOrderedMovies]="fetchOrderedMovies" (closed)="closeShareDialog()" />
+  }
+
+  @if ((isPublicView || auth.token) && loading) {
     <div class="state">Loading users recommended movies</div>
-  } @else if (auth.token && errorMessage) {
+  } @else if ((isPublicView || auth.token) && errorMessage) {
     <div class="state error">{{ errorMessage }}</div>
-  } @else if (auth.token && movies.length > 0) {
+  } @else if ((isPublicView || auth.token) && movies.length > 0) {
     <div class="movie-grid">
       @for (movie of movies; track movie.imdbId) {
         <article class="movie-card">
-          <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
-            <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-          </a>
-          @if (movie.recommended) {
-            <button
-              type="button"
-              class="recommend-button recommended"
-              title="Clear recommendation"
-              [disabled]="recommendationBusy[movie.imdbId]"
-              (click)="clearRecommendation(movie)">
-              <span class="material-icons" aria-hidden="true">thumb_up</span>
-              Liked
-            </button>
-          } @else if (movie.disliked) {
-            <button
-              type="button"
-              class="recommend-button disliked"
-              title="Clear dislike"
-              [disabled]="recommendationBusy[movie.imdbId]"
-              (click)="clearRecommendation(movie)">
-              <span class="material-icons" aria-hidden="true">thumb_down</span>
-              Disliked
-            </button>
-          } @else {
-            <div class="recommendation-actions">
-              <button
-                type="button"
-                class="recommend-action like"
-                title="Like"
-                [disabled]="recommendationBusy[movie.imdbId]"
-                (click)="likeMovie(movie)">
-                <span class="material-icons" aria-hidden="true">thumb_up</span>
-                Like
-              </button>
-              <button
-                type="button"
-                class="recommend-action dislike"
-                title="Dislike"
-                [disabled]="recommendationBusy[movie.imdbId]"
-                (click)="dislikeMovie(movie)">
-                <span class="material-icons" aria-hidden="true">thumb_down</span>
-                Dislike
-              </button>
+          @if (isPublicView) {
+            <div class="poster-link">
+              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
             </div>
+          } @else {
+            <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
+              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+            </a>
           }
-          <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
-            <div class="movie-title">{{ movie.title }}</div>
-            <dl>
-              <div>
-                <dt>Year:</dt>
-                <dd>{{ movie.year }}</dd>
+          @if (!isPublicView) {
+            @if (movie.recommended) {
+              <button
+                type="button"
+                class="recommend-button recommended"
+                title="Clear recommendation"
+                [disabled]="recommendationBusy[movie.imdbId]"
+                (click)="clearRecommendation(movie)">
+                <span class="material-icons" aria-hidden="true">thumb_up</span>
+                Liked
+              </button>
+            } @else if (movie.disliked) {
+              <button
+                type="button"
+                class="recommend-button disliked"
+                title="Clear dislike"
+                [disabled]="recommendationBusy[movie.imdbId]"
+                (click)="clearRecommendation(movie)">
+                <span class="material-icons" aria-hidden="true">thumb_down</span>
+                Disliked
+              </button>
+            } @else {
+              <div class="recommendation-actions">
+                <button
+                  type="button"
+                  class="recommend-action like"
+                  title="Like"
+                  [disabled]="recommendationBusy[movie.imdbId]"
+                  (click)="likeMovie(movie)">
+                  <span class="material-icons" aria-hidden="true">thumb_up</span>
+                  Like
+                </button>
+                <button
+                  type="button"
+                  class="recommend-action dislike"
+                  title="Dislike"
+                  [disabled]="recommendationBusy[movie.imdbId]"
+                  (click)="dislikeMovie(movie)">
+                  <span class="material-icons" aria-hidden="true">thumb_down</span>
+                  Dislike
+                </button>
               </div>
-              <div>
-                <dt>Director:</dt>
-                <dd>{{ movie.director }}</dd>
-              </div>
-              <div>
-                <dt>Genre:</dt>
-                <dd>{{ movie.genre || 'N/A' }}</dd>
-              </div>
-            </dl>
-          </a>
+            }
+          }
+          @if (isPublicView) {
+            <div class="movie-link linkless">
+              <div class="movie-title">{{ movie.title }}</div>
+              <dl>
+                <div><dt>Year:</dt><dd>{{ movie.year }}</dd></div>
+                <div><dt>Director:</dt><dd>{{ movie.director }}</dd></div>
+                <div><dt>Genre:</dt><dd>{{ movie.genre || 'N/A' }}</dd></div>
+              </dl>
+            </div>
+          } @else {
+            <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
+              <div class="movie-title">{{ movie.title }}</div>
+              <dl>
+                <div><dt>Year:</dt><dd>{{ movie.year }}</dd></div>
+                <div><dt>Director:</dt><dd>{{ movie.director }}</dd></div>
+                <div><dt>Genre:</dt><dd>{{ movie.genre || 'N/A' }}</dd></div>
+              </dl>
+            </a>
+          }
         </article>
       }
     </div>
@@ -83,8 +107,8 @@
       [currentPage]="currentPage"
       [totalCount]="totalCount"
       [pageSize]="pageSize"
-      (pageChange)="loadUsersRecommendedMovies($event)" />
-  } @else if (auth.token) {
-    <div class="empty">No users recommended movies yet</div>
+      (pageChange)="loadMovies($event)" />
+  } @else if (isPublicView || auth.token) {
+    <div class="empty">{{ emptyMessage() }}</div>
   }
 </section>

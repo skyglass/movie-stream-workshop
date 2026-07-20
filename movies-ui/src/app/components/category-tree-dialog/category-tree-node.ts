@@ -76,10 +76,14 @@ export class CategoryTreeNodeComponent {
   @Output() move = new EventEmitter<CategoryNodeAction>();
   @Output() remove = new EventEmitter<CategoryNodeAction>();
 
-  // A node is "subscribed" if it's a reference itself, or lives under one -- e.g. "Genres > Crime" is just as
-  // read-only as "Genres" once "Genres" is a subscribed reference, since both belong to a tree managed elsewhere.
+  // A node is "subscribed" if it's a Guide-style DAG reference itself (or lives under one -- e.g. "Genres >
+  // Crime" is just as read-only as "Genres" once "Genres" is a subscribed reference), or if it's a Watchlist-style
+  // flat subscription pointer (category.subscribed, set only on the synthetic top-level entries
+  // WatchlistService.categoryPicker returns -- those never have subscribed descendants, since they carry no
+  // children at all, but ancestors is still checked for consistency).
   get subscribed(): boolean {
-    return !!this.category.referencedCategoryId || this.ancestors.some(ancestor => !!ancestor.referencedCategoryId);
+    return !!this.category.subscribed || !!this.category.referencedCategoryId
+      || this.ancestors.some(ancestor => !!ancestor.subscribed || !!ancestor.referencedCategoryId);
   }
 
   get childAncestors(): MovieCategory[] { return [...this.ancestors, this.category]; }

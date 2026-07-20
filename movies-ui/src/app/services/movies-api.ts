@@ -35,6 +35,16 @@ export interface MoviePage {
   totalCount: number;
 }
 
+// The subset of Movie/CourseMovie fields ShareDialogComponent's "Download Poster Collage"/"Download CSV file"
+// actually need -- both Movie and CourseMovie already satisfy this structurally, so each host page's
+// fetchOrderedMovies callback can return either without any mapping.
+export interface ShareableMovie {
+  imdbId: string;
+  title: string;
+  year: string;
+  director: string;
+}
+
 export interface MovieCategory {
   id: number;
   name: string;
@@ -45,6 +55,10 @@ export interface MovieCategory {
   leaf: boolean;
   empty: boolean;
   referencedCategoryId: number | null;
+  // True for a "subscribed" entry in a watchlist's category picker (a flat pointer at a public category, via
+  // movie_watchlist_default_category) -- drives the same bell/"Subscribed" badge as Guide's referencedCategoryId,
+  // but without implying a physical DAG link (kept as a separate field so the two concepts don't get conflated).
+  subscribed: boolean;
   children: MovieCategory[];
 }
 
@@ -53,6 +67,12 @@ export interface SaveMovieCategory {
   description: string;
   icon: string;
   parentId: number | null;
+}
+
+export interface UsersRecommendedMoviesShare {
+  myRecommendedMoviesPublic: boolean;
+  encodedUsername: string;
+  sharePath: string;
 }
 
 export interface FavoriteMoviesShare {
@@ -175,6 +195,11 @@ export interface ParsedMovieSearch {
   year: string;
   selectedCategories?: number[];
   onlyNotRecommended?: boolean;
+  // True when the user has changed anything about the filter from its default state (non-blank search text,
+  // "Search OMDb"/"Series"/"Not Voted Yet" checked, or a category picked beyond the page's own default scope).
+  // Host pages use this to tell "nothing found for your search" apart from "this list is genuinely empty" in
+  // their empty-state message -- see MovieFilterSearchComponent for how it's computed.
+  hasActiveFilter?: boolean;
 }
 
 export interface RecommendMovieFromSearchRequest {
@@ -218,6 +243,16 @@ export interface CsvMovieImport {
   categoryPaths: string[];
 }
 
+export interface WatchlistDto {
+  id: number;
+  categoryId: number;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  owner: string;
+  subscribedCategoryIds: number[];
+}
+
 export interface CourseMovie {
   imdbId: string; title: string; header: string; description: string; year: string; director: string;
   writer: string; genre: string; poster: string; watchOrder: number;
@@ -252,6 +287,10 @@ export class MoviesApiService {
   private readonly movieCoursesBase: string;
   private readonly categoriesBase: string;
   private readonly movieGuidesBase: string;
+  private readonly watchlistsBase: string;
+  private readonly privateCategoriesBase: string;
+  private readonly movieCardsBase: string;
+  private readonly myRecommendedMoviesBase: string;
 
   constructor(private http: HttpClient, private cfg: AppConfigService) {
     const c = cfg.config;
@@ -266,6 +305,10 @@ export class MoviesApiService {
     this.movieCoursesBase = `${c.apiBaseUrl}/api/movies/movie-journeys`;
     this.categoriesBase = `${c.apiBaseUrl}/api/movies/categories`;
     this.movieGuidesBase = `${c.apiBaseUrl}/api/movies/movie-guides`;
+    this.watchlistsBase = `${c.apiBaseUrl}/api/movies/watchlists`;
+    this.privateCategoriesBase = `${c.apiBaseUrl}/api/movies/private-categories`;
+    this.movieCardsBase = `${c.apiBaseUrl}/api/movies/movie-cards`;
+    this.myRecommendedMoviesBase = `${c.apiBaseUrl}/api/movies/my-recommended-movies`;
   }
 
   get moviePageSize(): number {
@@ -381,6 +424,16 @@ export class MoviesApiService {
     });
   }
 
+  // Backs the guide page's bottom "Recommend Similar Movies" section. Public -- like listSimilarMovies, the
+  // ranking personalizes to the signed-in caller's own rating history when an auth token is sent, and falls
+  // back to catalog-wide averages for an anonymous caller (see MovieService.getCategorySimilarToGuideMovies).
+  listSimilarToGuideMovies(movieGuideId: number, page = 1, pageSize = this.moviePageSize, filter = '', year = '',
+                            selectedCategories: number[] = []): Observable<MoviePage> {
+    return this.http.get<MoviePage>(`${this.movieGuidesBase}/${movieGuideId}/similar-movies`, {
+      params: this.pageParams(page, pageSize, filter, year, selectedCategories)
+    });
+  }
+
   // CSV import (default guide view "Import from CSV" dialog) Phase 1/2b.
   importCsvMovies(movieGuideId: number, movies: CsvMovieRef[], categoryId: number | null): Observable<ImportCsvMoviesResponse> {
     return this.http.post<ImportCsvMoviesResponse>(`${this.movieGuidesBase}/${movieGuideId}/import-csv`, { movies, categoryId });
@@ -388,6 +441,94 @@ export class MoviesApiService {
 
   completeCsvImport(movieGuideId: number, movies: CsvMovieImport[], categoryId: number | null): Observable<void> {
     return this.http.post<void>(`${this.movieGuidesBase}/${movieGuideId}/import-csv/complete`, { movies, categoryId });
+  }
+
+  // --- My Watchlists (private) ---
+
+  createWatchlist(name: string, description: string, icon: string, subscribedCategoryIds: number[]): Observable<WatchlistDto> {
+    return this.http.post<WatchlistDto>(this.watchlistsBase, { name, description, icon, subscribedCategoryIds });
+  }
+
+  getMyWatchlists(): Observable<WatchlistDto[]> {
+    return this.http.get<WatchlistDto[]>(`${this.watchlistsBase}/mine`);
+  }
+
+  getWatchlist(id: number): Observable<WatchlistDto> {
+    return this.http.get<WatchlistDto>(`${this.watchlistsBase}/${id}`);
+  }
+
+  getWatchlistByCategory(categoryId: number): Observable<WatchlistDto> {
+    return this.http.get<WatchlistDto>(`${this.watchlistsBase}/by-category/${categoryId}`);
+  }
+
+  updateWatchlist(id: number, name: string, description: string, icon: string): Observable<WatchlistDto> {
+    return this.http.put<WatchlistDto>(`${this.watchlistsBase}/${id}`, { name, description, icon });
+  }
+
+  deleteWatchlist(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.watchlistsBase}/${id}`);
+  }
+
+  subscribeWatchlistToCategories(watchlistId: number, categoryIds: number[]): Observable<WatchlistDto> {
+    return this.http.post<WatchlistDto>(`${this.watchlistsBase}/${watchlistId}/subscribe`, { categoryIds });
+  }
+
+  // Merged "Select Category" source for a watchlist: direct children of its own private anchor (full CRUD,
+  // expandable), plus its flat subscribed public categories (checkbox-only, "Subscribed" badge).
+  getWatchlistCategoryPicker(watchlistId: number, exclude: number[] = []): Observable<MovieCategory[]> {
+    const params: Record<string, string> = {};
+    if (exclude.length) params['exclude'] = exclude.join(',');
+    return this.http.get<MovieCategory[]>(`${this.watchlistsBase}/${watchlistId}/categories`, { params });
+  }
+
+  assignMoviesToWatchlist(watchlistId: number, imdbIds: string[], categoryId: number | null = null): Observable<void> {
+    return this.http.post<void>(`${this.watchlistsBase}/${watchlistId}/movies`, { imdbIds, categoryId });
+  }
+
+  // Empty categoryIds means the default union view (own movies + private subtree + subscribed categories);
+  // non-empty scopes to the OR of those specific categories (either the single id picked in "Select Category", or
+  // the multi-select picked in "Delete Movies" -- see WatchlistService.watchlistMovies).
+  listWatchlistMovies(watchlistId: number, categoryIds: number[] = [], page = 1, pageSize = this.moviePageSize,
+                       filter = '', year = ''): Observable<MoviePage> {
+    const params = this.pageParams(page, pageSize, filter, year);
+    if (categoryIds.length) params['categoryIds'] = categoryIds.join(',');
+    return this.http.get<MoviePage>(`${this.watchlistsBase}/${watchlistId}/movies`, { params });
+  }
+
+  // Removes a movie from the watchlist's own tables only (never the public category tree) -- empty/absent
+  // categoryIds means "remove from everywhere in this watchlist".
+  removeWatchlistMovie(watchlistId: number, imdbId: string, categoryIds: number[] = []): Observable<void> {
+    return this.http.post<void>(`${this.watchlistsBase}/${watchlistId}/movies/${encodeURIComponent(imdbId)}/remove`, { categoryIds });
+  }
+
+  importCsvMoviesToWatchlist(watchlistId: number, movies: CsvMovieRef[], categoryId: number | null): Observable<ImportCsvMoviesResponse> {
+    return this.http.post<ImportCsvMoviesResponse>(`${this.watchlistsBase}/${watchlistId}/import-csv`, { movies, categoryId });
+  }
+
+  completeCsvImportToWatchlist(watchlistId: number, movies: CsvMovieImport[], categoryId: number | null): Observable<void> {
+    return this.http.post<void>(`${this.watchlistsBase}/${watchlistId}/import-csv/complete`, { movies, categoryId });
+  }
+
+  // --- Private categories (a watchlist's own sandbox) ---
+
+  getPrivateCategorySubtree(rootId: number): Observable<MovieCategory[]> {
+    return this.http.get<MovieCategory[]>(`${this.privateCategoriesBase}/subtree/${rootId}`);
+  }
+
+  createPrivateCategory(category: SaveMovieCategory): Observable<MovieCategory> {
+    return this.http.post<MovieCategory>(this.privateCategoriesBase, category);
+  }
+
+  updatePrivateCategory(id: number, category: SaveMovieCategory): Observable<MovieCategory> {
+    return this.http.put<MovieCategory>(`${this.privateCategoriesBase}/${id}`, category);
+  }
+
+  deletePrivateCategory(id: number, parentId: number): Observable<void> {
+    return this.http.delete<void>(`${this.privateCategoriesBase}/${id}`, { params: { parentId } });
+  }
+
+  movePrivateCategory(id: number, sourceParentId: number, targetParentId: number | null, copy: boolean): Observable<MovieCategory> {
+    return this.http.post<MovieCategory>(`${this.privateCategoriesBase}/${id}/move`, { sourceParentId, targetParentId, copy });
   }
 
   listFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
@@ -416,6 +557,12 @@ export class MoviesApiService {
     return `${this.trimTrailingSlash(this.cfg.config.uiBaseUrl)}${share.sharePath}`;
   }
 
+  // "Download Poster Collage": renders a poster-only collage (server-side, to avoid a cross-origin "tainted
+  // canvas") for the given ordered imdb ids (max 50) as a downloadable PNG.
+  generateMovieCardsCollage(imdbIds: string[]): Observable<Blob> {
+    return this.http.post(`${this.movieCardsBase}/collage`, { imdbIds }, { responseType: 'blob' });
+  }
+
   listUsersFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
     return this.http.get<MoviePage>(this.usersFavoriteMoviesBase, { params: this.pageParams(page, pageSize, filter, year, selectedCategories) });
   }
@@ -426,6 +573,38 @@ export class MoviesApiService {
 
   listSimilarToFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
     return this.http.get<MoviePage>(`${this.favoriteMoviesBase}/similar`, { params: this.pageParams(page, pageSize, filter, year, selectedCategories) });
+  }
+
+  // Public, unauthenticated: "Recommend Similar Movies" on someone else's shared favorites page
+  // (my-favorite-movies/:username). 404s if that user hasn't opted into public sharing.
+  listPublicSimilarToFavoriteMovies(username: string, page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
+    return this.http.get<MoviePage>(`${this.publicFavoriteMoviesBase}/${encodeURIComponent(username)}/similar`, {
+      params: this.pageParams(page, pageSize, filter, year, selectedCategories)
+    });
+  }
+
+  // Public, unauthenticated: the shared view of someone's Recommended Movies page, once they've opted in via
+  // Share. 404s if that user hasn't opted into public sharing.
+  listPublicUsersRecommendedMovies(username: string, page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
+    return this.http.get<MoviePage>(`${this.myRecommendedMoviesBase}/${encodeURIComponent(username)}`, {
+      params: this.pageParams(page, pageSize, filter, year, selectedCategories)
+    });
+  }
+
+  getUsersRecommendedMoviesShare(): Observable<UsersRecommendedMoviesShare> {
+    return this.http.get<UsersRecommendedMoviesShare>(`${this.usersRecommendedMoviesBase}/share`);
+  }
+
+  shareUsersRecommendedMovies(): Observable<UsersRecommendedMoviesShare> {
+    return this.http.post<UsersRecommendedMoviesShare>(`${this.usersRecommendedMoviesBase}/share`, {});
+  }
+
+  makeUsersRecommendedMoviesPrivate(): Observable<UsersRecommendedMoviesShare> {
+    return this.http.delete<UsersRecommendedMoviesShare>(`${this.usersRecommendedMoviesBase}/share`);
+  }
+
+  usersRecommendedMoviesShareUrl(share: UsersRecommendedMoviesShare): string {
+    return `${this.trimTrailingSlash(this.cfg.config.uiBaseUrl)}${share.sharePath}`;
   }
 
   listSimilarMovies(imdbId: string, page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
@@ -473,14 +652,6 @@ export class MoviesApiService {
 
   recommendMovieFromSearch(movie: RecommendMovieFromSearchRequest): Observable<Movie> {
     return this.http.post<Movie>(`${this.moviesBase}/recommendation`, movie);
-  }
-
-  likeMovieFromSearch(movie: OmdbMovieSearchResult): Observable<Movie> {
-    return this.recommendMovie(movie.imdbId).pipe(
-      catchError(error => error?.status === 404
-        ? this.recommendMovieFromSearch(this.movieFromOmdb(movie))
-        : throwError(() => error))
-    );
   }
 
   unrecommendMovie(imdbId: string): Observable<Movie> {
@@ -620,21 +791,21 @@ export class MoviesApiService {
    * Each source is capped at OMDb's ten-result page and duplicates keep the
    * position of their first occurrence.
    */
-  searchOmdbFromFilter(value: string): Observable<OmdbMovieSearchResult[]> {
+  searchOmdbFromFilter(value: string, type: OmdbSearchType = 'movie'): Observable<OmdbMovieSearchResult[]> {
     const parsed = this.parseMovieSearch(value);
     if (!parsed.keyword) return of([]);
 
     const searches: Observable<OmdbMovieSearchPage>[] = [];
     if (parsed.year) {
       searches.push(this.searchOmdbMovies({
-        title: parsed.keyword, year: parsed.year, type: 'movie', exactTitleMatch: false
+        title: parsed.keyword, year: parsed.year, type, exactTitleMatch: false
       }));
     }
     searches.push(this.searchOmdbMovies({
-      title: parsed.keyword, year: '', type: 'movie', exactTitleMatch: true
+      title: parsed.keyword, year: '', type, exactTitleMatch: true
     }));
     searches.push(this.searchOmdbMovies({
-      title: parsed.keyword, year: '', type: 'movie', exactTitleMatch: false
+      title: parsed.keyword, year: '', type, exactTitleMatch: false
     }));
 
     return forkJoin(searches).pipe(map(pages => this.uniqueResults(pages.flatMap(page => page.movies))));
@@ -828,12 +999,13 @@ export class MoviesApiService {
 
   private toSearchResult(movie: OmdbMovie): OmdbMovieSearchResult {
     const type = this.movieTypeFromOmdb(movie.Type);
+    const writers = this.writerOrCreator(movie);
     return {
       imdbId: movie.imdbID,
       originalTitle: '',
       englishTitle: this.cleanOmdbValue(movie.Title),
-      directors: this.directorOrCreator(movie),
-      writers: this.cleanOmdbValue(movie.Writer),
+      directors: this.cleanOmdbValue(movie.Director) || (this.isSeries(movie) ? writers : ''),
+      writers,
       year: this.cleanOmdbValue(movie.Year),
       country: this.cleanOmdbValue(movie.Country),
       poster: this.cleanOmdbValue(movie.Poster),
@@ -941,17 +1113,17 @@ export class MoviesApiService {
     return value && value !== 'N/A' ? value : '';
   }
 
-  private directorOrCreator(movie: OmdbMovie): string {
-    const director = this.cleanOmdbValue(movie.Director);
-    if (director) {
-      return director;
-    }
+  // OMDb has no per-show "Director" credit for most TV series (those are typically per-episode, not
+  // series-level) -- Director often comes back "N/A" while Writer is populated at the series level with the
+  // showrunners/creators (e.g. Game of Thrones: Director "N/A", Writer "David Benioff, D.B. Weiss"). When
+  // Director is blank on a series, toSearchResult reuses the resolved writers value instead of saving blank
+  // director credits.
+  private writerOrCreator(movie: OmdbMovie): string {
+    return this.cleanOmdbValue(movie.Writer) || (this.isSeries(movie) ? this.cleanOmdbValue(movie.Creator) : '');
+  }
 
-    if (this.cleanOmdbValue(movie.Type).toLowerCase() === 'series') {
-      return this.cleanOmdbValue(movie.Creator) || this.cleanOmdbValue(movie.Writer);
-    }
-
-    return '';
+  private isSeries(movie: OmdbMovie): boolean {
+    return this.cleanOmdbValue(movie.Type).toLowerCase() === 'series';
   }
 
   private movieTypeFromOmdb(type: string | undefined): MovieType {

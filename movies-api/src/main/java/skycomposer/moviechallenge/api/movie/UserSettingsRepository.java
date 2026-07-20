@@ -8,4 +8,6 @@ import org.springframework.stereotype.Repository;
 public interface UserSettingsRepository extends JpaRepository<UserSettings, String> {
 
     boolean existsByUsernameAndMyFavoriteMoviesPublicTrue(String username);
+
+    boolean existsByUsernameAndMyRecommendedMoviesPublicTrue(String username);
 }

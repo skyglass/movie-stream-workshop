@@ -15,6 +15,12 @@
       <span>Search OMDb</span>
     </label>
   }
+  @if (showOmdbSearch && auth.token && value && searchOmdb) {
+    <label class="omdb-toggle series-toggle">
+      <input type="checkbox" [checked]="searchOmdbSeries" (change)="toggleOmdbSeries($event)" />
+      <span>Series</span>
+    </label>
+  }
   @if (showNotRecommendedFilter && auth.token) {
     <label class="not-recommended-toggle">
       <input type="checkbox" [checked]="notRecommendedOnly" (change)="toggleNotRecommended($event)" />
@@ -24,6 +30,7 @@
   @if (showSelectCategories) {
     <button type="button" class="category-filter-button" (click)="openCategoryDialog()"><span class="material-icons">account_tree</span>Select Categories… @if(selectedCategories.length){({{selectedCategories.length}})}</button>
   }
+  <ng-content select="[filterLineExtra]"></ng-content>
 </div>
 
 @if(categoryDialogVisible){<app-category-tree-dialog mode="filter" [selectedCategoryIds]="selectedCategories" (closed)="closeCategoryDialog()" (categoriesSelected)="closeCategoryDialog()" (selectionChanged)="onCategorySelectionChanged($event)" />}
@@ -64,8 +71,7 @@
             </dl>
             <div class="card-actions">
               @if (externalActions.includes('add')) { <button type="button" (click)="act('add')" [disabled]="acting"><span class="material-icons">add_circle</span>Add</button> }
-              @if (externalActions.includes('like')) { <button type="button" (click)="act('like')" [disabled]="acting"><span class="material-icons">thumb_up</span>Like</button> }
-              @if (externalActions.includes('addToCategory')) { <button type="button" (click)="act('addToCategory')" [disabled]="acting"><span class="material-icons">create_new_folder</span>Add to Selected Categories</button> }
+              @if (externalActions.includes('addToCategory')) { <button type="button" (click)="act('addToCategory')" [disabled]="acting"><span class="material-icons">create_new_folder</span>{{ addToCategoryLabel }}</button> }
               @if (externalActions.includes('addToJourney')) { <button type="button" (click)="act('addToJourney')" [disabled]="acting"><span class="material-icons">add_circle</span>Add to Journey</button> }
               <button type="button" class="secondary" (click)="closeMovie()" [disabled]="acting">Close</button>
             </div>

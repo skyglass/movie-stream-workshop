@@ -1,0 +1,87 @@
+@import '../movies-home/movies-home.css';
+
+.similar-header {
+  margin: 1rem 0 1.25rem;
+}
+
+.similar-header h1 {
+  margin: 0.2rem 0 0;
+  color: #203349;
+  font-size: 1.45rem;
+}
+
+.recommend-button {
+  cursor: pointer;
+}
+
+.recommend-button.recommended {
+  border-color: #66ad78;
+  color: #1d6b36;
+  background: #f3fbf5;
+}
+
+.recommend-button.recommended .material-icons {
+  color: #268242;
+}
+
+.recommend-button.disliked {
+  border-color: #d18b8b;
+  color: #8f2d2d;
+  background: #fff6f6;
+}
+
+.recommend-button.disliked .material-icons {
+  color: #a73939;
+}
+
+.recommendation-actions {
+  width: calc(100% - 1rem);
+  min-height: 2.4rem;
+  margin: 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.recommend-action {
+  min-width: 0;
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2933;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.recommend-action .material-icons {
+  font-size: 1.1rem;
+}
+
+.recommend-action.like {
+  border-color: #66ad78;
+  color: #1d6b36;
+}
+
+.recommend-action.like .material-icons {
+  color: #268242;
+}
+
+.recommend-action.dislike {
+  border-color: #d18b8b;
+  color: #8f2d2d;
+}
+
+.recommend-action.dislike .material-icons {
+  color: #a73939;
+}
+
+.recommend-action:disabled,
+.recommend-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -9,9 +9,12 @@
         <h2>{{ course.title }}</h2>
         <div class="course-description description-preview">
           <p class="description-text">{{ course.description || 'No journey description yet.' }}</p>
+        </div>
+        <div class="description-actions">
           @if (course.description) {
             <button type="button" class="description-more" title="Read full description" (click)="openDescription(course.header, course.description)"><span class="material-icons" aria-hidden="true">read_more</span>See More…</button>
           }
+          <button type="button" class="share-button" (click)="share()">Share</button>
         </div>
         <p class="course-creator">Created by {{ course.creator }}</p>
       </div>
@@ -98,6 +101,10 @@
           </article>
         }
       </div>
+    }
+
+    @if (shareDialogVisible) {
+      <app-share-dialog [shareUrl]="shareUrl" shareLabel="Movie Journey link" [fetchOrderedMovies]="fetchOrderedMovies" (closed)="closeShareDialog()" />
     }
 
     @if (descriptionDialog; as dialog) {

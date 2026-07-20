@@ -20,8 +20,14 @@ public class UserSettings {
     @Column(name = "is_my_favorite_movies_public", nullable = false)
     private boolean myFavoriteMoviesPublic;
 
+    @Column(name = "is_my_recommended_movies_public", nullable = false)
+    private boolean myRecommendedMoviesPublic;
+
     public UserSettings(String username) {
         this.username = username;
         this.myFavoriteMoviesPublic = false;
+        // Unlike favorites (private by default), a new user's Recommended Movies starts public -- "Make Your
+        // Recommended Movies Private" is unchecked by default on the Profile page.
+        this.myRecommendedMoviesPublic = true;
     }
 }

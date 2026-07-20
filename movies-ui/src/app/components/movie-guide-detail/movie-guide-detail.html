@@ -22,27 +22,21 @@
             <span class="material-icons">playlist_add</span>
             Add Movies
           </button>
+          <button type="button" class="category-filter-button danger" title="Remove Movies" aria-label="Remove Movies" (click)="openDeleteMovies()">
+            <span class="material-icons">playlist_remove</span>
+            Remove Movies
+          </button>
           <button type="button" class="icon-button" title="Import Movies from CSV" aria-label="Import Movies from CSV" (click)="openImportCsv()"><span class="material-icons">upload_file</span></button>
-          <button type="button" class="icon-button danger" title="Delete Movies" aria-label="Delete Movies" (click)="openDeleteMovies()"><span class="material-icons">delete</span></button>
         }
         <div class="share-tools">
-          <div class="share-panel" aria-label="Movie Guide sharing">
-            @if (!shareDetailsVisible) {
-              <button type="button" class="share-button" (click)="share()">Share</button>
-            }
-            @if (shareDetailsVisible && shareUrl) {
-              <div class="share-link-row">
-                <input type="text" [value]="shareUrl" readonly aria-label="Public Movie Guide link" />
-                <button type="button" class="copy-button" (click)="copyShareUrl()">
-                  {{ copiedShareUrl ? 'Copied' : 'Copy' }}
-                </button>
-                <button type="button" class="close-share-button" (click)="closeShareDetails()">Close</button>
-              </div>
-            }
-          </div>
+          <button type="button" class="share-button" (click)="share()">Share</button>
         </div>
       </div>
     </header>
+
+    @if (shareDialogVisible) {
+      <app-share-dialog [shareUrl]="shareUrl" shareLabel="Movie Guide link" [fetchOrderedMovies]="fetchOrderedMovies" (closed)="closeShareDialog()" />
+    }
 
     @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
 
@@ -54,10 +48,12 @@
             Subscribe to Categories
           </button>
         }
-        <button type="button" class="category-filter-button" (click)="openCategoryDialog()">
-          <span class="material-icons">account_tree</span>
-          {{ selectedCategory ? 'Sub-Category Selected' : 'Select Category' }}
-        </button>
+        @if (showSelectCategory) {
+          <button type="button" class="category-filter-button" (click)="openCategoryDialog()">
+            <span class="material-icons">account_tree</span>
+            {{ selectedCategory ? 'Sub-Category Selected' : 'Select Category' }}
+          </button>
+        }
         @if (selectedCategory && selectedCategoryPath.length) {
           <span class="selected-category-path">
             @for (segment of selectedCategoryPath; track segment.id; let last = $last) {
@@ -102,7 +98,9 @@
         </div>
       }
     }
-    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies in this guide" [showNotRecommendedFilter]="true" [showSelectCategories]="false" [initialSelectedCategories]="defaultCategories" (internalSearch)="applyFilter($event)" />
+    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies in this guide" [showNotRecommendedFilter]="true" [showSelectCategories]="false" [initialSelectedCategories]="defaultCategories"
+      [allowExternalActions]="false" [externalActions]="showAddMovies ? ['addToCategory'] : []" [addToCategoryLabel]="'Add to this ' + (entryType || 'Guide')"
+      (internalSearch)="applyFilter($event)" (externalAction)="onExternalAddToGuide($event)" />
     <h2>Movie Results</h2>
 
     <app-movie-grid
@@ -112,8 +110,17 @@
       [currentPage]="currentPage"
       [totalCount]="totalCount"
       [pageSize]="pageSize"
-      emptyMessage="No movies in this Movie Guide yet"
+      [emptyMessage]="emptyMessage()"
       (pageChange)="loadMovies($event)" />
+
+    <div class="similar-movies-footer">
+      <a class="similar-movies-button" [routerLink]="['/movie-guides', categoryId, 'similar']"
+        [title]="'Recommend movies similar to this ' + (entryType === 'Personality' ? 'personality' : 'guide')"
+        aria-label="Recommend Similar Movies">
+        <span class="material-icons" aria-hidden="true">auto_awesome</span>
+        Recommend Similar Movies
+      </a>
+    </div>
   }
   @if (movieSelectorVisible) {
     <app-movie-selector (moviesSelected)="onMoviesSelected($event)" />

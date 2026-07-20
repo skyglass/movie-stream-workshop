@@ -51,6 +51,6 @@
       [pageSize]="pageSize"
       (pageChange)="loadUsersFavoriteMovies($event)" />
   } @else if (auth.token) {
-    <div class="empty">No users favorite movies yet</div>
+    <div class="empty">{{ emptyMessage() }}</div>
   }
 </section>

@@ -1,0 +1,28 @@
+<div class="dialog-backdrop" (click)="close()">
+  <section class="collage-dialog" role="dialog" aria-modal="true" aria-labelledby="collage-dialog-title" (click)="$event.stopPropagation()">
+    <header>
+      <h2 id="collage-dialog-title">Movie Cards Collage</h2>
+      <button type="button" class="icon-button" title="Close" aria-label="Close" (click)="close()"><span class="material-icons">close</span></button>
+    </header>
+
+    <label class="max-movies-field">Movies to include
+      <input type="number" [(ngModel)]="maxMovies" name="maxMovies" [min]="minMovies" [max]="maxMoviesLimit"
+        [disabled]="loading" (change)="onMaxMoviesChange()" />
+    </label>
+
+    @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+
+    <div class="collage-preview">
+      @if (loading) {
+        <p class="collage-status">Generating collage…</p>
+      } @else if (previewUrl) {
+        <img [src]="previewUrl" alt="Movie cards collage preview" />
+      }
+    </div>
+
+    <footer>
+      <button type="button" class="secondary" (click)="close()">Close</button>
+      <button type="button" [disabled]="loading || !previewUrl" (click)="download()">Download</button>
+    </footer>
+  </section>
+</div>

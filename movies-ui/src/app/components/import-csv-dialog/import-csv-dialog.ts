@@ -17,7 +17,9 @@ export class ImportCsvDialogComponent {
   private static readonly MAX_FILE_BYTES = 5_000_000;
   private static readonly TIMEOUT_MS = 180_000;
 
-  @Input({ required: true }) movieGuideId!: number;
+  // Exactly one of movieGuideId/watchlistId is set by the caller.
+  @Input() movieGuideId: number | null = null;
+  @Input() watchlistId: number | null = null;
   // The default view's currently-selected sub-category, if any -- movies import into it instead of the guide's
   // own top-level category, matching how "Add Movies" already targets it (see movie-guide-detail.ts).
   @Input() categoryId: number | null = null;
@@ -131,7 +133,7 @@ export class ImportCsvDialogComponent {
     this.cancelled = false;
     this.startTimeoutGuard();
     this.statusMessage = `Matching ${rows.length} row(s) against the catalog…`;
-    this.api.importCsvMovies(this.movieGuideId, rows, this.categoryId).subscribe({
+    this.importMovies(rows).subscribe({
       next: response => {
         if (response.failedMovies.length === 0) {
           this.finish();
@@ -141,6 +143,18 @@ export class ImportCsvDialogComponent {
       },
       error: error => this.fail(error)
     });
+  }
+
+  private importMovies(rows: CsvMovieRef[]) {
+    return this.watchlistId != null
+      ? this.api.importCsvMoviesToWatchlist(this.watchlistId, rows, this.categoryId)
+      : this.api.importCsvMovies(this.movieGuideId!, rows, this.categoryId);
+  }
+
+  private completeImport(movies: CsvMovieImport[]) {
+    return this.watchlistId != null
+      ? this.api.completeCsvImportToWatchlist(this.watchlistId, movies, this.categoryId)
+      : this.api.completeCsvImport(this.movieGuideId!, movies, this.categoryId);
   }
 
   private runPhase2(failedMovies: CsvMovieRef[]): void {
@@ -155,7 +169,7 @@ export class ImportCsvDialogComponent {
           return;
         }
         this.statusMessage = `Adding ${movies.length} movie(s) found on OMDb…`;
-        this.api.completeCsvImport(this.movieGuideId, movies, this.categoryId).subscribe({
+        this.completeImport(movies).subscribe({
           next: () => this.finish(),
           error: error => this.fail(error)
         });

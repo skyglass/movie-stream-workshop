@@ -9,6 +9,9 @@
 .course-introduction h2 { margin: .6rem 0 1.4rem; color: #52647a; font-size: clamp(1.15rem,2vw,1.55rem); font-weight: 600; line-height: 1.35; }
 .course-description { max-width: 850px; }
 .course-description .description-text { min-height: 7.3rem; max-height: 7.3rem; -webkit-line-clamp: 4; font-size: .98rem; }
+.description-actions { display: flex; align-items: center; gap: .6rem; margin-top: .4rem; }
+.description-actions .share-button { display: inline-flex; align-items: center; gap: .35rem; margin-top: .5rem; border: 1px solid #dbe4ff; border-radius: 999px; background: #eef2ff; color: #273c75; font-weight: 700; font-size: .82rem; line-height: 1; padding: .4rem .8rem; cursor: pointer; }
+.description-actions .share-button:hover { background: #dbe4ff; border-color: #b9c8ff; color: #1d4ed8; }
 .course-creator { margin: 1rem 0 0; color: #6b7583; font-size: .85rem; }
 .notice,.expert { margin: 1rem 0; padding: 1rem; border-radius: 10px; background: #eef3ff; }
 .expert { display: flex; gap: 1rem; background: #edf9ef; color: #175b29; }

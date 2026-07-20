@@ -1,7 +1,7 @@
 <div class="dialog-backdrop" (click)="close()">
   <section class="delete-movies-selector" role="dialog" aria-modal="true" aria-labelledby="delete-movies-title" (click)="$event.stopPropagation()">
     <header>
-      <div><p class="eyebrow">Delete Movies</p><h2 id="delete-movies-title">Delete Movies from this guide</h2></div>
+      <div><p class="eyebrow">Delete Movies</p><h2 id="delete-movies-title">Delete Movies from this {{ watchlistId != null ? 'watchlist' : 'guide' }}</h2></div>
       <button type="button" class="icon-button" title="Close" aria-label="Close" (click)="close()"><span class="material-icons">close</span></button>
     </header>
 
@@ -15,7 +15,8 @@
         @if (pickedCategoryIds.length) { ({{ pickedCategoryIds.length }}) }
       </button>
       @if (categoryDialogVisible) {
-        <app-category-tree-dialog mode="filter" [rootCategoryId]="guideCategoryId" [excludedCategoryIds]="excludedCategoryIds"
+        <app-category-tree-dialog mode="filter" [rootCategoryId]="(watchlistId != null ? watchlistCategoryId : guideCategoryId) ?? undefined"
+          [watchlistId]="watchlistId ?? undefined" [excludedCategoryIds]="excludedCategoryIds"
           [selectedCategoryIds]="pickedCategoryIds"
           (closed)="closeCategoryDialog()" (categoriesSelected)="onCategoriesSelected($event)"
           (selectionChanged)="onCategorySelectionChanged($event)" />

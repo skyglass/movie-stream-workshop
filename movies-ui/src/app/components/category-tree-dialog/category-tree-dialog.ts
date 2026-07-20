@@ -39,6 +39,15 @@ export class CategoryTreeDialogComponent implements OnInit {
   // non-owner viewers too (as a read-only "Select Category" browser), so management can no longer be assumed
   // just from the mode; it's only actually enabled for the true owner (or MOVIES_GUIDE/MOVIES_ADMIN).
   @Input() isOwner = false;
+  // Set for a private watchlist's own category picker: swaps the data source to the merged private-subtree +
+  // subscribed-public-categories endpoint (WatchlistService.categoryPicker), and swaps every management call
+  // (create/edit/move/delete) to the private-category endpoints. Orthogonal to `mode` -- 'guide' mode with
+  // watchlistId set is a single-select "Select Category" picker over a watchlist's own sandbox; 'filter' mode
+  // with watchlistId set is the multi-select picker the "Delete Movies" dialog uses. rootCategoryId should still
+  // be set alongside this to the watchlist's own anchor category id, purely so top-level node actions resolve
+  // their real parent id (see CategoryTreeNodeComponent.parentIdForActions) -- it's not used to pick the load
+  // endpoint once watchlistId is set.
+  @Input() watchlistId?: number;
   @Output() closed = new EventEmitter<void>();
   @Output() categoriesSelected = new EventEmitter<number[]>();
   @Output() selectionChanged = new EventEmitter<number[]>();
@@ -70,9 +79,11 @@ export class CategoryTreeDialogComponent implements OnInit {
   load(): void {
     this.loading = true;
     this.errorMessage = '';
-    const request = (this.mode === 'guide' || this.mode === 'filter') && this.rootCategoryId != null
-      ? this.api.getCategorySubtree(this.rootCategoryId, this.excludedCategoryIds)
-      : this.api.getCategoryTree(this.mode === 'assign' ? this.movieId : undefined);
+    const request = this.watchlistId != null
+      ? this.api.getWatchlistCategoryPicker(this.watchlistId, this.excludedCategoryIds)
+      : (this.mode === 'guide' || this.mode === 'filter') && this.rootCategoryId != null
+        ? this.api.getCategorySubtree(this.rootCategoryId, this.excludedCategoryIds)
+        : this.api.getCategoryTree(this.mode === 'assign' ? this.movieId : undefined);
     request.subscribe({
       next: categories => {
         this.categories = this.excludeRootNames.length
@@ -172,9 +183,9 @@ export class CategoryTreeDialogComponent implements OnInit {
       parentId: existing?.parentId ?? this.creatingParentId ?? null
     };
     this.saving = true;
-    const operation = this.editingId == null
-      ? this.api.createCategory(request)
-      : this.api.updateCategory(this.editingId, request);
+    const operation = this.watchlistId != null
+      ? (this.editingId == null ? this.api.createPrivateCategory(request) : this.api.updatePrivateCategory(this.editingId, request))
+      : (this.editingId == null ? this.api.createCategory(request) : this.api.updateCategory(this.editingId, request));
     operation.subscribe({
       next: category => {
         if (this.editingId == null) {
@@ -190,7 +201,10 @@ export class CategoryTreeDialogComponent implements OnInit {
     const verb = action.category.referencedCategoryId ? 'Unlink' : 'Delete';
     if (!confirm(`${verb} category “${action.category.name}”?`)) return;
     this.saving = true;
-    this.api.deleteCategory(action.category.id, action.parentId).subscribe({
+    const operation = this.watchlistId != null
+      ? this.api.deletePrivateCategory(action.category.id, action.parentId)
+      : this.api.deleteCategory(action.category.id, action.parentId);
+    operation.subscribe({
       next: () => { this.explicitSelected.delete(action.category.id); this.saving = false; this.load(); },
       error: error => this.fail(error)
     });
@@ -210,8 +224,10 @@ export class CategoryTreeDialogComponent implements OnInit {
   managementEnabled(): boolean {
     // 'guide' mode is shown to every viewer (owner, non-owner, anonymous) as a read-only "Select Category"
     // browser -- management (create/edit/move/delete) is only actually enabled for the true owner or a
-    // MOVIES_GUIDE/MOVIES_ADMIN account, same as everywhere else.
-    if (this.mode === 'guide') return this.isOwner || this.auth.canEditMovies;
+    // MOVIES_GUIDE/MOVIES_ADMIN account, same as everywhere else. A watchlist's private categories are never
+    // manageable by MOVIES_GUIDE (that role only curates public Guides/Personalities) -- only the owner or
+    // MOVIES_ADMIN.
+    if (this.mode === 'guide') return this.isOwner || (this.watchlistId != null ? this.auth.isAdmin : this.auth.canEditMovies);
     return this.mode !== 'filter' && this.auth.canEditMovies;
   }
 

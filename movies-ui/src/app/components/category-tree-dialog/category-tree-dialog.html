@@ -31,7 +31,7 @@
         }
       </ul>
       @if (movingAction) {
-        <app-move-category-dialog [category]="movingAction.category" [sourceParentId]="movingAction.parentId" [allowCopy]="allowCopy" (closed)="cancelMove()" (moved)="onMoved()" />
+        <app-move-category-dialog [category]="movingAction.category" [sourceParentId]="movingAction.parentId" [allowCopy]="allowCopy" [watchlistId]="watchlistId" [rootCategoryId]="rootCategoryId" (closed)="cancelMove()" (moved)="onMoved()" />
       }
     }
   </div>

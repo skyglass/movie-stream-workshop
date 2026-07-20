@@ -29,6 +29,7 @@ export class UsersFavoriteMoviesComponent implements OnInit, OnDestroy {
   activeFilter = '';
   activeYear = '';
   activeCategories: number[] = [];
+  hasActiveFilter = false;
 
   ngOnInit(): void {
     if (this.auth.token) {
@@ -45,6 +46,7 @@ export class UsersFavoriteMoviesComponent implements OnInit, OnDestroy {
         this.activeFilter = '';
         this.activeYear = '';
         this.activeCategories = [];
+        this.hasActiveFilter = false;
       }
     });
   }
@@ -76,7 +78,12 @@ export class UsersFavoriteMoviesComponent implements OnInit, OnDestroy {
     this.activeFilter = search.keyword;
     this.activeYear = search.year;
     this.activeCategories = categories;
+    this.hasActiveFilter = search.hasActiveFilter ?? false;
     this.loadUsersFavoriteMovies(1);
+  }
+
+  emptyMessage(): string {
+    return this.hasActiveFilter ? 'No movies found' : 'No users favorite movies yet';
   }
 
   poster(movie: Movie): string {

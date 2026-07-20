@@ -5,7 +5,7 @@
       <button type="button" class="icon-button" title="Cancel" aria-label="Cancel" (click)="cancel()" [disabled]="saving"><span class="material-icons">close</span></button>
     </header>
 
-    @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+    @if (errorMessage) { <app-error-alert-dialog [message]="errorMessage" (closed)="errorMessage=''" /> }
 
     <form (ngSubmit)="submit()">
       <label>Name

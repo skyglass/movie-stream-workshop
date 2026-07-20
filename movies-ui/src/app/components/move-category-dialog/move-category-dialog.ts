@@ -16,6 +16,12 @@ export class MoveCategoryDialogComponent implements OnInit {
   @Input({ required: true }) category!: MovieCategory;
   @Input({ required: true }) sourceParentId!: number;
   @Input() allowCopy = true;
+  // Set for a private watchlist's own category picker -- moves are then scoped to that watchlist's private
+  // sandbox (private_category) instead of the public category tree, and never offer "Copy" (there's nothing to
+  // subscribe to from inside your own sandbox). rootCategoryId must be the watchlist's own anchor category id
+  // (the outer category-tree-dialog already carries this for the same reason -- see its own rootCategoryId doc).
+  @Input() watchlistId?: number;
+  @Input() rootCategoryId?: number;
   @Output() closed = new EventEmitter<void>();
   @Output() moved = new EventEmitter<void>();
 
@@ -28,7 +34,10 @@ export class MoveCategoryDialogComponent implements OnInit {
   errorMessage = '';
 
   ngOnInit(): void {
-    this.api.getCategoryTree().subscribe({
+    const request = this.watchlistId != null && this.rootCategoryId != null
+      ? this.api.getPrivateCategorySubtree(this.rootCategoryId)
+      : this.api.getCategoryTree();
+    request.subscribe({
       next: categories => { this.categories = categories; this.loading = false; },
       error: error => this.fail(error)
     });
@@ -54,7 +63,10 @@ export class MoveCategoryDialogComponent implements OnInit {
   submit(): void {
     this.saving = true;
     this.errorMessage = '';
-    this.api.moveCategory(this.category.id, this.sourceParentId, this.targetId(), this.copy).subscribe({
+    const operation = this.watchlistId != null
+      ? this.api.movePrivateCategory(this.category.id, this.sourceParentId, this.targetId(), this.copy)
+      : this.api.moveCategory(this.category.id, this.sourceParentId, this.targetId(), this.copy);
+    operation.subscribe({
       next: () => { this.saving = false; this.moved.emit(); },
       error: error => this.fail(error)
     });

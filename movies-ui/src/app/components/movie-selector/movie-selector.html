@@ -7,7 +7,7 @@
 
     <div class="dialog-body">
       <app-movie-filter-search [value]="filterText" (valueChange)="filterText=$event"
-        [allowExternalActions]="false" [externalActions]="['add','like']" [showSelectCategories]="false"
+        [allowExternalActions]="false" [externalActions]="['add']" [showSelectCategories]="false"
         (internalSearch)="onInternalSearch($event)" (externalAction)="onExternalAction($event)" />
 
       <button type="button" class="category-filter-button" (click)="openCategoryDialog()">

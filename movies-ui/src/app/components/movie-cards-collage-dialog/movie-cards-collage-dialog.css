@@ -1,0 +1,117 @@
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(15, 23, 42, 0.58);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.collage-dialog {
+  width: min(640px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+  padding: 1.25rem;
+}
+
+.collage-dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.collage-dialog h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+.icon-button {
+  border: 0;
+  background: transparent;
+  color: #334155;
+  padding: 0.35rem;
+  cursor: pointer;
+}
+
+.max-movies-field {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.85rem;
+  margin-bottom: 0.9rem;
+}
+
+.max-movies-field input {
+  width: 5.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.9rem;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.error {
+  color: #b91c1c;
+  margin: 0 0 0.75rem;
+}
+
+.collage-preview {
+  min-height: 12rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.collage-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+}
+
+.collage-status {
+  color: #64748b;
+  font-weight: 700;
+  margin: 0;
+}
+
+footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+footer button {
+  border: 0;
+  border-radius: 7px;
+  padding: 0.6rem 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: #1d4ed8;
+  color: #fff;
+}
+
+footer button.secondary {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+footer button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

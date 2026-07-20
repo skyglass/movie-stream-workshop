@@ -88,6 +88,12 @@
 
         <aside class="poster-panel">
           <img [src]="poster()" alt="Movie poster preview" />
+          @if (auth.isAdmin) {
+            <button type="button" class="danger" (click)="deleteMovie()" [disabled]="deleting || saving">
+              <span class="material-icons" aria-hidden="true">delete</span>
+              {{ deleting ? 'Deleting…' : 'Delete' }}
+            </button>
+          }
         </aside>
       </main>
     </div>

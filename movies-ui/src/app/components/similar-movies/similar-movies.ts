@@ -34,6 +34,7 @@ export class SimilarMoviesComponent implements OnInit, OnDestroy {
   activeFilter = '';
   activeYear = '';
   activeCategories: number[] = [];
+  hasActiveFilter = false;
 
   // This page is public (reachable by anonymous visitors from the Movie Details page); isAuthenticated$ stays in
   // the trigger so that signing in or out while already here reloads the results with/without the viewer's own
@@ -83,7 +84,12 @@ export class SimilarMoviesComponent implements OnInit, OnDestroy {
     this.activeFilter = search.keyword;
     this.activeYear = search.year;
     this.activeCategories = categories;
+    this.hasActiveFilter = search.hasActiveFilter ?? false;
     this.loadSimilarMovies(1);
+  }
+
+  emptyMessage(): string {
+    return this.hasActiveFilter ? 'No movies found' : 'No similar movies yet';
   }
 
   poster(movie: Movie): string {
@@ -132,5 +138,6 @@ export class SimilarMoviesComponent implements OnInit, OnDestroy {
     this.activeFilter = '';
     this.activeYear = '';
     this.activeCategories = [];
+    this.hasActiveFilter = false;
   }
 }

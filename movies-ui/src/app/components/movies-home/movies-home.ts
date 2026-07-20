@@ -31,6 +31,7 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
   activeYear = '';
   activeCategories: number[] = [];
   activeOnlyNotRecommended = false;
+  hasActiveFilter = false;
   // Fixed (never reassigned) — this page has no default category, so "Clear" always restores to none.
   readonly defaultCategories: number[] = [];
   private authSub?: Subscription;
@@ -72,11 +73,12 @@ export class MoviesHomeComponent implements OnInit, OnDestroy {
     this.activeYear = search.year;
     this.activeCategories = categories;
     this.activeOnlyNotRecommended = onlyNotRecommended;
+    this.hasActiveFilter = search.hasActiveFilter ?? false;
     this.loadMovies(1);
   }
 
   emptyMessage(): string {
-    return this.activeCategories.length > 0 ? 'No movies in Selected Categories yet' : 'No movies in Movie Challenge yet';
+    return this.hasActiveFilter ? 'No movies found' : 'No movies in Movie Challenge yet';
   }
 
   private applySeoMetadata(): void {

@@ -1,0 +1,34 @@
+<div class="dialog-backdrop" (click)="closed.emit()">
+  <section class="share-dialog" role="dialog" aria-modal="true" aria-labelledby="share-dialog-title" (click)="$event.stopPropagation()">
+    <header>
+      <h2 id="share-dialog-title">{{ dialogTitle }}</h2>
+      <button type="button" class="icon-button" title="Close" aria-label="Close" (click)="closed.emit()"><span class="material-icons">close</span></button>
+    </header>
+
+    @if (shareUrl) {
+      <div class="share-link-row">
+        <input type="text" [value]="shareUrl" readonly [attr.aria-label]="shareLabel" />
+        <button type="button" class="copy-button" (click)="copyShareUrl()">{{ copied ? 'Copied' : 'Copy' }}</button>
+      </div>
+    }
+
+    <button type="button" class="download-collage-button" title="Download Poster Collage" aria-label="Download Poster Collage" (click)="openCollageDialog()">
+      <span class="material-icons" aria-hidden="true">grid_view</span>
+      Download Poster Collage
+    </button>
+
+    <button type="button" class="download-collage-button" title="Download CSV file" aria-label="Download CSV file" [disabled]="downloadingCsv" (click)="downloadCsv()">
+      <span class="material-icons" aria-hidden="true">table_chart</span>
+      {{ downloadingCsv ? 'Downloading…' : 'Download CSV file' }}
+    </button>
+    @if (csvErrorMessage) { <p class="error">{{ csvErrorMessage }}</p> }
+
+    <footer>
+      <button type="button" class="secondary" (click)="closed.emit()">Close</button>
+    </footer>
+  </section>
+</div>
+
+@if (collageDialogVisible) {
+  <app-movie-cards-collage-dialog [fetchOrderedMovies]="fetchOrderedMovies" (closed)="closeCollageDialog()" />
+}

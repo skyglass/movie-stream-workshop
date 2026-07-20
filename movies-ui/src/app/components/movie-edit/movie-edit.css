@@ -152,6 +152,21 @@ button:disabled {
   background: #eef1f5;
 }
 
+.poster-panel .danger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  margin-top: 0.75rem;
+  border-color: #d84f4f;
+  color: #b91c1c;
+}
+
+.poster-panel .danger:hover:not(:disabled) {
+  background: #fff1f1;
+}
+
 .state,
 .form-message {
   border-radius: 6px;

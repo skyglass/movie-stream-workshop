@@ -1,0 +1,94 @@
+<section class="movie-page">
+  <app-back-button />
+  <header class="similar-header">
+    <p class="eyebrow">Recommend Similar Movies</p>
+    <h1>Similar to {{ guide?.name || (guide?.type === 'Personality' ? 'this Movie Personality' : 'this Movie Guide') }}</h1>
+  </header>
+
+  <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter similar movies" (internalSearch)="applyFilter($event)" />
+  <h2>Movie Results</h2>
+
+  @if (loading) {
+    <div class="state">Loading similar movies</div>
+  } @else if (errorMessage) {
+    <div class="state error">{{ errorMessage }}</div>
+  } @else if (movies.length > 0) {
+    <div class="movie-grid">
+      @for (movie of movies; track movie.imdbId) {
+        <article class="movie-card">
+          <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
+            <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+          </a>
+          @if (auth.token) {
+            @if (movie.recommended) {
+              <button
+                type="button"
+                class="recommend-button recommended"
+                title="Clear recommendation"
+                [disabled]="recommendationBusy[movie.imdbId]"
+                (click)="clearRecommendation(movie)">
+                <span class="material-icons" aria-hidden="true">thumb_up</span>
+                Liked
+              </button>
+            } @else if (movie.disliked) {
+              <button
+                type="button"
+                class="recommend-button disliked"
+                title="Clear dislike"
+                [disabled]="recommendationBusy[movie.imdbId]"
+                (click)="clearRecommendation(movie)">
+                <span class="material-icons" aria-hidden="true">thumb_down</span>
+                Disliked
+              </button>
+            } @else {
+              <div class="recommendation-actions">
+                <button
+                  type="button"
+                  class="recommend-action like"
+                  title="Like"
+                  [disabled]="recommendationBusy[movie.imdbId]"
+                  (click)="likeMovie(movie)">
+                  <span class="material-icons" aria-hidden="true">thumb_up</span>
+                  Like
+                </button>
+                <button
+                  type="button"
+                  class="recommend-action dislike"
+                  title="Dislike"
+                  [disabled]="recommendationBusy[movie.imdbId]"
+                  (click)="dislikeMovie(movie)">
+                  <span class="material-icons" aria-hidden="true">thumb_down</span>
+                  Dislike
+                </button>
+              </div>
+            }
+          }
+          <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
+            <div class="movie-title">{{ movie.title }}</div>
+            <dl>
+              <div>
+                <dt>Year:</dt>
+                <dd>{{ movie.year }}</dd>
+              </div>
+              <div>
+                <dt>Director:</dt>
+                <dd>{{ movie.director }}</dd>
+              </div>
+              <div>
+                <dt>Genre:</dt>
+                <dd>{{ movie.genre || 'N/A' }}</dd>
+              </div>
+            </dl>
+          </a>
+        </article>
+      }
+    </div>
+    <app-movie-page-navigator
+      [currentPage]="currentPage"
+      [totalCount]="totalCount"
+      [pageSize]="pageSize"
+      (pageChange)="loadSimilarMovies($event)" />
+  } @else {
+    <div class="empty">{{ emptyMessage() }}</div>
+  }
+</section>

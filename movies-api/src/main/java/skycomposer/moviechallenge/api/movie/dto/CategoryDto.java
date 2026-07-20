@@ -12,5 +12,6 @@ public record CategoryDto(
         boolean leaf,
         boolean empty,
         Long referencedCategoryId,
+        boolean subscribed,
         List<CategoryDto> children) {
 }

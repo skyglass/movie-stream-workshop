@@ -1,0 +1,12 @@
+<div class="dialog-backdrop" (click)="closed.emit()">
+  <section class="error-alert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="error-alert-title" (click)="$event.stopPropagation()">
+    <header>
+      <span class="material-icons error-icon" aria-hidden="true">error_outline</span>
+      <h2 id="error-alert-title">Something went wrong</h2>
+    </header>
+    <p class="error-alert-message">{{ message }}</p>
+    <footer>
+      <button type="button" (click)="closed.emit()">OK</button>
+    </footer>
+  </section>
+</div>

@@ -88,10 +88,7 @@ export class MovieSelectorComponent implements OnInit {
   }
 
   onExternalAction(event: { action: ExternalMovieAction; movie: OmdbMovieSearchResult }): void {
-    const request = event.action === 'add'
-      ? this.api.createMovieFromSearch(event.movie)
-      : this.api.likeMovieFromSearch(event.movie);
-    request.subscribe({
+    this.api.createMovieFromSearch(event.movie).subscribe({
       next: movie => {
         this.filterSearch.completeExternalAction();
         this.addSelected(movie);

@@ -1,0 +1,142 @@
+<section class="movie-page">
+  @if (loading) {
+    <div class="state">Loading Watchlist…</div>
+  } @else {
+    <header class="guide-header">
+      <div>
+        <p class="eyebrow">{{ watchlist?.icon || '🔖' }} Private Watchlist</p>
+        <h1>{{ watchlist?.name || 'Watchlist' }}</h1>
+        @if (watchlist?.description) {
+          <div class="description-preview">
+            <p class="guide-description">{{ watchlist?.description }}</p>
+            <button type="button" class="icon-button" title="Read full description" aria-label="Read full description" (click)="openDescriptionDialog()">
+              <span class="material-icons">read_more</span>
+            </button>
+          </div>
+        }
+      </div>
+
+      <div class="header-actions">
+        @if (showAddMovies) {
+          <button type="button" class="category-filter-button" title="Add Movies" aria-label="Add Movies" (click)="openMovieSelector()">
+            <span class="material-icons">playlist_add</span>
+            Add Movies
+          </button>
+          <button type="button" class="category-filter-button danger" title="Remove Movies" aria-label="Remove Movies" (click)="openDeleteMovies()">
+            <span class="material-icons">playlist_remove</span>
+            Remove Movies
+          </button>
+          <button type="button" class="icon-button" title="Import Movies from CSV" aria-label="Import Movies from CSV" (click)="openImportCsv()"><span class="material-icons">upload_file</span></button>
+        }
+        <div class="share-tools">
+          <button type="button" class="share-button" (click)="openShareDialog()">Export</button>
+        </div>
+      </div>
+    </header>
+
+    @if (shareDialogVisible) {
+      <app-share-dialog dialogTitle="Export" [fetchOrderedMovies]="fetchOrderedMovies" (closed)="closeShareDialog()" />
+    }
+
+    @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+
+    <div class="owner-actions">
+      @if (canManage) {
+        <button type="button" class="category-filter-button" (click)="openSubscribeCategories()">
+          <span class="material-icons">subscriptions</span>
+          Subscribe to Categories
+        </button>
+      }
+      <button type="button" class="category-filter-button" (click)="openCategoryDialog()">
+        <span class="material-icons">account_tree</span>
+        {{ selectedCategory ? 'Sub-Category Selected' : 'Select Category' }}
+      </button>
+      @if (selectedCategory && selectedCategoryPath.length) {
+        <span class="selected-category-path">
+          @for (segment of selectedCategoryPath; track segment.id; let last = $last) {
+            <span class="emoji">{{ segment.icon || '📁' }}</span><span class="path-segment-name">{{ segment.name }}</span>@if (!last) { <span class="path-arrow">→</span> }
+          }
+        </span>
+        @if (selectedCategoryLeaf?.description?.trim()) {
+          <button type="button" class="icon-button small" title="View category description" aria-label="View category description" (click)="openSelectedCategoryDescription()">
+            <span class="material-icons">visibility</span>
+          </button>
+        }
+      }
+    </div>
+    @if (categoryDialogVisible) {
+      <app-category-tree-dialog mode="guide" [watchlistId]="watchlistId" [rootCategoryId]="watchlistCategoryId ?? undefined" [isOwner]="isOwner"
+        [selectedCategoryIds]="selectedCategory != null ? [selectedCategory] : []" [allowCopy]="false"
+        (closed)="closeCategoryDialog()" (categoriesSelected)="closeCategoryDialog()"
+        (selectionChanged)="onCategorySelectionChanged($event)" />
+    }
+    @if (canManage && subscribeCategoriesVisible) {
+      <div class="dialog-backdrop" (click)="closeSubscribeCategories()">
+        <section class="subscribe-categories-dialog" role="dialog" aria-modal="true" aria-labelledby="subscribe-categories-title" (click)="$event.stopPropagation()">
+          <header>
+            <h2 id="subscribe-categories-title">Subscribe to Categories</h2>
+            <button type="button" class="icon-button" title="Close" aria-label="Close" (click)="closeSubscribeCategories()" [disabled]="subscribing"><span class="material-icons">close</span></button>
+          </header>
+          @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+          <div class="subscribe-categories-body">
+            <p class="subscribe-hint">
+              Subscribe to other categories and receive all their updates in this watchlist —
+              e.g. subscribe to "New 2026" and it always shows fresh movies from that category.
+            </p>
+            <app-category-tree-dialog mode="filter" [inline]="true" [selectedCategoryIds]="subscribingCategoryIds"
+              [excludeRootNames]="['Guides', 'Personalities']"
+              (selectionChanged)="onSubscribeCategorySelectionChanged($event)" />
+          </div>
+          <footer>
+            <button type="button" class="secondary" (click)="closeSubscribeCategories()" [disabled]="subscribing">Cancel</button>
+            <button type="button" (click)="saveSubscribeCategories()" [disabled]="subscribing">{{ subscribing ? 'Submitting…' : 'Submit' }}</button>
+          </footer>
+        </section>
+      </div>
+    }
+    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies in this watchlist" [showNotRecommendedFilter]="true" [showSelectCategories]="false" [initialSelectedCategories]="activeCategoryIds"
+      [allowExternalActions]="false" [externalActions]="showAddMovies ? ['addToCategory'] : []" addToCategoryLabel="Add to this Watchlist"
+      (internalSearch)="applyFilter($event)" (externalAction)="onExternalAddToWatchlist($event)" />
+    <h2>Movie Results</h2>
+
+    <app-movie-grid
+      [movies]="movies"
+      [loading]="moviesLoading"
+      [errorMessage]="''"
+      [currentPage]="currentPage"
+      [totalCount]="totalCount"
+      [pageSize]="pageSize"
+      [emptyMessage]="emptyMessage()"
+      (pageChange)="loadMovies($event)" />
+  }
+  @if (movieSelectorVisible) {
+    <app-movie-selector (moviesSelected)="onMoviesSelected($event)" />
+  }
+  @if (csvDialogVisible) {
+    <app-import-csv-dialog [watchlistId]="watchlistId" [categoryId]="selectedCategory" (closed)="closeImportCsv()"
+      (imported)="onCsvImported()" (importFailed)="onCsvImportFailed($event)" />
+  }
+  @if (deleteMoviesSelectorVisible) {
+    <app-delete-movies-selector [watchlistId]="watchlistId" [watchlistCategoryId]="watchlistCategoryId" [initialCategoryId]="selectedCategory"
+      [excludedCategoryIds]="subscribedCategoryIds"
+      (closed)="closeDeleteMovies()" (moviesDeleted)="onMoviesDeleted()" />
+  }
+  @if (descriptionDialogVisible) {
+    <div class="description-dialog-backdrop" (click)="closeDescriptionDialog()">
+      <section class="description-dialog" role="dialog" aria-modal="true" aria-labelledby="watchlist-description-title" (click)="$event.stopPropagation()">
+        <header><h2 id="watchlist-description-title">{{ watchlist?.name }}</h2></header>
+        <p class="description-dialog-text">{{ watchlist?.description }}</p>
+        <footer><button type="button" (click)="closeDescriptionDialog()">OK</button></footer>
+      </section>
+    </div>
+  }
+  @if (selectedCategoryDescriptionVisible && selectedCategoryLeaf; as leaf) {
+    <div class="description-dialog-backdrop" (click)="closeSelectedCategoryDescription()">
+      <section class="description-dialog" role="dialog" aria-modal="true" aria-labelledby="selected-category-description-title" (click)="$event.stopPropagation()">
+        <header><h2 id="selected-category-description-title">{{ leaf.icon || '📁' }} {{ leaf.name }}</h2></header>
+        <p class="description-dialog-text">{{ leaf.description || 'No description yet.' }}</p>
+        <footer><button type="button" (click)="closeSelectedCategoryDescription()">OK</button></footer>
+      </section>
+    </div>
+  }
+</section>

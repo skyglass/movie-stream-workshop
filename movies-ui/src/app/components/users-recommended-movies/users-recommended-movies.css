@@ -1,5 +1,35 @@
 @import '../movies-home/movies-home.css';
 
+.recommended-header {
+  margin-bottom: 1rem;
+}
+
+.recommended-header h1 {
+  margin: 0;
+  color: #172b45;
+}
+
+.movie-link.linkless {
+  cursor: default;
+}
+
+.share-button {
+  min-height: 2.4rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: #1d4ed8;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+}
+
+.share-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .recommend-button {
   cursor: pointer;
 }

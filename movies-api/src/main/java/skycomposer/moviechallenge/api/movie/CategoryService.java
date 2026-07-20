@@ -227,14 +227,14 @@ public class CategoryService {
         if (!onPath.add(row.id())) {
             return new CategoryDto(row.id(), row.name(), row.description(), row.icon(),
                     row.parentId() == row.id() ? null : row.parentId(), row.checked(), row.leaf(), row.empty(),
-                    row.referencedCategoryId(), List.of());
+                    row.referencedCategoryId(), false, List.of());
         }
         List<CategoryDto> nested = children.getOrDefault(row.id(), List.of()).stream()
                 .map(child -> toDto(child, children, onPath)).toList();
         onPath.remove(row.id());
         return new CategoryDto(row.id(), row.name(), row.description(), row.icon(),
                 row.parentId() == row.id() ? null : row.parentId(), row.checked(), row.leaf(), row.empty(),
-                row.referencedCategoryId(), nested);
+                row.referencedCategoryId(), false, nested);
     }
 
     private void validateParent(Long parentId, Long categoryId) {

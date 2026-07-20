@@ -17,10 +17,13 @@ import { MovieCourseDetailComponent } from './components/movie-course-detail/mov
 import { MovieCourseEditComponent } from './components/movie-course-edit/movie-course-edit';
 import { MovieGuidesComponent } from './components/movie-guides/movie-guides';
 import { MovieGuideDetailComponent } from './components/movie-guide-detail/movie-guide-detail';
+import { GuideSimilarMoviesComponent } from './components/guide-similar-movies/guide-similar-movies';
+import { WatchlistDetailComponent } from './components/watchlist-detail/watchlist-detail';
 
 export const routes: Routes = [
   { path: 'home', component: MoviesHomeComponent },
   { path: 'movie-guides', component: MovieGuidesComponent },
+  { path: 'movie-guides/:id/similar', component: GuideSimilarMoviesComponent },
   { path: 'movie-guides/:id', component: MovieGuideDetailComponent },
   { path: 'movie-challenge', component: MovieChallengePageComponent, canActivate: [authGuard] },
   { path: 'movies/:imdbId/edit', component: MovieEditComponent, canActivate: [movieEditGuard] },
@@ -29,11 +32,14 @@ export const routes: Routes = [
   { path: 'wizard', component: MovieWizardComponent, canActivate: [adminGuard] },
   { path: 'favorites/similar', component: SimilarFavoriteMoviesComponent, canActivate: [authGuard] },
   { path: 'favorites', component: FavoriteMoviesComponent, canActivate: [authGuard] },
+  { path: 'my-favorite-movies/:username/similar', component: SimilarFavoriteMoviesComponent },
   { path: 'my-favorite-movies/:username', component: FavoriteMoviesComponent },
   { path: 'movie-journeys', component: MovieCoursesComponent },
+  { path: 'my-watchlists/:id', component: WatchlistDetailComponent, canActivate: [authGuard] },
   { path: 'movie-journeys/:id', component: MovieCourseDetailComponent },
   { path: 'movie-journeys/:id/edit', component: MovieCourseEditComponent, canActivate: [authGuard] },
   { path: 'users-recommended', component: UsersRecommendedMoviesComponent, canActivate: [authGuard] },
+  { path: 'my-recommended-movies/:username', component: UsersRecommendedMoviesComponent },
   { path: 'profile', component: ProfileComponent, canActivate: [authGuard] },
   {
     path: 'admin',

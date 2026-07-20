@@ -6,7 +6,7 @@ import { MoviesApiService, OmdbMovieSearchResult, ParsedMovieSearch } from '../.
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 
-export type ExternalMovieAction = 'add' | 'like' | 'addToCategory' | 'addToJourney';
+export type ExternalMovieAction = 'add' | 'addToCategory' | 'addToJourney';
 
 @Component({
   standalone: true,
@@ -23,7 +23,8 @@ export class MovieFilterSearchComponent implements OnDestroy, OnChanges {
   @Input() label = 'Filter';
   @Input() ariaLabel = 'Filter movies';
   @Input() allowExternalActions = true;
-  @Input() externalActions: ExternalMovieAction[] = ['add', 'like'];
+  @Input() externalActions: ExternalMovieAction[] = ['add'];
+  @Input() addToCategoryLabel = 'Add to Selected Categories';
   @Input() showSelectCategories = true;
   @Input() showNotRecommendedFilter = false;
   @Input() showOmdbSearch = true;
@@ -34,6 +35,7 @@ export class MovieFilterSearchComponent implements OnDestroy, OnChanges {
   @Output() externalAction = new EventEmitter<{ action: ExternalMovieAction; movie: OmdbMovieSearchResult }>();
 
   searchOmdb = false;
+  searchOmdbSeries = false;
   notRecommendedOnly = false;
   selectedCategories: number[] = [];
   categoryDialogVisible = false;
@@ -82,7 +84,15 @@ export class MovieFilterSearchComponent implements OnDestroy, OnChanges {
 
   toggleOmdb(event: Event): void {
     this.searchOmdb = (event.target as HTMLInputElement).checked;
+    // "Series" is only ever shown while "Search OMDb" is checked -- resetting it here means it's always
+    // unchecked again the next time "Search OMDb" is (re-)checked, not whatever it was left at before.
+    if (!this.searchOmdb) this.searchOmdbSeries = false;
     this.resetExternalResults();
+    if (this.value.trim()) this.search();
+  }
+
+  toggleOmdbSeries(event: Event): void {
+    this.searchOmdbSeries = (event.target as HTMLInputElement).checked;
     if (this.value.trim()) this.search();
   }
 
@@ -106,7 +116,7 @@ export class MovieFilterSearchComponent implements OnDestroy, OnChanges {
     this.loading = true;
     this.errorMessage = '';
     this.selectedMovie = null;
-    this.searchSub = this.api.searchOmdbFromFilter(query).subscribe({
+    this.searchSub = this.api.searchOmdbFromFilter(query, this.searchOmdbSeries ? 'series' : 'movie').subscribe({
       next: movies => {
         if (this.value.trim() !== query || !this.searchOmdb) return;
         this.externalResults = movies;
@@ -126,12 +136,15 @@ export class MovieFilterSearchComponent implements OnDestroy, OnChanges {
     this.value = '';
     this.valueChange.emit('');
     this.searchOmdb = false;
+    this.searchOmdbSeries = false;
     this.notRecommendedOnly = false;
     // Restores the page's own default category selection (e.g. a Movie Guide/Personality's own category) rather
     // than clearing it outright — for pages with no default (plain "" -> []) this is unchanged.
     this.selectedCategories = [...this.initialSelectedCategories];
     this.resetExternalResults();
-    this.internalSearch.emit({ keyword: '', year: '', selectedCategories: [...this.initialSelectedCategories], onlyNotRecommended: false });
+    this.internalSearch.emit({
+      keyword: '', year: '', selectedCategories: [...this.initialSelectedCategories], onlyNotRecommended: false, hasActiveFilter: false
+    });
     this.cleared.emit();
   }
 
@@ -181,9 +194,7 @@ export class MovieFilterSearchComponent implements OnDestroy, OnChanges {
     this.errorMessage = '';
     const request = action === 'add'
       ? this.api.createMovieFromSearch(movie)
-      : action === 'like'
-        ? this.api.likeMovieFromSearch(movie)
-        : this.api.recommendMovieFromSearch(this.api.movieFromOmdb(movie));
+      : this.api.recommendMovieFromSearch(this.api.movieFromOmdb(movie));
     this.actionSub?.unsubscribe();
     this.actionSub = request.subscribe({
       next: () => this.completeAction(),
@@ -217,18 +228,36 @@ export class MovieFilterSearchComponent implements OnDestroy, OnChanges {
     this.value = '';
     this.valueChange.emit('');
     this.searchOmdb = false;
+    this.searchOmdbSeries = false;
     this.notRecommendedOnly = false;
-    this.selectedCategories = [];
+    // Restores the page's own default category selection, same as clear() -- was previously reset to [] outright,
+    // which would have wrongly left hasActiveFilter true on pages with a non-empty default (e.g. a Movie Guide).
+    this.selectedCategories = [...this.initialSelectedCategories];
     this.resetExternalResults();
-    this.internalSearch.emit({ keyword: '', year: '', selectedCategories: [], onlyNotRecommended: false });
+    this.internalSearch.emit({
+      keyword: '', year: '', selectedCategories: [...this.initialSelectedCategories], onlyNotRecommended: false, hasActiveFilter: false
+    });
   }
 
   private runInternalSearch(value: string): void {
     this.internalSearch.emit({
       ...this.api.parseMovieSearch(value),
       selectedCategories: [...this.selectedCategories],
-      onlyNotRecommended: this.notRecommendedOnly
+      onlyNotRecommended: this.notRecommendedOnly,
+      hasActiveFilter: this.isFilterActive(value)
     });
+  }
+
+  // "Active" means the user has changed something from this page's own default -- a category the page itself
+  // pre-selects (e.g. a Movie Guide's own anchor category) doesn't count, only a change beyond that baseline.
+  private isFilterActive(value: string): boolean {
+    return !!value.trim() || this.notRecommendedOnly || this.searchOmdb || this.categoriesChanged();
+  }
+
+  private categoriesChanged(): boolean {
+    if (this.selectedCategories.length !== this.initialSelectedCategories.length) return true;
+    const initial = new Set(this.initialSelectedCategories);
+    return this.selectedCategories.some(id => !initial.has(id));
   }
 
   private resetExternalResults(): void {

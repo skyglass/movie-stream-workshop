@@ -85,8 +85,29 @@ header h1 {
   color: #1b6fa8;
 }
 
+.examples-box {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed #c3ceda;
+  border-radius: 8px;
+  background: #ffffff;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.examples-label {
+  color: #7a8ba0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .panel-examples {
-  margin: 0.6rem 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
   display: flex;

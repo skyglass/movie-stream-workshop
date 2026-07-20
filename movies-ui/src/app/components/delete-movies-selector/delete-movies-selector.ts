@@ -16,11 +16,19 @@ export class DeleteMoviesSelectorComponent implements OnInit {
   private readonly api = inject(MoviesApiService);
   @ViewChild(MovieFilterSearchComponent) filterSearch!: MovieFilterSearchComponent;
 
-  // The guide/personality's own record id -- needed to call the guide-scoped, ownership-checked remove endpoint.
-  @Input({ required: true }) movieGuideId!: number;
+  // Exactly one of movieGuideId/watchlistId is set by the caller -- needed to call the right ownership-checked
+  // remove endpoint.
+  @Input() movieGuideId: number | null = null;
+  @Input() watchlistId: number | null = null;
   // The guide/personality's own anchor category -- the default scope, and the fallback whenever the category
-  // picker below ends up with nothing selected.
-  @Input({ required: true }) guideCategoryId!: number;
+  // picker below ends up with nothing selected. Not used for watchlists: an empty pick there already means "the
+  // whole watchlist" server-side (see WatchlistService.watchlistMovies/removeMovie), so no fallback substitution
+  // is needed or wanted -- substituting the anchor id in would break watchlistMovies' "all ids must resolve the
+  // same way" check the moment a subscribed category is involved.
+  @Input() guideCategoryId: number | null = null;
+  // The watchlist's own anchor category id, required alongside watchlistId -- see category-tree-dialog's
+  // rootCategoryId doc for why this needs to travel separately from watchlistId.
+  @Input() watchlistCategoryId: number | null = null;
   // The page's currently-selected sub-category (from "Select Category"), if any -- used as the initial scope.
   @Input() initialCategoryId: number | null = null;
   // Subscribed/default categories, excluded from the category picker -- movies can't be removed from those.
@@ -46,9 +54,13 @@ export class DeleteMoviesSelectorComponent implements OnInit {
   readonly pageSize = this.api.moviePageSize;
   deletingIds = new Set<string>();
 
-  // The actual query/delete scope: whatever's explicitly picked, or the guide's own root when nothing is.
+  // The actual query/delete scope: whatever's explicitly picked; for a Movie Guide, falls back to the guide's own
+  // root when nothing is picked (its transitive closure already covers subscribed categories, since those are
+  // physically DAG-linked in). For a watchlist, an empty pick is left empty -- the backend already treats that as
+  // "the whole watchlist" on both the list and remove endpoints.
   get effectiveCategoryIds(): number[] {
-    return this.pickedCategoryIds.length ? this.pickedCategoryIds : [this.guideCategoryId];
+    if (this.pickedCategoryIds.length || this.watchlistId != null) return this.pickedCategoryIds;
+    return this.guideCategoryId != null ? [this.guideCategoryId] : [];
   }
 
   ngOnInit(): void {
@@ -59,7 +71,10 @@ export class DeleteMoviesSelectorComponent implements OnInit {
   loadMovies(page = this.currentPage): void {
     this.loading = true;
     this.errorMessage = '';
-    this.api.listMovies(page, this.pageSize, this.activeFilter, this.activeYear, this.effectiveCategoryIds).subscribe({
+    const request = this.watchlistId != null
+      ? this.api.listWatchlistMovies(this.watchlistId, this.effectiveCategoryIds, page, this.pageSize, this.activeFilter, this.activeYear)
+      : this.api.listMovies(page, this.pageSize, this.activeFilter, this.activeYear, this.effectiveCategoryIds);
+    request.subscribe({
       next: moviePage => {
         this.movies = moviePage.movies;
         this.totalCount = moviePage.totalCount;
@@ -110,7 +125,10 @@ export class DeleteMoviesSelectorComponent implements OnInit {
     if (this.isDeleting(movie)) return;
     this.deletingIds.add(movie.imdbId);
     this.errorMessage = '';
-    this.api.removeGuideMovie(this.movieGuideId, movie.imdbId, this.effectiveCategoryIds).subscribe({
+    const request = this.watchlistId != null
+      ? this.api.removeWatchlistMovie(this.watchlistId, movie.imdbId, this.effectiveCategoryIds)
+      : this.api.removeGuideMovie(this.movieGuideId!, movie.imdbId, this.effectiveCategoryIds);
+    request.subscribe({
       next: () => {
         this.deletingIds.delete(movie.imdbId);
         this.filterText = '';

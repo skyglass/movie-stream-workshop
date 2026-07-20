@@ -1,0 +1,136 @@
+.guide-panel {
+  border: 1px solid #d8dde5;
+  border-radius: 10px;
+  background: #ffffff;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.guide-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #eceff3;
+}
+
+.guide-panel-header h2 {
+  margin: 0;
+  color: #203349;
+  font-size: 1.15rem;
+}
+
+.create-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.35rem;
+  border: 1px solid #1b6fa8;
+  border-radius: 6px;
+  background: #1b6fa8;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.create-button:hover {
+  background: #155c8d;
+}
+
+.create-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.standalone-create {
+  margin-bottom: 1.5rem;
+}
+
+.guide-list {
+  height: 24rem;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.guide-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  color: #203349;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.guide-row:hover {
+  background: #eff6ff;
+}
+
+.guide-name {
+  flex: 1;
+}
+
+.edit-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  padding: 0.35rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.edit-icon-button:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.edit-icon-button .material-icons {
+  font-size: 1.15rem;
+}
+
+.delete-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  padding: 0.35rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.delete-icon-button:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.delete-icon-button .material-icons {
+  font-size: 1.15rem;
+}
+
+.emoji {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.error {
+  border: 1px solid #edb4b4;
+  border-radius: 6px;
+  padding: 1rem;
+  text-align: center;
+  background: #fff6f6;
+  color: #a43636;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}

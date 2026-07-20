@@ -1,0 +1,48 @@
+@if (auth.token) {
+  @if (watchlists.length > 0) {
+    <section class="guide-panel watchlists-panel">
+      <header class="guide-panel-header">
+        <h2>My Watchlists</h2>
+        <div class="create-actions">
+          <button type="button" class="create-button" title="Create Private Watchlist" aria-label="Create Private Watchlist" (click)="openCreate()">
+            <span class="material-icons" aria-hidden="true">lock</span><span class="material-icons" aria-hidden="true">bookmark_add</span>Create Private Watchlist
+          </button>
+        </div>
+      </header>
+
+      @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+
+      <div class="guide-list">
+        @for (watchlist of watchlists; track watchlist.id) {
+          <a class="guide-row" [routerLink]="['/my-watchlists', watchlist.id]">
+            <span class="emoji">{{ watchlist.icon || '🔖' }}</span>
+            <span class="guide-name">{{ watchlist.name }}</span>
+            <button type="button" class="edit-icon-button" title="Edit Watchlist" aria-label="Edit Watchlist"
+              (click)="openEdit(watchlist, $event)">
+              <span class="material-icons" aria-hidden="true">edit</span>
+            </button>
+            <button type="button" class="delete-icon-button" title="Delete Watchlist" aria-label="Delete Watchlist"
+              (click)="deleteWatchlist(watchlist, $event)">
+              <span class="material-icons" aria-hidden="true">delete</span>
+            </button>
+          </a>
+        }
+      </div>
+    </section>
+  } @else if (!loading) {
+    <div class="create-actions standalone-create">
+      <button type="button" class="create-button" title="Create Private Watchlist" aria-label="Create Private Watchlist" (click)="openCreate()">
+        <span class="material-icons" aria-hidden="true">lock</span><span class="material-icons" aria-hidden="true">bookmark_add</span>Create Private Watchlist
+      </button>
+    </div>
+    @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+  }
+}
+
+@if (creating) {
+  <app-create-private-watchlist-dialog (closed)="closeCreate()" (watchlistCreated)="onWatchlistCreated($event)" />
+}
+
+@if (editing; as w) {
+  <app-edit-private-watchlist-dialog [watchlist]="w" (closed)="closeEdit()" (saved)="onEditSaved($event)" />
+}

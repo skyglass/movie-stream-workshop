@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import skycomposer.moviechallenge.api.movie.dto.AssignGuideMoviesRequest;
 import skycomposer.moviechallenge.api.movie.dto.CompleteCsvImportRequest;
@@ -73,6 +75,21 @@ public class MovieGuideController {
         return movieGuides.guideMovies(id, page, pageSize, filter, year);
     }
 
+    // Backs the guide page's bottom "Recommend Similar Movies" section. Open to anonymous viewers (same as
+    // MoviesController.getSimilarMovies): a signed-in viewer's own rated movies personalize the categories being
+    // scored; an anonymous one falls back to every user's ratings -- see findCategorySimilarToGuideMovies for the
+    // exact mechanics.
+    @GetMapping("/{id}/similar-movies")
+    public MoviePageDto similarMovies(@PathVariable long id,
+                                       @AuthenticationPrincipal Jwt jwt,
+                                       @RequestParam(required = false, defaultValue = "1") int page,
+                                       @RequestParam(required = false, defaultValue = "50") int pageSize,
+                                       @RequestParam(required = false) String filter,
+                                       @RequestParam(required = false) String year,
+                                       @RequestParam(required = false) List<Long> selectedCategories) {
+        return movieGuides.similarMovies(id, page, pageSize, username(jwt), filter, year, selectedCategories);
+    }
+
     // CSV import (default guide view "Import from CSV" dialog, owner/MOVIES_GUIDE/MOVIES_ADMIN only) Phase 1: see
     // MovieGuideService.importCsv for the resolve-by-imdbId-or-title+year and one-transaction-except-failures
     // semantics.
@@ -103,5 +120,24 @@ public class MovieGuideController {
     private boolean isAdminOrGuide(Authentication authentication) {
         return authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority)
                 .anyMatch(authority -> authority.equals("ROLE_MOVIES_ADMIN") || authority.equals("ROLE_MOVIES_GUIDE"));
+    }
+
+    private String username(Jwt jwt) {
+        if (jwt == null) {
+            return null;
+        }
+        return firstNonBlank(
+                jwt.getClaimAsString("preferred_username"),
+                jwt.getClaimAsString("username"),
+                jwt.getSubject());
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 }

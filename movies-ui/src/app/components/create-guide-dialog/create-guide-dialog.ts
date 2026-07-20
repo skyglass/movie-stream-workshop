@@ -2,11 +2,12 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MoviesApiService } from '../../services/movies-api';
+import { ErrorAlertDialogComponent } from '../error-alert-dialog/error-alert-dialog';
 
 @Component({
   standalone: true,
   selector: 'app-create-guide-dialog',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ErrorAlertDialogComponent],
   templateUrl: './create-guide-dialog.html',
   styleUrl: './create-guide-dialog.css'
 })

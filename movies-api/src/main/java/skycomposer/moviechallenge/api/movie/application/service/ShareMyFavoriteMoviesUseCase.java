@@ -26,6 +26,7 @@ public class ShareMyFavoriteMoviesUseCase {
     private final UserSettingsRepository userSettingsRepository;
     private final UserExtraService userExtraService;
     private final ViewFavoriteMoviesUseCase viewFavoriteMovies;
+    private final ViewCategorySimilarMoviesUseCase viewCategorySimilarMovies;
 
     @Transactional
     public FavoriteMoviesShareDto sharingStatus(Jwt jwt) {
@@ -72,6 +73,18 @@ public class ShareMyFavoriteMoviesUseCase {
             throw new SharedFavoriteMoviesNotFoundException(encodedUsername);
         }
         return viewFavoriteMovies.viewFavoriteMovies(username, pageable, filter, year, selectedCategories);
+    }
+
+    // Backs "Recommend Similar Movies" on a public shared-favorites page (favorite-movies.ts isPublicView):
+    // username here is already plain/decoded (a @PathVariable, not the raw-URI "encodedUsername" the wildcard
+    // list endpoint above works with), so this checks the same public-visibility boundary directly rather than
+    // going through decodeUsername() again.
+    @Transactional(readOnly = true)
+    public MoviePageDto viewSharedSimilarToFavoriteMovies(String username, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+        if (!userSettingsRepository.existsByUsernameAndMyFavoriteMoviesPublicTrue(username)) {
+            throw new SharedFavoriteMoviesNotFoundException(username);
+        }
+        return viewCategorySimilarMovies.viewSimilarToFavorites(username, pageable, filter, year, selectedCategories);
     }
 
     private UserSettings getOrCreateSettings(String username) {

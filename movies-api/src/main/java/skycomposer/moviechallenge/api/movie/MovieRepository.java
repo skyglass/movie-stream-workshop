@@ -482,6 +482,189 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                                           @Param("priorWeight") int priorWeight,
                                           Pageable pageable);
 
+    // "Recommend Similar Movies" for a Movie Guide's own bottom section -- same shape as findCategorySimilarMovies
+    // above, generalized from one seed movie to every movie already in the guide's own subtree (excluding
+    // anything that's only there via a subscribed category, same scoping as findGuideMovies below): seed_categories
+    // is always every category touched by the guide's own movies, regardless of viewer. What DOES still vary by
+    // :username, exactly like the single-movie variant, is how each seed category gets scored: a signed-in
+    // viewer's own rating history when present, or -- since :username is null is never true for a real username
+    // in SQL -- every user's ratings when the viewer is anonymous. Already-recommended-by-:username candidates
+    // are excluded the same null-safe way (nothing excluded for an anonymous viewer).
+    @Query(value = """
+            with guide_movies as (
+                select mc.movie_id
+                from category_parent_child_all c
+                join movie_category mc on mc.category_id = c.descendant_id
+                where c.ancestor_id = :guideCategoryId
+                    and (:excludedCategoryCount=0 or not exists (select 1 from category s where s.id in (:excludedCategories)
+                        and exists (select 1 from category_parent_child_all ec join movie_category emc on emc.category_id=ec.descendant_id
+                            where ec.ancestor_id=s.id and emc.movie_id=mc.movie_id)))
+            ),
+            seed_categories as (
+                select distinct mc.category_id
+                from movie_category mc
+                where mc.movie_id in (select movie_id from guide_movies)
+            ),
+            user_ratings as (
+                select rating.movie_id, rating.rating
+                from user_movie_rating rating
+                where (:username is null or rating.user_id = :username)
+            ),
+            baseline as (
+                select avg(rating) as baseline_average
+                from user_ratings
+            ),
+            catalog_prior as (
+                select avg(rating) as catalog_average
+                from user_movie_rating
+            ),
+            category_scores as (
+                select mc.category_id,
+                    count(1) as rated_count,
+                    avg(ur.rating) as category_average
+                from movie_category mc
+                join user_ratings ur on ur.movie_id = mc.movie_id
+                where mc.category_id in (select category_id from seed_categories)
+                group by mc.category_id
+            ),
+            shrunk_category_scores as (
+                select category_scores.category_id,
+                    baseline.baseline_average
+                        + (cast(category_scores.rated_count as numeric(12, 6))
+                            / cast(category_scores.rated_count + :priorWeight as numeric(12, 6)))
+                        * (category_scores.category_average - baseline.baseline_average) as score
+                from category_scores
+                cross join baseline
+            ),
+            candidates as (
+                select mc.movie_id,
+                    sum(shrunk_category_scores.score) as candidate_score,
+                    count(distinct mc.category_id) as matched_category_count
+                from movie_category mc
+                join shrunk_category_scores on shrunk_category_scores.category_id = mc.category_id
+                where mc.movie_id not in (select movie_id from guide_movies)
+                    and not exists (
+                        select 1
+                        from movie_recommendations recommendation
+                        where recommendation.user_id = :username
+                            and recommendation.movie_id = mc.movie_id
+                    )
+                group by mc.movie_id
+            ),
+            candidate_popularity as (
+                select rating.movie_id,
+                    count(distinct rating.user_id) as voter_count,
+                    avg(rating.rating) as average_rating
+                from user_movie_rating rating
+                where rating.movie_id in (select movie_id from candidates)
+                group by rating.movie_id
+            ),
+            shrunk_candidate_popularity as (
+                select candidate_popularity.movie_id,
+                    catalog_prior.catalog_average
+                        + (cast(candidate_popularity.voter_count as numeric(12, 6))
+                            / cast(candidate_popularity.voter_count + :priorWeight as numeric(12, 6)))
+                        * (candidate_popularity.average_rating - catalog_prior.catalog_average) as popularity_score
+                from candidate_popularity
+                cross join catalog_prior
+            )
+            select m.*
+            from candidates
+            join movies m
+                on m.imdb_id = candidates.movie_id
+            left join shrunk_candidate_popularity
+                on shrunk_candidate_popularity.movie_id = candidates.movie_id
+            cross join catalog_prior
+            where (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+            order by candidates.candidate_score desc,
+                candidates.matched_category_count desc,
+                coalesce(shrunk_candidate_popularity.popularity_score, catalog_prior.catalog_average) desc,
+                m.title asc,
+                m.imdb_id asc
+            """, countQuery = """
+            with guide_movies as (
+                select mc.movie_id
+                from category_parent_child_all c
+                join movie_category mc on mc.category_id = c.descendant_id
+                where c.ancestor_id = :guideCategoryId
+                    and (:excludedCategoryCount=0 or not exists (select 1 from category s where s.id in (:excludedCategories)
+                        and exists (select 1 from category_parent_child_all ec join movie_category emc on emc.category_id=ec.descendant_id
+                            where ec.ancestor_id=s.id and emc.movie_id=mc.movie_id)))
+            ),
+            seed_categories as (
+                select distinct mc.category_id
+                from movie_category mc
+                where mc.movie_id in (select movie_id from guide_movies)
+            ),
+            user_ratings as (
+                select rating.movie_id, rating.rating
+                from user_movie_rating rating
+                where (:username is null or rating.user_id = :username)
+            ),
+            baseline as (
+                select avg(rating) as baseline_average
+                from user_ratings
+            ),
+            category_scores as (
+                select mc.category_id,
+                    count(1) as rated_count,
+                    avg(ur.rating) as category_average
+                from movie_category mc
+                join user_ratings ur on ur.movie_id = mc.movie_id
+                where mc.category_id in (select category_id from seed_categories)
+                group by mc.category_id
+            ),
+            shrunk_category_scores as (
+                select category_scores.category_id,
+                    baseline.baseline_average
+                        + (cast(category_scores.rated_count as numeric(12, 6))
+                            / cast(category_scores.rated_count + :priorWeight as numeric(12, 6)))
+                        * (category_scores.category_average - baseline.baseline_average) as score
+                from category_scores
+                cross join baseline
+            ),
+            candidates as (
+                select mc.movie_id
+                from movie_category mc
+                join shrunk_category_scores on shrunk_category_scores.category_id = mc.category_id
+                where mc.movie_id not in (select movie_id from guide_movies)
+                    and not exists (
+                        select 1
+                        from movie_recommendations recommendation
+                        where recommendation.user_id = :username
+                            and recommendation.movie_id = mc.movie_id
+                    )
+                group by mc.movie_id
+            )
+            select count(1)
+            from candidates
+            join movies m
+                on m.imdb_id = candidates.movie_id
+            where (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+            """, nativeQuery = true)
+    Page<Movie> findCategorySimilarToGuideMovies(@Param("guideCategoryId") long guideCategoryId,
+                                                  @Param("excludedCategoryCount") int excludedCategoryCount,
+                                                  @Param("excludedCategories") List<Long> excludedCategories,
+                                                  @Param("username") String username,
+                                                  @Param("filter") String filter,
+                                                  @Param("year") String year,
+                                                  @Param("selectedCategoryCount") int selectedCategoryCount,
+                                                  @Param("selectedCategories") List<Long> selectedCategories,
+                                                  @Param("priorWeight") int priorWeight,
+                                                  Pageable pageable);
+
     // Movies already assigned to a Movie Guide's own category tree, excluding any that only appear there via a
     // subscribed/referenced category (movie_guide_default_category) -- used by the guide-creation wizard's Step 2
     // so the curator only ever sees movies they explicitly added, not ones that arrive "for free" via subscription.
@@ -521,4 +704,84 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                                 @Param("filter") String filter,
                                 @Param("year") String year,
                                 Pageable pageable);
+
+    // Default ("no sub-category picked") view of a private watchlist: the union of (a) movies added directly to
+    // the watchlist's flat top level (movie_watchlist_movie), (b) movies filed anywhere in its private
+    // sub-category subtree (movie_private_category, transitively through private_category_parent_child_all), and
+    // (c) movies from any subscribed public category, transitively, through the ordinary public
+    // category_parent_child_all/movie_category tables -- unlike Movie Guide, subscriptions are never physically
+    // grafted into the watchlist's own tree, so this union has to be spelled out explicitly instead of falling
+    // out of a single transitive-closure join.
+    @Query(value = """
+            select m.*
+            from movies m
+            where exists (select 1 from movie_watchlist_movie wm where wm.movie_watchlist_id=:watchlistId and wm.movie_id=m.imdb_id)
+                or exists (select 1 from private_category_parent_child_all c join movie_private_category mc on mc.private_category_id=c.descendant_id
+                    where c.ancestor_id=:watchlistCategoryId and mc.movie_id=m.imdb_id)
+                or (:subscribedCategoryCount>0 and exists (select 1 from category s join category_parent_child_all c on c.ancestor_id=s.id
+                    join movie_category mc on mc.category_id=c.descendant_id
+                    where s.id in (:subscribedCategoryIds) and mc.movie_id=m.imdb_id))
+                and (:filter is null
+                    or trim(:filter) = ''
+                    or lower(m.title) like concat('%', lower(:filter), '%')
+                    or lower(m.director) like concat('%', lower(:filter), '%')
+                    or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+            order by regexp_replace(lower(m.title), '^(the|a)[[:space:]]+', '') asc, lower(m.title) asc, m.imdb_id asc
+            """, countQuery = """
+            select count(1)
+            from movies m
+            where exists (select 1 from movie_watchlist_movie wm where wm.movie_watchlist_id=:watchlistId and wm.movie_id=m.imdb_id)
+                or exists (select 1 from private_category_parent_child_all c join movie_private_category mc on mc.private_category_id=c.descendant_id
+                    where c.ancestor_id=:watchlistCategoryId and mc.movie_id=m.imdb_id)
+                or (:subscribedCategoryCount>0 and exists (select 1 from category s join category_parent_child_all c on c.ancestor_id=s.id
+                    join movie_category mc on mc.category_id=c.descendant_id
+                    where s.id in (:subscribedCategoryIds) and mc.movie_id=m.imdb_id))
+                and (:filter is null
+                    or trim(:filter) = ''
+                    or lower(m.title) like concat('%', lower(:filter), '%')
+                    or lower(m.director) like concat('%', lower(:filter), '%')
+                    or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+            """, nativeQuery = true)
+    Page<Movie> findWatchlistMovies(@Param("watchlistId") long watchlistId,
+                                     @Param("watchlistCategoryId") long watchlistCategoryId,
+                                     @Param("subscribedCategoryCount") int subscribedCategoryCount,
+                                     @Param("subscribedCategoryIds") List<Long> subscribedCategoryIds,
+                                     @Param("filter") String filter,
+                                     @Param("year") String year,
+                                     Pageable pageable);
+
+    // One or more nodes were picked in a private-category picker (either "Select Category"'s single-select, or
+    // "Delete Movies"'s multi-select) and every one of them resolved to the private tree (the watchlist's own
+    // anchor, or one of its private sub-categories) -- OR's across every picked node's transitive subtree via
+    // movie_private_category, same shape as findGuideMovies minus the exclusion clause.
+    @Query(value = """
+            select m.*
+            from movies m
+            where exists (select 1 from private_category_parent_child_all c join movie_private_category mc on mc.private_category_id=c.descendant_id
+                    where c.ancestor_id in (:privateCategoryIds) and mc.movie_id=m.imdb_id)
+                and (:filter is null
+                    or trim(:filter) = ''
+                    or lower(m.title) like concat('%', lower(:filter), '%')
+                    or lower(m.director) like concat('%', lower(:filter), '%')
+                    or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+            order by regexp_replace(lower(m.title), '^(the|a)[[:space:]]+', '') asc, lower(m.title) asc, m.imdb_id asc
+            """, countQuery = """
+            select count(1)
+            from movies m
+            where exists (select 1 from private_category_parent_child_all c join movie_private_category mc on mc.private_category_id=c.descendant_id
+                    where c.ancestor_id in (:privateCategoryIds) and mc.movie_id=m.imdb_id)
+                and (:filter is null
+                    or trim(:filter) = ''
+                    or lower(m.title) like concat('%', lower(:filter), '%')
+                    or lower(m.director) like concat('%', lower(:filter), '%')
+                    or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+            """, nativeQuery = true)
+    Page<Movie> findPrivateCategoryMovies(@Param("privateCategoryIds") List<Long> privateCategoryIds,
+                                           @Param("filter") String filter,
+                                           @Param("year") String year,
+                                           Pageable pageable);
 }

@@ -1,21 +1,23 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, ViewChild, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
+import { Observable, map } from 'rxjs';
 import { AuthService } from '../../services/auth';
-import { Movie, MovieCategory, MoviesApiService, ParsedMovieSearch } from '../../services/movies-api';
+import { Movie, MovieCategory, MoviesApiService, OmdbMovieSearchResult, ParsedMovieSearch } from '../../services/movies-api';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
 import { MovieGridComponent } from '../movie-grid/movie-grid';
 import { MovieSelectorComponent } from '../movie-selector/movie-selector';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 import { ImportCsvDialogComponent } from '../import-csv-dialog/import-csv-dialog';
 import { DeleteMoviesSelectorComponent } from '../delete-movies-selector/delete-movies-selector';
+import { ShareDialogComponent } from '../share-dialog/share-dialog';
 
 @Component({
   standalone: true,
   selector: 'app-movie-guide-detail',
-  imports: [CommonModule, MovieFilterSearchComponent, MovieGridComponent, MovieSelectorComponent,
-    CategoryTreeDialogComponent, ImportCsvDialogComponent, DeleteMoviesSelectorComponent],
+  imports: [CommonModule, RouterLink, MovieFilterSearchComponent, MovieGridComponent, MovieSelectorComponent,
+    CategoryTreeDialogComponent, ImportCsvDialogComponent, DeleteMoviesSelectorComponent, ShareDialogComponent],
   templateUrl: './movie-guide-detail.html',
   styleUrl: './movie-guide-detail.css'
 })
@@ -41,13 +43,13 @@ export class MovieGuideDetailComponent implements OnInit {
   activeYear = '';
   activeCategories: number[] = [];
   activeOnlyNotRecommended = false;
+  hasActiveFilter = false;
   // Fixed for the lifetime of the page (never reassigned) — this is what "Clear" restores, independent of
   // whatever activeCategories drifts to as the user checks/unchecks categories.
   defaultCategories: number[] = [];
 
   shareUrl = '';
-  shareDetailsVisible = false;
-  copiedShareUrl = false;
+  shareDialogVisible = false;
   entryType: 'Guide' | 'Personality' | null = null;
   movieGuideId: number | null = null;
   isOwner = false;
@@ -80,6 +82,14 @@ export class MovieGuideDetailComponent implements OnInit {
     return this.isOwner || this.auth.canEditMovies;
   }
 
+  // "Select Category" stays visible whenever there's something to select (any viewer can browse an existing
+  // tree) or whenever the viewer could populate an empty one (owner, or MOVIES_GUIDE/MOVIES_ADMIN) -- it only
+  // hides for a non-owner, non-privileged viewer facing an empty "No categories yet." tree, where clicking it
+  // would open a dialog with nothing to do.
+  get showSelectCategory(): boolean {
+    return this.canManageGuide || !!this.category?.children?.length;
+  }
+
   get showAddMovies(): boolean {
     if (!this.canManageGuide) return false;
     // Subscribed/default categories are read-only references to a category that lives (and is managed)
@@ -103,6 +113,28 @@ export class MovieGuideDetailComponent implements OnInit {
       error: err => {
         this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not add the selected movies';
       }
+    });
+  }
+
+  // The inline "Search OMDb" box's own "Add to this Guide" button (allowExternalActions=false + externalActions
+  // = ['addToCategory'] on the filter below) -- unlike the generic 'add' action (create in the catalog only),
+  // this must also assign the movie to the guide, so it goes through the same two-step, properly-authorized path
+  // as onMoviesSelected above (create-in-catalog, then assignMoviesToGuide) rather than the weaker, unauthenticated
+  // -by-ownership CategoryService.addMovieFromSearchToCategory endpoint.
+  onExternalAddToGuide(event: { movie: OmdbMovieSearchResult }): void {
+    if (!this.movieGuideId) return;
+    this.errorMessage = '';
+    this.api.createMovieFromSearch(event.movie).subscribe({
+      next: created => {
+        this.api.assignMoviesToGuide(this.movieGuideId!, [created.imdbId], this.selectedCategory).subscribe({
+          next: () => {
+            this.filterSearch.completeExternalAction();
+            this.loadMovies(1);
+          },
+          error: err => this.filterSearch.failExternalAction(err)
+        });
+      },
+      error: err => this.filterSearch.failExternalAction(err)
     });
   }
 
@@ -297,30 +329,31 @@ export class MovieGuideDetailComponent implements OnInit {
     this.activeYear = search.year;
     this.activeCategories = categories;
     this.activeOnlyNotRecommended = onlyNotRecommended;
+    this.hasActiveFilter = search.hasActiveFilter ?? false;
     this.loadMovies(1);
   }
 
+  emptyMessage(): string {
+    return this.hasActiveFilter ? 'No movies found' : 'No movies in this Movie Guide yet';
+  }
+
   share(): void {
-    this.copiedShareUrl = false;
     this.shareUrl = window.location.href;
-    this.shareDetailsVisible = true;
+    this.shareDialogVisible = true;
   }
 
-  closeShareDetails(): void {
-    this.shareDetailsVisible = false;
-    this.shareUrl = '';
-    this.copiedShareUrl = false;
+  closeShareDialog(): void {
+    this.shareDialogVisible = false;
   }
 
-  async copyShareUrl(): Promise<void> {
-    if (!this.shareUrl) return;
-    try {
-      await navigator.clipboard.writeText(this.shareUrl);
-    } catch {
-      this.copyShareUrlWithFallback();
-    }
-    this.copiedShareUrl = true;
-  }
+  // Fetches up to maxMovies movies in the exact order shown on-screen for the current filter/category
+  // selection, without touching this component's own movies/currentPage/totalCount state -- passed into
+  // ShareDialogComponent's "Download Poster Collage" and "Download CSV file" features.
+  fetchOrderedMovies = (maxMovies: number): Observable<Movie[]> => {
+    const categories = this.selectedCategory != null ? [this.selectedCategory] : this.activeCategories;
+    return this.api.listMovies(1, maxMovies, this.activeFilter, this.activeYear, categories, this.activeOnlyNotRecommended)
+      .pipe(map(page => page.movies));
+  };
 
   private findEntryType(categories: MovieCategory[]): 'Guide' | 'Personality' | null {
     const guides = categories.find(c => c.name === 'Guides');
@@ -348,17 +381,5 @@ export class MovieGuideDetailComponent implements OnInit {
     this.meta.updateTag({ name: 'robots', content: 'index, follow' });
     this.meta.updateTag({ property: 'og:title', content: pageTitle });
     this.meta.updateTag({ property: 'og:description', content: description });
-  }
-
-  private copyShareUrlWithFallback(): void {
-    const textarea = document.createElement('textarea');
-    textarea.value = this.shareUrl;
-    textarea.setAttribute('readonly', '');
-    textarea.style.position = 'fixed';
-    textarea.style.left = '-9999px';
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
   }
 }

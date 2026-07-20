@@ -89,6 +89,6 @@
       [pageSize]="pageSize"
       (pageChange)="loadSimilarMovies($event)" />
   } @else {
-    <div class="empty">No similar movies yet</div>
+    <div class="empty">{{ emptyMessage() }}</div>
   }
 </section>

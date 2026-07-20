@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { AuthService } from '../../services/auth';
-import { FavoriteMoviesShare, MovieUser, MoviesApiService } from '../../services/movies-api';
+import { FavoriteMoviesShare, MovieUser, MoviesApiService, UsersRecommendedMoviesShare } from '../../services/movies-api';
 
 @Component({
   standalone: true,
@@ -40,6 +40,12 @@ export class ProfileComponent implements OnInit {
   privacySavedMessage = '';
   favoriteMoviesShare: FavoriteMoviesShare | null = null;
 
+  recommendedPrivacyLoading = false;
+  recommendedPrivacySaving = false;
+  recommendedPrivacyErrorMessage = '';
+  recommendedPrivacySavedMessage = '';
+  recommendedMoviesShare: UsersRecommendedMoviesShare | null = null;
+
   readonly avatarForm = this.fb.group({
     avatar: ['', Validators.required]
   });
@@ -47,6 +53,7 @@ export class ProfileComponent implements OnInit {
   ngOnInit(): void {
     this.loadProfile();
     this.loadFavoriteMoviesPrivacy();
+    this.loadRecommendedMoviesPrivacy();
   }
 
   loadProfile(): void {
@@ -82,6 +89,23 @@ export class ProfileComponent implements OnInit {
       error: err => {
         this.privacyErrorMessage = err?.error?.message ?? err?.message ?? 'Could not load favorite movies privacy';
         this.privacyLoading = false;
+      }
+    });
+  }
+
+  loadRecommendedMoviesPrivacy(): void {
+    this.recommendedPrivacyLoading = true;
+    this.recommendedPrivacyErrorMessage = '';
+    this.recommendedPrivacySavedMessage = '';
+
+    this.moviesApi.getUsersRecommendedMoviesShare().subscribe({
+      next: share => {
+        this.recommendedMoviesShare = share;
+        this.recommendedPrivacyLoading = false;
+      },
+      error: err => {
+        this.recommendedPrivacyErrorMessage = err?.error?.message ?? err?.message ?? 'Could not load recommended movies privacy';
+        this.recommendedPrivacyLoading = false;
       }
     });
   }
@@ -151,6 +175,40 @@ export class ProfileComponent implements OnInit {
         checkbox.checked = this.favoriteMoviesPrivate;
         this.privacyErrorMessage = err?.error?.message ?? err?.message ?? 'Could not update favorite movies privacy';
         this.privacySaving = false;
+      }
+    });
+  }
+
+  get recommendedMoviesPrivate(): boolean {
+    // Unlike favorites (defaults to checked/private before its own status loads), this defaults to
+    // unchecked/public -- matching the unchecked-by-default requirement even during the brief window before
+    // getUsersRecommendedMoviesShare() resolves.
+    return this.recommendedMoviesShare ? !this.recommendedMoviesShare.myRecommendedMoviesPublic : false;
+  }
+
+  setRecommendedMoviesPrivate(event: Event): void {
+    if (this.recommendedPrivacySaving || this.recommendedPrivacyLoading) return;
+
+    const checkbox = event.target as HTMLInputElement;
+    const makePrivate = checkbox.checked;
+    this.recommendedPrivacySaving = true;
+    this.recommendedPrivacyErrorMessage = '';
+    this.recommendedPrivacySavedMessage = '';
+
+    const request = makePrivate
+      ? this.moviesApi.makeUsersRecommendedMoviesPrivate()
+      : this.moviesApi.shareUsersRecommendedMovies();
+
+    request.subscribe({
+      next: share => {
+        this.recommendedMoviesShare = share;
+        this.recommendedPrivacySaving = false;
+        this.recommendedPrivacySavedMessage = 'Recommended movies privacy updated';
+      },
+      error: err => {
+        checkbox.checked = this.recommendedMoviesPrivate;
+        this.recommendedPrivacyErrorMessage = err?.error?.message ?? err?.message ?? 'Could not update recommended movies privacy';
+        this.recommendedPrivacySaving = false;
       }
     });
   }

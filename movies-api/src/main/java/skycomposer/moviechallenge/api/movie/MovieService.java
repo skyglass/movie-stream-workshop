@@ -74,6 +74,51 @@ public class MovieService {
                 pageRequest);
     }
 
+    // "Recommend Similar Movies" for a Movie Guide's own bottom section -- open to anonymous viewers, same as
+    // getCategorySimilarMovies: a signed-in viewer's own rated movies personalize the category scoring, an
+    // anonymous one falls back to every user's ratings (see findCategorySimilarToGuideMovies).
+    @Transactional(readOnly = true)
+    public Page<Movie> getCategorySimilarToGuideMovies(long guideCategoryId, List<Long> excludedCategories,
+                                                         String username, Pageable pageable, String filter,
+                                                         String year, List<Long> selectedCategories) {
+        return movieRepository.findCategorySimilarToGuideMovies(
+                guideCategoryId,
+                categoryCount(excludedCategories),
+                categoryParameters(excludedCategories),
+                username,
+                normalizedFilter(filter),
+                normalizedFilter(year),
+                categoryCount(selectedCategories),
+                categoryParameters(selectedCategories),
+                CATEGORY_SIMILARITY_PRIOR_WEIGHT,
+                pageable);
+    }
+
+    // Default (no sub-category picked) view of a private watchlist: movies directly in the watchlist, plus
+    // movies filed anywhere in its private sub-category subtree, plus movies from any subscribed public category
+    // (transitively) -- see MovieRepository.findWatchlistMovies for the 3-way union.
+    @Transactional(readOnly = true)
+    public Page<Movie> getWatchlistMovies(long watchlistId, long watchlistCategoryId, List<Long> subscribedCategoryIds,
+                                           String filter, String year, Pageable pageable) {
+        Pageable pageRequest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        return movieRepository.findWatchlistMovies(
+                watchlistId,
+                watchlistCategoryId,
+                categoryCount(subscribedCategoryIds),
+                categoryParameters(subscribedCategoryIds),
+                normalizedFilter(filter),
+                normalizedFilter(year),
+                pageRequest);
+    }
+
+    // One or more private-category nodes were picked (the watchlist's own anchor, and/or its private
+    // sub-categories) -- scopes down to the OR of their transitive subtrees in the private tree.
+    @Transactional(readOnly = true)
+    public Page<Movie> getPrivateCategoryMovies(List<Long> privateCategoryIds, String filter, String year, Pageable pageable) {
+        Pageable pageRequest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        return movieRepository.findPrivateCategoryMovies(privateCategoryIds, normalizedFilter(filter), normalizedFilter(year), pageRequest);
+    }
+
     @Transactional
     public Movie getOrCreateMovie(RecommendMovieRequest request) {
         // Flush immediately: callers may follow up with a raw JDBC statement in the
