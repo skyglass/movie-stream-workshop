@@ -6,7 +6,10 @@
   }
 
   @if (!isPublicView && !auth.token) {
-    <div class="empty">Sign in to see users recommended movies</div>
+    <div class="empty signed-out-empty">
+      <p>Sign in to get personalized movie recommendations from people with similar movie preferences</p>
+      <button type="button" class="primary-action" (click)="auth.register()">Create account</button>
+    </div>
   } @else {
     <app-movie-filter-search [(value)]="filterText" [ariaLabel]="isPublicView ? 'Filter recommended movies' : 'Filter users recommended movies'" (internalSearch)="applyFilter($event)">
       @if (!isPublicView && auth.token && shareStatus?.myRecommendedMoviesPublic) {

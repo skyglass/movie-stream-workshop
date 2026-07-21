@@ -71,7 +71,10 @@
   }
 
   @if (!isPublicView && !auth.token) {
-    <div class="empty">Sign in to see favorite movies</div>
+    <div class="empty signed-out-empty">
+      <p>Sign in to see your favorite movies, built automatically from your Movie Challenge votes.</p>
+      <button type="button" class="primary-action" (click)="auth.register()">Create account</button>
+    </div>
   } @else if (loading) {
     <div class="state">Loading favorite movies</div>
   } @else if (errorMessage) {

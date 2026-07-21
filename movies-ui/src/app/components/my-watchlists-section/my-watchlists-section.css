@@ -1,3 +1,5 @@
+@import '../movies-home/movies-home.css';
+
 .guide-panel {
   border: 1px solid #d8dde5;
   border-radius: 10px;
@@ -46,8 +48,22 @@
   gap: 0.5rem;
 }
 
-.standalone-create {
-  margin-bottom: 1.5rem;
+.signed-out-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: #4a5b6c;
+}
+
+.empty {
+  margin: 0;
+  padding: 1.5rem;
+  text-align: center;
+  color: #5d6978;
+  font-weight: 700;
 }
 
 .guide-list {
