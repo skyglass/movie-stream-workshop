@@ -12,12 +12,14 @@ import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tr
 import { ImportCsvDialogComponent } from '../import-csv-dialog/import-csv-dialog';
 import { DeleteMoviesSelectorComponent } from '../delete-movies-selector/delete-movies-selector';
 import { ShareDialogComponent } from '../share-dialog/share-dialog';
+import { RankMoviesDialogComponent } from '../rank-movies-dialog/rank-movies-dialog';
 
 @Component({
   standalone: true,
   selector: 'app-movie-guide-detail',
   imports: [CommonModule, RouterLink, MovieFilterSearchComponent, MovieGridComponent, MovieSelectorComponent,
-    CategoryTreeDialogComponent, ImportCsvDialogComponent, DeleteMoviesSelectorComponent, ShareDialogComponent],
+    CategoryTreeDialogComponent, ImportCsvDialogComponent, DeleteMoviesSelectorComponent, ShareDialogComponent,
+    RankMoviesDialogComponent],
   templateUrl: './movie-guide-detail.html',
   styleUrl: './movie-guide-detail.css'
 })
@@ -52,6 +54,12 @@ export class MovieGuideDetailComponent implements OnInit {
   shareDialogVisible = false;
   entryType: 'Guide' | 'Personality' | null = null;
   movieGuideId: number | null = null;
+  // Populated from the guide DTO itself (loadGuideInfo), not the category-tree walk that computes entryType --
+  // this is what loadMovies() branches on, since it needs to be reliably known before the very first movie fetch
+  // fires (see loadGuideInfo's own next/error handlers, which are what actually trigger that first loadMovies now).
+  guideType: 'Guide' | 'Personality' | null = null;
+  guideName = '';
+  rankingUsername: string | null = null;
   isOwner = false;
   movieSelectorVisible = false;
   guideSubscribedCategoryIds: number[] = [];
@@ -59,6 +67,7 @@ export class MovieGuideDetailComponent implements OnInit {
   categoryDialogVisible = false;
   csvDialogVisible = false;
   deleteMoviesSelectorVisible = false;
+  rankMoviesDialogVisible = false;
   subscribeCategoriesVisible = false;
   subscribingCategoryIds: number[] = [];
   subscribing = false;
@@ -70,7 +79,9 @@ export class MovieGuideDetailComponent implements OnInit {
     this.activeCategories = [this.categoryId];
     this.defaultCategories = [this.categoryId];
     this.loadCategory();
-    this.loadMovies(1);
+    // loadMovies(1) is deliberately NOT called here: its sort depends on knowing movieGuideId/guideType first
+    // (a Personality sorts by its own ranking), so it's triggered from loadGuideInfo()'s own response instead --
+    // otherwise the very first paint would race ahead of that data and silently use the wrong sort.
     this.loadGuideInfo();
   }
 
@@ -88,6 +99,13 @@ export class MovieGuideDetailComponent implements OnInit {
   // would open a dialog with nothing to do.
   get showSelectCategory(): boolean {
     return this.canManageGuide || !!this.category?.children?.length;
+  }
+
+  // "Rank Movies as Personality" -- Personality-only, and only for someone who could actually submit a ranking
+  // (owner/MOVIES_GUIDE/MOVIES_ADMIN, same as canManageGuide). Shown even for an empty personality (opens to an
+  // empty state with Submit disabled) rather than hidden, matching showSelectCategory's own reasoning.
+  get showRankMovies(): boolean {
+    return this.entryType === 'Personality' && this.canManageGuide;
   }
 
   get showAddMovies(): boolean {
@@ -274,11 +292,16 @@ export class MovieGuideDetailComponent implements OnInit {
     this.api.getMovieGuideByCategory(this.categoryId).subscribe({
       next: guide => {
         this.movieGuideId = guide.id;
+        this.guideType = guide.type;
+        this.guideName = guide.name;
+        this.rankingUsername = guide.rankingUsername;
         this.isOwner = guide.owner === this.auth.currentUser?.username;
         this.guideSubscribedCategoryIds = guide.subscribedCategoryIds;
+        this.loadMovies(1);
       },
-      // 404 (not a movie_guide-backed entry) or any other failure just means: show the normal page.
-      error: () => {}
+      // 404 (not a movie_guide-backed entry) or any other failure just means: show the normal page, with the
+      // regular (non-personality) sort.
+      error: () => this.loadMovies(1)
     });
   }
 
@@ -304,7 +327,13 @@ export class MovieGuideDetailComponent implements OnInit {
     // The owner's sub-category pick overrides the regular filter's category scope while it's set; once it's
     // cleared (unchecked with nothing else selected), this naturally falls back to activeCategories.
     const categories = this.selectedCategory != null ? [this.selectedCategory] : this.activeCategories;
-    this.api.listMovies(page, this.pageSize, this.activeFilter, this.activeYear, categories, this.activeOnlyNotRecommended).subscribe({
+    // A Personality sorts by its own ranking (personality_movie_rank) first, falling back to the regular
+    // popularity order for anything unranked -- Guides (and pages where guide info hasn't resolved) keep the
+    // plain popularity sort.
+    const request = (this.movieGuideId != null && this.guideType === 'Personality')
+      ? this.api.listPersonalityMovies(this.movieGuideId, page, this.pageSize, this.activeFilter, this.activeYear, categories, this.activeOnlyNotRecommended)
+      : this.api.listMovies(page, this.pageSize, this.activeFilter, this.activeYear, categories, this.activeOnlyNotRecommended);
+    request.subscribe({
       next: moviePage => {
         this.movies = moviePage.movies;
         this.totalCount = moviePage.totalCount;
@@ -351,9 +380,26 @@ export class MovieGuideDetailComponent implements OnInit {
   // ShareDialogComponent's "Download Poster Collage" and "Download CSV file" features.
   fetchOrderedMovies = (maxMovies: number): Observable<Movie[]> => {
     const categories = this.selectedCategory != null ? [this.selectedCategory] : this.activeCategories;
-    return this.api.listMovies(1, maxMovies, this.activeFilter, this.activeYear, categories, this.activeOnlyNotRecommended)
-      .pipe(map(page => page.movies));
+    const request = (this.movieGuideId != null && this.guideType === 'Personality')
+      ? this.api.listPersonalityMovies(this.movieGuideId, 1, maxMovies, this.activeFilter, this.activeYear, categories, this.activeOnlyNotRecommended)
+      : this.api.listMovies(1, maxMovies, this.activeFilter, this.activeYear, categories, this.activeOnlyNotRecommended);
+    return request.pipe(map(page => page.movies));
   };
+
+  openRankMovies(): void {
+    this.rankMoviesDialogVisible = true;
+  }
+
+  closeRankMovies(): void {
+    this.rankMoviesDialogVisible = false;
+  }
+
+  // The dialog already persisted the ranking server-side; refresh the guide info (to pick up a newly-allocated
+  // rankingUsername on the very first submit) and the movie grid (to reflect the new sort) behind it.
+  onRankingSubmitted(): void {
+    this.rankMoviesDialogVisible = false;
+    this.loadGuideInfo();
+  }
 
   private findEntryType(categories: MovieCategory[]): 'Guide' | 'Personality' | null {
     const guides = categories.find(c => c.name === 'Guides');

@@ -224,6 +224,10 @@ export interface MovieGuideDto {
   icon: string | null;
   owner: string;
   subscribedCategoryIds: number[];
+  // Set once a Movie Personality's ranking has been submitted at least once (see submitPersonalityRanking) --
+  // the username of the synthetic "ranked as this personality" user. Null for Guides and for a Personality that
+  // hasn't been ranked yet.
+  rankingUsername: string | null;
 }
 
 // CSV import (default guide view "Import from CSV" dialog). imdbId is always non-blank. categoryPaths are
@@ -422,6 +426,23 @@ export class MoviesApiService {
     return this.http.get<MoviePage>(`${this.movieGuidesBase}/${movieGuideId}/movies`, {
       params: this.pageParams(page, pageSize, filter, year)
     });
+  }
+
+  // Backs a Movie Personality page's own "Movie Results" grid (ranked movies first) and the "Rank Movies as
+  // Personality" dialog's unpaginated initial load.
+  listPersonalityMovies(movieGuideId: number, page = 1, pageSize = this.moviePageSize, filter = '', year = '',
+                         selectedCategories: number[] = [], onlyNotRecommended = false): Observable<MoviePage> {
+    const params = this.pageParams(page, pageSize, filter, year, selectedCategories);
+    if (onlyNotRecommended) {
+      params['only_not_recommended'] = 'true';
+    }
+    return this.http.get<MoviePage>(`${this.movieGuidesBase}/${movieGuideId}/personality-movies`, { params });
+  }
+
+  // Backs the "Rank Movies as Personality" dialog's Submit action -- fully replaces the personality's own
+  // ranking with the given order (rank 1..N assigned server-side from array position).
+  submitPersonalityRanking(movieGuideId: number, orderedImdbIds: string[]): Observable<MovieGuideDto> {
+    return this.http.post<MovieGuideDto>(`${this.movieGuidesBase}/${movieGuideId}/ranking`, { orderedImdbIds });
   }
 
   // Backs the guide page's bottom "Recommend Similar Movies" section. Public -- like listSimilarMovies, the

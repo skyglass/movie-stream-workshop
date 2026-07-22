@@ -54,6 +54,16 @@
             </div>
           }
         }
+        @if (auth.token) {
+          <button
+            type="button"
+            class="recommend-button category-button"
+            title="Edit Categories"
+            (click)="openCategories(movie)">
+            <span class="material-icons" aria-hidden="true">category</span>
+            Edit Categories
+          </button>
+        }
         <a class="movie-link" [routerLink]="['/movies', movie.imdbId]" [attr.aria-labelledby]="'movie-title-' + movie.imdbId">
           <h3 class="movie-title" [id]="'movie-title-' + movie.imdbId" itemprop="name">{{ movie.title }}</h3>
           <dl>
@@ -69,7 +79,12 @@
               <dt>Genre:</dt>
               <dd itemprop="genre">{{ movie.genre || 'N/A' }}</dd>
             </div>
-            @if (auth.token) {
+            @if (showPersonalityRating) {
+              <div>
+                <dt>Persona's Rating:</dt>
+                <dd>{{ movie.rating != null && movie.rankPosition != null ? '#' + movie.rankPosition + ' (' + (movie.rating | number:'1.1-2') + ')' : '-' }}</dd>
+              </div>
+            } @else if (auth.token) {
               <div>
                 <dt>Your Rating:</dt>
                 <dd>{{ movie.rating != null && movie.rankPosition != null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-' }}</dd>
@@ -87,4 +102,7 @@
     (pageChange)="pageChange.emit($event)" />
 } @else {
   <div class="empty">{{ emptyMessage }}</div>
+}
+@if (categoryMovie; as selectedMovie) {
+  <app-category-tree-dialog mode="assign" [movieId]="selectedMovie.imdbId" (closed)="closeCategories()" (assignmentsSaved)="closeCategories()" />
 }

@@ -61,6 +61,26 @@ public class MovieService {
                 pageRequest);
     }
 
+    // The Personality page's own "Movie Results" grid default sort: ranked movies (via personality_movie_rank)
+    // first in rank order, everything else falling back to the same Bayesian-popularity order as the Home Page --
+    // see MovieRepository.findAllByPersonalityRankThenPopularity.
+    @Transactional(readOnly = true)
+    public Page<Movie> getPersonalityMovies(long guideId, Pageable pageable, String filter, String year,
+                                             List<Long> selectedCategories, String username, boolean onlyNotRecommended) {
+        List<Long> categories = categoryParameters(selectedCategories);
+        Pageable pageRequest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        return movieRepository.findAllByPersonalityRankThenPopularity(
+                guideId,
+                normalizedFilter(filter),
+                normalizedFilter(year),
+                categoryCount(selectedCategories),
+                categories,
+                HOMEPAGE_RATING_PRIOR_WEIGHT,
+                username,
+                onlyNotRecommended && username != null,
+                pageRequest);
+    }
+
     @Transactional(readOnly = true)
     public Page<Movie> getGuideMovies(long guideCategoryId, List<Long> excludedCategories, String filter, String year,
                                        Pageable pageable) {

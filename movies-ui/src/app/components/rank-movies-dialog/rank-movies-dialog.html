@@ -1,0 +1,48 @@
+<div class="dialog-backdrop" (click)="close()">
+  <section class="rank-movies-dialog" role="dialog" aria-modal="true" aria-labelledby="rank-movies-title" (click)="$event.stopPropagation()">
+    <header>
+      <div><p class="eyebrow">Rank Movies</p><h2 id="rank-movies-title">Rank Movies as Personality</h2></div>
+      <button type="button" class="icon-button" title="Close" aria-label="Close" (click)="close()"><span class="material-icons">close</span></button>
+    </header>
+
+    <div class="dialog-body" cdkScrollable>
+      @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+      @if (truncated) { <p class="warning">Showing the first {{ movies.length }} movies — this personality has more than that.</p> }
+      @if (loading) {
+        <p>Loading movies…</p>
+      } @else if (movies.length === 0) {
+        <p class="empty">No movies to rank yet.</p>
+      } @else {
+        <p class="rank-hint">Drag movies up or down (dragging near the top/bottom edge scrolls the list), or use the jump buttons to move a movie straight to the top or bottom.</p>
+        <ul class="movie-rows" cdkDropList (cdkDropListDropped)="drop($event)">
+          @for (movie of movies; track movie.imdbId) {
+            <li class="movie-row" cdkDrag>
+              <span class="drag-handle" cdkDragHandle title="Drag to reorder" aria-label="Drag to reorder">
+                <span class="material-icons" aria-hidden="true">drag_indicator</span>
+              </span>
+              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+              <span class="movie-info">
+                <span class="movie-title">{{ movie.title }}</span>
+                <span class="movie-meta">{{ movie.year }} · {{ movie.director }}</span>
+              </span>
+              <span class="movie-rank" title="Current rank" aria-label="Current rank">{{ rankOf(movie) }}</span>
+              <span class="jump-buttons">
+                <button type="button" class="icon-button" title="Move to top" aria-label="Move to top" (click)="moveToTop(movie)">
+                  <span class="material-icons" aria-hidden="true">vertical_align_top</span>
+                </button>
+                <button type="button" class="icon-button" title="Move to bottom" aria-label="Move to bottom" (click)="moveToBottom(movie)">
+                  <span class="material-icons" aria-hidden="true">vertical_align_bottom</span>
+                </button>
+              </span>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    <footer>
+      <button type="button" class="secondary" (click)="close()" [disabled]="submitting">Cancel</button>
+      <button type="button" (click)="submit()" [disabled]="submitting || loading || movies.length === 0">{{ submitting ? 'Submitting…' : 'Submit' }}</button>
+    </footer>
+  </section>
+</div>

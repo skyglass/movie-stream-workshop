@@ -8,6 +8,7 @@ import { Movie, MoviesApiService, ParsedMovieSearch, UsersRecommendedMoviesShare
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
 import { ShareDialogComponent } from '../share-dialog/share-dialog';
+import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 
 // Owner's own authenticated view (default) plus a public, read-only view at /my-recommended-movies/:username
 // once the owner has opted into sharing -- same dual-mode shape as FavoriteMoviesComponent. "Share" (and the
@@ -16,7 +17,7 @@ import { ShareDialogComponent } from '../share-dialog/share-dialog';
 @Component({
   standalone: true,
   selector: 'app-users-recommended-movies',
-  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent, ShareDialogComponent],
+  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent, ShareDialogComponent, CategoryTreeDialogComponent],
   templateUrl: './users-recommended-movies.html',
   styleUrl: './users-recommended-movies.css'
 })
@@ -48,6 +49,7 @@ export class UsersRecommendedMoviesComponent implements OnInit, OnDestroy {
   shareLoading = false;
   shareUrl = '';
   shareDialogVisible = false;
+  categoryMovie: Movie | null = null;
 
   ngOnInit(): void {
     this.routeSub = this.route.paramMap.subscribe(params => {
@@ -155,6 +157,9 @@ export class UsersRecommendedMoviesComponent implements OnInit, OnDestroy {
   closeShareDialog(): void {
     this.shareDialogVisible = false;
   }
+
+  openCategories(movie: Movie): void { this.categoryMovie = movie; }
+  closeCategories(): void { this.categoryMovie = null; }
 
   // Fetches up to maxMovies movies in the exact order shown on-screen for the current filter, without
   // touching this component's own movies/currentPage/totalCount state.

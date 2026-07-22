@@ -6,11 +6,12 @@ import { AuthService } from '../../services/auth';
 import { Movie, MoviesApiService, ParsedMovieSearch } from '../../services/movies-api';
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
+import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 
 @Component({
   standalone: true,
   selector: 'app-users-favorite-movies',
-  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent],
+  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent, CategoryTreeDialogComponent],
   templateUrl: './users-favorite-movies.html',
   styleUrl: './users-favorite-movies.css'
 })
@@ -30,6 +31,7 @@ export class UsersFavoriteMoviesComponent implements OnInit, OnDestroy {
   activeYear = '';
   activeCategories: number[] = [];
   hasActiveFilter = false;
+  categoryMovie: Movie | null = null;
 
   ngOnInit(): void {
     if (this.auth.token) {
@@ -89,5 +91,8 @@ export class UsersFavoriteMoviesComponent implements OnInit, OnDestroy {
   poster(movie: Movie): string {
     return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';
   }
+
+  openCategories(movie: Movie): void { this.categoryMovie = movie; }
+  closeCategories(): void { this.categoryMovie = null; }
 
 }

@@ -152,8 +152,25 @@ public class CategoryService {
                     "This category is referenced by a guide and can only be removed from that guide");
         }
         requireManage(id, username, adminOrGuide);
+        disablePersonalityRankingPublicAccess(id);
         deleteSubtree(id, parentId);
         rebuildClosure();
+    }
+
+    // If this category is a Movie Personality's own anchor with a synthetic ranking user (see
+    // MovieGuideService.submitRanking), deactivate that user's public favorite/recommended pages before the
+    // guide (and its personality_movie_rank rows, via FK cascade) disappear. Surgical: never hard-deletes the
+    // users row -- just flips both public flags off, so /my-favorite-movies/{username} and
+    // /my-recommended-movies/{username} 404 again via the existing public-view guard, rather than serving a
+    // frozen, orphaned snapshot forever.
+    private void disablePersonalityRankingPublicAccess(long categoryId) {
+        jdbc.sql("""
+                update user_settings set is_my_favorite_movies_public=false, is_my_recommended_movies_public=false
+                where username = (
+                    select ranking_username from movie_guide
+                    where category_id=:categoryId and ranking_username is not null
+                )
+                """).param("categoryId", categoryId).update();
     }
 
     @Transactional
@@ -181,15 +198,33 @@ public class CategoryService {
     // plus all its descendants) -- e.g. the "Delete Movies" dialog passes the guide's own category (or a picked
     // sub-category) as scope, and this reaches the movie regardless of which exact descendant category it's
     // actually filed under, matching how the movie list itself is matched via the same transitive closure.
+    //
+    // protectedSubtreeCategoryIds carves out categories that must never be touched by this removal, however scope
+    // was computed -- namely a guide's subscribed/referenced categories, which are physically DAG-linked into the
+    // guide's own subtree (so scope=[guide's root] would otherwise reach them) but are read-only references to a
+    // category that lives, and is owned, elsewhere. Pass an empty/null list when there's nothing to protect (e.g.
+    // the Watchlist path, whose private tree never contains a subscribed category's real rows in the first place).
     @Transactional
-    public void removeMovieFromCategorySubtree(String movieId, List<Long> scopeCategoryIds) {
+    public void removeMovieFromCategorySubtree(String movieId, List<Long> scopeCategoryIds, List<Long> protectedSubtreeCategoryIds) {
         requireMovie(movieId);
         if (scopeCategoryIds.isEmpty()) return;
+        if (protectedSubtreeCategoryIds == null || protectedSubtreeCategoryIds.isEmpty()) {
+            jdbc.sql("""
+                    delete from movie_category
+                    where movie_id=:movie
+                      and category_id in (select descendant_id from category_parent_child_all where ancestor_id in (:scope))
+                    """).param("movie", movieId).param("scope", scopeCategoryIds).update();
+            return;
+        }
         jdbc.sql("""
                 delete from movie_category
                 where movie_id=:movie
-                  and category_id in (select descendant_id from category_parent_child_all where ancestor_id in (:scope))
-                """).param("movie", movieId).param("scope", scopeCategoryIds).update();
+                  and category_id in (
+                      select descendant_id from category_parent_child_all where ancestor_id in (:scope)
+                      except
+                      select descendant_id from category_parent_child_all where ancestor_id in (:protected)
+                  )
+                """).param("movie", movieId).param("scope", scopeCategoryIds).param("protected", protectedSubtreeCategoryIds).update();
     }
 
     @Transactional

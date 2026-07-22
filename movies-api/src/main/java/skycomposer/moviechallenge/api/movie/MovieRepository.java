@@ -75,6 +75,78 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                                                  @Param("onlyNotRecommended") boolean onlyNotRecommended,
                                                  Pageable pageable);
 
+    // Same shape as findAllByUsersFavoritePopularity (identical filter/year/category-closure clause and
+    // countQuery -- the left join below is 1:1 for one fixed :guideId, no row fan-out, so the count is unaffected),
+    // but for a Movie Personality's own "Movie Results" grid: movies the owner has explicitly ranked (via the
+    // "Rank Movies as Personality" dialog) come first, ordered by that rank; everything else -- unranked, or this
+    // isn't a Personality at all -- falls back to the exact same Bayesian-popularity order as the Home Page.
+    @Query(value = """
+            with user_rating_average as (
+                select rating.user_id,
+                    avg(rating.rating) as user_average
+                from user_movie_rating rating
+                group by rating.user_id
+            ),
+            catalog_prior as (
+                select avg(user_rating_average.user_average) as catalog_average
+                from user_rating_average
+            ),
+            movie_rating_stats as (
+                select rating.movie_id,
+                    avg(rating.rating) as average_rating,
+                    count(distinct rating.user_id) as voter_count
+                from user_movie_rating rating
+                group by rating.movie_id
+            )
+            select m.*
+            from movies m
+            left join personality_movie_rank pmr
+                on pmr.movie_id = m.imdb_id and pmr.personality_id = :guideId
+            left join movie_rating_stats
+                on movie_rating_stats.movie_id = m.imdb_id
+            cross join catalog_prior
+            where (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:onlyNotRecommended = false or not exists (select 1 from movie_recommendations mr where mr.user_id = :username and mr.movie_id = m.imdb_id))
+            order by pmr.rank asc nulls last,
+                case when movie_rating_stats.voter_count is null then 1 else 0 end asc,
+                catalog_prior.catalog_average
+                    + (cast(movie_rating_stats.voter_count as numeric(12, 6))
+                        / cast(movie_rating_stats.voter_count + :priorWeight as numeric(12, 6)))
+                    * (movie_rating_stats.average_rating - catalog_prior.catalog_average) desc,
+                movie_rating_stats.voter_count desc,
+                movie_rating_stats.average_rating desc,
+                regexp_replace(lower(m.title), '^(the|a)[[:space:]]+', '') asc,
+                lower(m.title) asc,
+                m.imdb_id asc
+            """, countQuery = """
+            select count(1)
+            from movies m
+            where :priorWeight > 0
+                and (:filter is null
+                or trim(:filter) = ''
+                or lower(m.title) like concat('%', lower(:filter), '%')
+                or lower(m.director) like concat('%', lower(:filter), '%')
+                or lower(coalesce(m.writer, '')) like concat('%', lower(:filter), '%'))
+                and (:year is null or m.release_year = :year)
+                and (:selectedCategoryCount=0 or exists (select 1 from category s where s.id in (:selectedCategories) and exists (select 1 from category_parent_child_all c join movie_category mc on mc.category_id=c.descendant_id where c.ancestor_id=s.id and mc.movie_id=m.imdb_id)))
+                and (:onlyNotRecommended = false or not exists (select 1 from movie_recommendations mr where mr.user_id = :username and mr.movie_id = m.imdb_id))
+            """, nativeQuery = true)
+    Page<Movie> findAllByPersonalityRankThenPopularity(@Param("guideId") long guideId,
+                                                        @Param("filter") String filter,
+                                                        @Param("year") String year,
+                                                        @Param("selectedCategoryCount") int selectedCategoryCount,
+                                                        @Param("selectedCategories") List<Long> selectedCategories,
+                                                        @Param("priorWeight") int priorWeight,
+                                                        @Param("username") String username,
+                                                        @Param("onlyNotRecommended") boolean onlyNotRecommended,
+                                                        Pageable pageable);
+
     @Query(value = """
             select m.*
             from movies m

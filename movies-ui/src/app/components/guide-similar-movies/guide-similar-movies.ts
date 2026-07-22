@@ -7,6 +7,7 @@ import { Movie, MovieGuideDto, MoviesApiService, ParsedMovieSearch } from '../..
 import { BackButtonComponent } from '../back-button/back-button';
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
+import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 
 // Reachable from the "Recommend Similar Movies" footer link on a Movie Guide/Personality page. Public, same
 // personalization rule as SimilarMoviesComponent (Movie Details' own "Similar Movies"): categories touched by
@@ -17,7 +18,7 @@ import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-
 @Component({
   standalone: true,
   selector: 'app-guide-similar-movies',
-  imports: [CommonModule, RouterLink, BackButtonComponent, MoviePageNavigatorComponent, MovieFilterSearchComponent],
+  imports: [CommonModule, RouterLink, BackButtonComponent, MoviePageNavigatorComponent, MovieFilterSearchComponent, CategoryTreeDialogComponent],
   templateUrl: './guide-similar-movies.html',
   styleUrl: './guide-similar-movies.css'
 })
@@ -41,6 +42,7 @@ export class GuideSimilarMoviesComponent implements OnInit, OnDestroy {
   activeYear = '';
   activeCategories: number[] = [];
   hasActiveFilter = false;
+  categoryMovie: Movie | null = null;
 
   ngOnInit(): void {
     this.pageSub = combineLatest([this.route.paramMap, this.auth.isAuthenticated$]).subscribe(([params]) => {
@@ -118,6 +120,9 @@ export class GuideSimilarMoviesComponent implements OnInit, OnDestroy {
     if (this.recommendationBusy[movie.imdbId]) return;
     this.updateRecommendation(movie, () => this.moviesApi.unrecommendMovie(movie.imdbId));
   }
+
+  openCategories(movie: Movie): void { this.categoryMovie = movie; }
+  closeCategories(): void { this.categoryMovie = null; }
 
   private updateRecommendation(movie: Movie, requestFactory: () => ReturnType<MoviesApiService['recommendMovie']>): void {
     this.recommendationBusy[movie.imdbId] = true;

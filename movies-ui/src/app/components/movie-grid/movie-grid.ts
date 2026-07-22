@@ -4,11 +4,12 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth';
 import { Movie, MoviesApiService } from '../../services/movies-api';
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
+import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 
 @Component({
   standalone: true,
   selector: 'app-movie-grid',
-  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent],
+  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, CategoryTreeDialogComponent],
   templateUrl: './movie-grid.html',
   styleUrl: './movie-grid.css'
 })
@@ -23,10 +24,18 @@ export class MovieGridComponent {
   @Input() totalCount = 0;
   @Input() pageSize = 20;
   @Input() emptyMessage = 'No movies found';
+  // Movie Personality pages only: movie.rating/rankPosition carry the personality's own synthetic-user rank
+  // instead of the viewer's -- swaps the label/format accordingly and, unlike "Your Rating", shows it to every
+  // viewer (not just signed-in ones), since it isn't the viewer's own data.
+  @Input() showPersonalityRating = false;
   @Output() pageChange = new EventEmitter<number>();
 
   recommendationBusy: Record<string, boolean> = {};
   recommendationError = '';
+  categoryMovie: Movie | null = null;
+
+  openCategories(movie: Movie): void { this.categoryMovie = movie; }
+  closeCategories(): void { this.categoryMovie = null; }
 
   poster(movie: Movie): string {
     return movie.poster && movie.poster !== 'N/A' ? movie.poster : '/images/movie-poster.jpg';

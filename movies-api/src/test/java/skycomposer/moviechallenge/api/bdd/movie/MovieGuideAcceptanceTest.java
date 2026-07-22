@@ -295,6 +295,14 @@ public class MovieGuideAcceptanceTest {
         assertEquals(1, count);
     }
 
+    @Then("category {string} still contains movie {string}")
+    public void categoryStillContainsMovie(String categoryName, String imdbId) {
+        long categoryId = categoriesByName.get(categoryName);
+        Integer count = jdbc.queryForObject("select count(*) from movie_category where movie_id=? and category_id=?",
+                Integer.class, imdbId, categoryId);
+        assertEquals(1, count);
+    }
+
     @Then("category {string} still exists")
     public void categoryStillExists(String name) {
         Long id = categoriesByName.get(name);

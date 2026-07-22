@@ -7,6 +7,7 @@ import { AuthService } from '../../services/auth';
 import { Movie, MoviesApiService, ParsedMovieSearch } from '../../services/movies-api';
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
+import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 
 // Owner's own "Similar to My Favorite Movies" (default, authenticated) plus a public, read-only view at
 // /my-favorite-movies/:username/similar -- "movies similar to THIS public user's favorites", reachable from the
@@ -15,7 +16,7 @@ import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-
 @Component({
   standalone: true,
   selector: 'app-similar-favorite-movies',
-  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent],
+  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent, CategoryTreeDialogComponent],
   templateUrl: './similar-favorite-movies.html',
   styleUrl: './similar-favorite-movies.css'
 })
@@ -43,6 +44,7 @@ export class SimilarFavoriteMoviesComponent implements OnInit, OnDestroy {
 
   isPublicView = false;
   publicUsername = '';
+  categoryMovie: Movie | null = null;
 
   ngOnInit(): void {
     this.routeSub = this.route.paramMap.subscribe(params => {
@@ -127,6 +129,9 @@ export class SimilarFavoriteMoviesComponent implements OnInit, OnDestroy {
     if (this.recommendationBusy[movie.imdbId]) return;
     this.updateRecommendation(movie, () => this.moviesApi.unrecommendMovie(movie.imdbId));
   }
+
+  openCategories(movie: Movie): void { this.categoryMovie = movie; }
+  closeCategories(): void { this.categoryMovie = null; }
 
   private updateRecommendation(movie: Movie, requestFactory: () => ReturnType<MoviesApiService['recommendMovie']>): void {
     this.recommendationBusy[movie.imdbId] = true;

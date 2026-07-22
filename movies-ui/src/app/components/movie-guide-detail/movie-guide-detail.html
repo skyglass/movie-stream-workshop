@@ -54,6 +54,12 @@
             {{ selectedCategory ? 'Sub-Category Selected' : 'Select Category' }}
           </button>
         }
+        @if (showRankMovies) {
+          <button type="button" class="category-filter-button" title="Rank Movies as Personality" aria-label="Rank Movies as Personality" (click)="openRankMovies()">
+            <span class="material-icons">theater_comedy</span>
+            Rank Movies as Personality
+          </button>
+        }
         @if (selectedCategory && selectedCategoryPath.length) {
           <span class="selected-category-path">
             @for (segment of selectedCategoryPath; track segment.id; let last = $last) {
@@ -111,9 +117,17 @@
       [totalCount]="totalCount"
       [pageSize]="pageSize"
       [emptyMessage]="emptyMessage()"
+      [showPersonalityRating]="entryType === 'Personality'"
       (pageChange)="loadMovies($event)" />
 
     <div class="similar-movies-footer">
+      @if (entryType === 'Personality' && rankingUsername) {
+        <a class="similar-movies-button" [routerLink]="['/my-recommended-movies', rankingUsername]"
+          [title]="'User Recommendations for ' + guideName" aria-label="User Recommendations for this personality">
+          <span class="material-icons" aria-hidden="true">recommend</span>
+          User Recommendations for {{ guideName }}
+        </a>
+      }
       <a class="similar-movies-button" [routerLink]="['/movie-guides', categoryId, 'similar']"
         [title]="'Recommend movies similar to this ' + (entryType === 'Personality' ? 'personality' : 'guide')"
         aria-label="Recommend Similar Movies">
@@ -133,6 +147,14 @@
     <app-delete-movies-selector [movieGuideId]="movieGuideId" [guideCategoryId]="categoryId" [initialCategoryId]="selectedCategory"
       [excludedCategoryIds]="guideSubscribedCategoryIds"
       (closed)="closeDeleteMovies()" (moviesDeleted)="onMoviesDeleted()" />
+  }
+  @if (rankMoviesDialogVisible && movieGuideId) {
+    @defer (on immediate) {
+      <app-rank-movies-dialog [movieGuideId]="movieGuideId" [guideCategoryId]="categoryId"
+        (closed)="closeRankMovies()" (rankingSubmitted)="onRankingSubmitted()" />
+    } @loading {
+      <div class="dialog-backdrop"><p class="state">Loading…</p></div>
+    }
   }
   @if (descriptionDialogVisible) {
     <div class="description-dialog-backdrop" (click)="closeDescriptionDialog()">

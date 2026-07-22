@@ -297,6 +297,13 @@ public class MovieCatalogFixture {
                 "Expected " + firstImdbId + " before " + secondImdbId + " but got " + imdbIds);
     }
 
+    public void assertMovieListOrderedExactly(String commaSeparatedImdbIds) {
+        List<String> expected = Arrays.stream(commaSeparatedImdbIds.split(","))
+                .map(String::trim).filter(id -> !id.isBlank()).toList();
+        List<String> actual = movieList.stream().map(MovieDto::imdbId).toList();
+        assertEquals(expected, actual);
+    }
+
     public void assertMovieListDoesNotContainImdbId(String imdbId) {
         List<String> imdbIds = movieList.stream().map(MovieDto::imdbId).toList();
         assertFalse(imdbIds.contains(imdbId), "Expected movie list not to contain " + imdbId + " but got " + imdbIds);

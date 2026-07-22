@@ -19,8 +19,10 @@ import skycomposer.moviechallenge.api.movie.dto.CsvMovieRef;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesRequest;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesResponse;
 import skycomposer.moviechallenge.api.movie.dto.MoveCategoryRequest;
+import skycomposer.moviechallenge.api.movie.dto.MovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieGuideDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
+import skycomposer.moviechallenge.api.movie.dto.MovieRatingDto;
 import skycomposer.moviechallenge.api.movie.mapper.MovieDtoMapper;
 import skycomposer.moviechallenge.api.movie.model.Movie;
 import skycomposer.moviechallenge.api.movie.model.MovieGuideType;
@@ -30,6 +32,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,15 +40,21 @@ import java.util.Set;
 @Service
 public class MovieGuideService {
     private static final int MAX_CSV_MOVIES = 2000;
+    // Bradley-Terry-driven ranking simulation: each movie is compared against its next few rank-neighbors (local
+    // ordering) plus a handful of exponentially-further movies (global "bridge" anchoring) -- O(N log N) pairs
+    // instead of a full O(N^2) round-robin, see generateComparisonGraph.
+    private static final int LOCAL_COMPARISON_WINDOW = 4;
 
     private final JdbcClient jdbc;
     private final JdbcTemplate jdbcTemplate;
     private final MovieService movieService;
     private final CategoryService categories;
     private final MovieDtoMapper movieMapper;
+    private final MovieChallengeRepository movieChallengeRepository;
+    private final MovieRecommendationService movieRecommendations;
 
     private record Row(long id, long categoryId, int type, String name, String description, String icon,
-                       String owner) {}
+                       String owner, String rankingUsername) {}
 
     @Transactional
     public MovieGuideDto createGuide(CreateGuideRequest request, String owner) {
@@ -129,11 +138,11 @@ public class MovieGuideService {
     @Transactional(readOnly = true)
     public MovieGuideDto getByCategory(long categoryId) {
         Row row = jdbc.sql("""
-                select id, category_id, type, name, description, icon, owner
+                select id, category_id, type, name, description, icon, owner, ranking_username
                 from movie_guide where category_id=:categoryId
                 """).param("categoryId", categoryId).query((rs, n) -> new Row(
                 rs.getLong("id"), rs.getLong("category_id"), rs.getInt("type"), rs.getString("name"),
-                rs.getString("description"), rs.getString("icon"), rs.getString("owner")))
+                rs.getString("description"), rs.getString("icon"), rs.getString("owner"), rs.getString("ranking_username")))
                 .optional().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie Guide not found"));
         return toDto(row);
     }
@@ -166,12 +175,39 @@ public class MovieGuideService {
     // subtrees (each scope id itself, plus all its descendants) -- e.g. scope=[guide's own category] reaches the
     // movie no matter which native sub-category it's actually filed under, matching how the movie list itself is
     // matched via the same transitive closure (category_parent_child_all).
+    //
+    // Critical guard: a guide's subscribed/default categories are physically DAG-linked into its own subtree (see
+    // subscribeCategories above), so the dialog's default "nothing picked" scope of [guide's own category] would
+    // otherwise reach right through them -- deleting the movie's association with the ORIGINAL category some
+    // other guide/owner actually manages, not just unlinking it from this guide's view. subscribedCategoryIds is
+    // always passed to removeMovieFromCategorySubtree as a protected subtree, regardless of role, so this action
+    // can never write outside this guide's own native categories, no matter how scope was picked.
     @Transactional
     public void removeMovie(long guideId, String imdbId, List<Long> categoryIds, String username, boolean adminOrGuide) {
-        requireGuide(guideId);
+        Row guide = requireGuide(guideId);
         categories.requireGuideManage(guideId, username, adminOrGuide);
         requireMovieExists(imdbId);
-        categories.removeMovieFromCategorySubtree(imdbId, categoryIds);
+        List<Long> scope = resolveRemovalScope(guide, categoryIds);
+        categories.removeMovieFromCategorySubtree(imdbId, scope, subscribedCategoryIds(guideId));
+    }
+
+    // Defaults to the guide's own root when nothing is picked; otherwise validates every picked id is genuinely
+    // within this guide's tree (rejecting a stray id from an unrelated guide/category), mirroring the withinGuide
+    // check resolveAssignmentTarget performs on the add path. The exclusion of subscribed subtrees themselves
+    // happens unconditionally afterwards in removeMovieFromCategorySubtree, not here.
+    private List<Long> resolveRemovalScope(Row guide, List<Long> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            return List.of(guide.categoryId());
+        }
+        for (Long categoryId : categoryIds) {
+            boolean withinGuide = jdbc.sql("""
+                    select exists(select 1 from category_parent_child_all where ancestor_id=:root and descendant_id=:target)
+                    """).param("root", guide.categoryId()).param("target", categoryId).query(Boolean.class).single();
+            if (!withinGuide) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is not part of this guide");
+            }
+        }
+        return categoryIds;
     }
 
     // Movies may be assigned directly to the guide's own anchor category, or to one of its native sub-categories
@@ -195,6 +231,141 @@ public class MovieGuideService {
             }
         }
         return requestedCategoryId;
+    }
+
+    // Backs the "Rank Movies as Personality" dialog's Submit action -- Personality-only (rejects a plain Guide).
+    // The submitted order fully replaces this personality's own personality_movie_rank ordering (delete + batch
+    // insert 1..N), and separately seeds/refreshes a synthetic "ranked as this personality" user: a bounded set of
+    // simulated Movie Challenge votes reproducing the submitted order (see generateComparisonGraph), fed through
+    // the real Bradley-Terry fit exactly once, plus movie_recommendations(positive=true) for every ranked movie so
+    // the existing Favorite Movies query picks them up unmodified. The username is allocated once (from the
+    // Personality's own name) and reused on every subsequent submit.
+    @Transactional
+    public MovieGuideDto submitRanking(long guideId, List<String> orderedImdbIds, String username, boolean adminOrGuide) {
+        Row guide = requireGuide(guideId);
+        if (MovieGuideType.fromCode(guide.type()) != MovieGuideType.PERSONALITY) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only Movie Personalities support ranking");
+        }
+        categories.requireGuideManage(guideId, username, adminOrGuide);
+        List<String> ordered = orderedImdbIds.stream().distinct().toList();
+        if (ordered.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot submit an empty ranking");
+        }
+        requireMoviesWithinPersonality(guide, ordered);
+
+        replacePersonalityMovieRank(guideId, ordered);
+
+        String rankingUsername = resolveRankingUsername(guide);
+        ensureSyntheticUser(rankingUsername);
+        replaceSyntheticVotes(rankingUsername, generateComparisonGraph(ordered));
+        movieChallengeRepository.rebuildUserMovieRanks(rankingUsername);
+        movieChallengeRepository.rebuildUserMovieChallengeCounts(rankingUsername);
+        replaceSyntheticRecommendations(rankingUsername, ordered);
+
+        if (guide.rankingUsername() == null) {
+            jdbc.sql("update movie_guide set ranking_username=:username where id=:id")
+                    .param("username", rankingUsername).param("id", guideId).update();
+        }
+        return toDto(requireGuide(guideId));
+    }
+
+    // Same transitive-closure membership check the page's own "Movie Results" grid uses (includes subscribed
+    // categories) -- rejects a stray imdbId that doesn't actually belong to this personality.
+    private void requireMoviesWithinPersonality(Row guide, List<String> imdbIds) {
+        long validCount = jdbc.sql("""
+                select count(distinct mc.movie_id) from category_parent_child_all c
+                join movie_category mc on mc.category_id = c.descendant_id
+                where c.ancestor_id = :root and mc.movie_id in (:ids)
+                """).param("root", guide.categoryId()).param("ids", imdbIds).query(Long.class).single();
+        if (validCount != imdbIds.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Some movies are not part of this personality");
+        }
+    }
+
+    private void replacePersonalityMovieRank(long guideId, List<String> orderedImdbIds) {
+        jdbc.sql("delete from personality_movie_rank where personality_id=:guide").param("guide", guideId).update();
+        List<Object[]> batchArgs = new ArrayList<>();
+        for (int i = 0; i < orderedImdbIds.size(); i++) {
+            batchArgs.add(new Object[]{guideId, orderedImdbIds.get(i), i + 1});
+        }
+        jdbcTemplate.batchUpdate("insert into personality_movie_rank(personality_id, movie_id, rank) values (?, ?, ?)", batchArgs);
+    }
+
+    // Reuses the guide's already-allocated username if it has one; otherwise slugifies the Personality's own
+    // (globally unique) name and falls back to a guideId-disambiguated variant on collision with an existing
+    // users row. Not race-safe against two first-ever submits colliding on the exact same slug at the exact same
+    // instant -- the uq_movie_guide_ranking_username partial unique index (V48) is the hard backstop: a genuine
+    // race fails the losing transaction with a constraint violation rather than silently misattributing usernames.
+    private String resolveRankingUsername(Row guide) {
+        if (guide.rankingUsername() != null) return guide.rankingUsername();
+        String base = slugify(guide.name());
+        if (base.isBlank()) base = "personality-" + guide.id();
+        if (!usernameTaken(base)) return base;
+        String disambiguated = base + "-" + guide.id();
+        String candidate = disambiguated;
+        int suffix = 1;
+        while (usernameTaken(candidate)) {
+            suffix++;
+            candidate = disambiguated + "-" + suffix;
+        }
+        return candidate;
+    }
+
+    private String slugify(String name) {
+        return name.toLowerCase(Locale.ROOT).trim().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
+    }
+
+    private boolean usernameTaken(String candidate) {
+        return jdbc.sql("select exists(select 1 from users where username=:candidate)")
+                .param("candidate", candidate).query(Boolean.class).single();
+    }
+
+    private void ensureSyntheticUser(String username) {
+        jdbc.sql("insert into users(username, email, avatar) values (:username, :email, :username) on conflict (username) do nothing")
+                .param("username", username).param("email", username + "@skycomposer.net").update();
+        jdbc.sql("""
+                insert into user_settings(username, is_my_favorite_movies_public, is_my_recommended_movies_public)
+                values (:username, true, true)
+                on conflict (username) do update set is_my_favorite_movies_public=true, is_my_recommended_movies_public=true
+                """).param("username", username).update();
+    }
+
+    // Given the fully-known submitted order (rank 1 = best), builds a bounded winner/loser vote set instead of a
+    // full O(N^2) round-robin: each movie is compared against its next LOCAL_COMPARISON_WINDOW neighbors (local
+    // ordering) plus a handful of exponentially-further movies at halving distances down to that same window
+    // (global "bridge" anchoring, similar to a skip-list) -- O(N log N) pairs, enough for the real Bradley-Terry
+    // fit to reproduce this exact order on its own. Always forward (winner index < loser index), so no unordered
+    // pair is ever generated twice.
+    private List<String[]> generateComparisonGraph(List<String> orderedImdbIds) {
+        int n = orderedImdbIds.size();
+        List<String[]> pairs = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            for (int window = 1; window <= LOCAL_COMPARISON_WINDOW && i + window < n; window++) {
+                pairs.add(new String[]{orderedImdbIds.get(i), orderedImdbIds.get(i + window)});
+            }
+            for (int distance = n / 2; distance > LOCAL_COMPARISON_WINDOW; distance /= 2) {
+                int j = i + distance;
+                if (j < n) {
+                    pairs.add(new String[]{orderedImdbIds.get(i), orderedImdbIds.get(j)});
+                }
+            }
+        }
+        return pairs;
+    }
+
+    private void replaceSyntheticVotes(String username, List<String[]> pairs) {
+        jdbc.sql("delete from user_movie_challenge_vote where user_id=:username").param("username", username).update();
+        if (pairs.isEmpty()) return;
+        List<Object[]> batchArgs = pairs.stream().map(pair -> new Object[]{username, pair[0], pair[1]}).toList();
+        jdbcTemplate.batchUpdate("insert into user_movie_challenge_vote(user_id, winner_id, loser_id) values (?, ?, ?)", batchArgs);
+    }
+
+    // Full replace, not a diff against the previous submit -- a movie dropped from the ranking (removed from the
+    // personality, or simply left unranked this time) must stop being one of this synthetic user's favorites.
+    private void replaceSyntheticRecommendations(String username, List<String> orderedImdbIds) {
+        jdbc.sql("delete from movie_recommendations where user_id=:username").param("username", username).update();
+        List<Object[]> batchArgs = orderedImdbIds.stream().map(imdbId -> new Object[]{username, imdbId}).toList();
+        jdbcTemplate.batchUpdate("insert into movie_recommendations(user_id, movie_id, positive) values (?, ?, true)", batchArgs);
     }
 
     // CSV import Phase 1 (default-view "Import from CSV" dialog): links every row whose imdb_id already exists in
@@ -266,6 +437,37 @@ public class MovieGuideService {
         return movieExists(imdbId) ? imdbId : null;
     }
 
+    // Backs the Personality page's own "Movie Results" grid (and the "Rank Movies as Personality" dialog's
+    // unpaginated initial load) -- unlike guideMovies below, this includes movies reachable via subscribed
+    // categories too, matching the same category scope selectedCategories already governs everywhere else.
+    //
+    // Each returned movie carries two independent, differently-scoped pieces of enrichment: recommended/disliked
+    // reflects the CURRENT VIEWER's own like/dislike (so the card's Like/Dislike buttons behave correctly, same
+    // as every other movie grid), while rating/rankPosition is repurposed here to carry the PERSONALITY's own
+    // synthetic-user rank/rating (see MovieGuideService.submitRanking) rather than the viewer's -- the frontend
+    // shows this as "Personality's Rating" specifically on this page, never mixed with the viewer's own rating.
+    @Transactional(readOnly = true)
+    public MoviePageDto personalityMovies(long guideId, int page, int pageSize, String filter, String year,
+                                           List<Long> selectedCategories, String username, boolean onlyNotRecommended) {
+        Row guide = requireGuide(guideId);
+        Pageable pageable = PageRequest.of(Math.max(page - 1, 0), pageSize);
+        Page<Movie> movies = movieService.getPersonalityMovies(guideId, pageable, filter, year, selectedCategories, username, onlyNotRecommended);
+        List<String> imdbIds = movies.getContent().stream().map(Movie::getImdbId).toList();
+
+        Set<String> recommendedMovieIds = username == null ? Set.of() : movieRecommendations.recommendedMovieIds(username);
+        Set<String> dislikedMovieIds = username == null ? Set.of() : movieRecommendations.dislikedMovieIds(username);
+        Map<String, MovieRatingDto> personalityRatings = guide.rankingUsername() == null
+                ? Map.of() : movieChallengeRepository.movieRatings(guide.rankingUsername(), imdbIds);
+
+        List<MovieDto> movieDtos = movies.getContent().stream()
+                .map(movie -> movieMapper.toMovieDto(movie,
+                        recommendedMovieIds.contains(movie.getImdbId()),
+                        dislikedMovieIds.contains(movie.getImdbId()),
+                        personalityRatings.get(movie.getImdbId())))
+                .toList();
+        return new MoviePageDto(movieDtos, movies.getTotalElements());
+    }
+
     @Transactional(readOnly = true)
     public MoviePageDto guideMovies(long guideId, int page, int pageSize, String filter, String year) {
         Row guide = requireGuide(guideId);
@@ -290,11 +492,11 @@ public class MovieGuideService {
 
     private Row requireGuide(long guideId) {
         return jdbc.sql("""
-                select id, category_id, type, name, description, icon, owner
+                select id, category_id, type, name, description, icon, owner, ranking_username
                 from movie_guide where id=:id
                 """).param("id", guideId).query((rs, n) -> new Row(
                 rs.getLong("id"), rs.getLong("category_id"), rs.getInt("type"), rs.getString("name"),
-                rs.getString("description"), rs.getString("icon"), rs.getString("owner")))
+                rs.getString("description"), rs.getString("icon"), rs.getString("owner"), rs.getString("ranking_username")))
                 .optional().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie Guide not found"));
     }
 
@@ -307,7 +509,8 @@ public class MovieGuideService {
 
     private MovieGuideDto toDto(Row row) {
         return new MovieGuideDto(row.id(), row.categoryId(), MovieGuideType.fromCode(row.type()).getDescription(),
-                row.name(), row.description(), row.icon(), row.owner(), subscribedCategoryIds(row.id()));
+                row.name(), row.description(), row.icon(), row.owner(), subscribedCategoryIds(row.id()),
+                row.rankingUsername());
     }
 
     private MovieGuideType normalizeType(String type) {

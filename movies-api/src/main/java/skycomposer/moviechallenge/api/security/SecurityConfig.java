@@ -75,6 +75,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/movie-guides/by-category/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-guides/*/movies").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-guides/*/similar-movies").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/movie-guides/*/personality-movies").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movie-guides/mine").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/wizard").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/subscribe").authenticated()
@@ -82,6 +83,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/import-csv").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/import-csv/complete").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/movies/*/remove").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/movie-guides/*/ranking").authenticated()
                         // "My Watchlists": private data, unlike the public /api/movie-guides and /api/categories
                         // above -- every method needs authentication, and WatchlistService/PrivateCategoryService
                         // additionally enforce an owner-or-MOVIES_ADMIN check on every single call.

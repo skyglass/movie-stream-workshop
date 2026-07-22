@@ -113,6 +113,15 @@ Feature: curate-movie-guide
     Then the Movie Guide API response status is 204
     And the Movie Guide "Heist Movies" movie list does not contain "tt101"
 
+  Scenario: Removing a movie scoped to the Guide's own root never touches a subscribed category's original movies
+    Given category "Genres" exists
+    And user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to category "Genres"
+    And movie "tt101" exists with title "Movie One"
+    And user "admin" with role "MOVIES_ADMIN" adds movie "tt101" to category "Genres" of the Movie Guide "Heist Movies"
+    When user "curator" with role "USER" removes movie "tt101" from the Movie Guide "Heist Movies" scoped to category "Heist Movies"
+    Then the Movie Guide API response status is 204
+    And category "Genres" still contains movie "tt101"
+
   Scenario: Deleting a Guide never destroys a category it only subscribed to
     Given category "Genres" exists
     And user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to category "Genres"

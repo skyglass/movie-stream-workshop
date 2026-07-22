@@ -16,6 +16,7 @@ import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesResponse;
 import skycomposer.moviechallenge.api.movie.dto.MovieGuideDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
 import skycomposer.moviechallenge.api.movie.dto.RemoveGuideMovieRequest;
+import skycomposer.moviechallenge.api.movie.dto.SubmitPersonalityRankingRequest;
 import skycomposer.moviechallenge.api.movie.dto.SubscribeGuideCategoriesRequest;
 
 import java.util.List;
@@ -115,6 +116,31 @@ public class MovieGuideController {
     public void removeMovie(@PathVariable long id, @PathVariable String imdbId,
                              @Valid @RequestBody RemoveGuideMovieRequest request, Authentication authentication) {
         movieGuides.removeMovie(id, imdbId, request.categoryIds(), authentication.getName(), isAdminOrGuide(authentication));
+    }
+
+    // The Personality page's own "Movie Results" grid (ranked movies first, see MovieGuideService.personalityMovies)
+    // and the "Rank Movies as Personality" dialog's unpaginated initial load (pageSize = the whole personality).
+    // Open to anonymous viewers, same as similarMovies above -- only affects the "Not Recommended" filter, which
+    // is a no-op without a signed-in username anyway.
+    @GetMapping("/{id}/personality-movies")
+    public MoviePageDto personalityMovies(@PathVariable long id,
+                                           @AuthenticationPrincipal Jwt jwt,
+                                           @RequestParam(required = false, defaultValue = "1") int page,
+                                           @RequestParam(required = false, defaultValue = "50") int pageSize,
+                                           @RequestParam(required = false) String filter,
+                                           @RequestParam(required = false) String year,
+                                           @RequestParam(required = false) List<Long> selectedCategories,
+                                           @RequestParam(name = "only_not_recommended", required = false) Boolean onlyNotRecommended) {
+        return movieGuides.personalityMovies(id, page, pageSize, filter, year, selectedCategories, username(jwt),
+                Boolean.TRUE.equals(onlyNotRecommended));
+    }
+
+    // Backs the "Rank Movies as Personality" dialog's Submit action -- owner/MOVIES_GUIDE/MOVIES_ADMIN only, and
+    // rejected outright for a plain Guide (see MovieGuideService.submitRanking).
+    @PostMapping("/{id}/ranking")
+    public MovieGuideDto submitRanking(@PathVariable long id, @Valid @RequestBody SubmitPersonalityRankingRequest request,
+                                        Authentication authentication) {
+        return movieGuides.submitRanking(id, request.orderedImdbIds(), authentication.getName(), isAdminOrGuide(authentication));
     }
 
     private boolean isAdminOrGuide(Authentication authentication) {

@@ -7,11 +7,12 @@ import { Movie, MoviesApiService, ParsedMovieSearch } from '../../services/movie
 import { BackButtonComponent } from '../back-button/back-button';
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
+import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 
 @Component({
   standalone: true,
   selector: 'app-similar-movies',
-  imports: [CommonModule, RouterLink, BackButtonComponent, MoviePageNavigatorComponent, MovieFilterSearchComponent],
+  imports: [CommonModule, RouterLink, BackButtonComponent, MoviePageNavigatorComponent, MovieFilterSearchComponent, CategoryTreeDialogComponent],
   templateUrl: './similar-movies.html',
   styleUrl: './similar-movies.css'
 })
@@ -35,6 +36,7 @@ export class SimilarMoviesComponent implements OnInit, OnDestroy {
   activeYear = '';
   activeCategories: number[] = [];
   hasActiveFilter = false;
+  categoryMovie: Movie | null = null;
 
   // This page is public (reachable by anonymous visitors from the Movie Details page); isAuthenticated$ stays in
   // the trigger so that signing in or out while already here reloads the results with/without the viewer's own
@@ -110,6 +112,9 @@ export class SimilarMoviesComponent implements OnInit, OnDestroy {
     if (this.recommendationBusy[movie.imdbId]) return;
     this.updateRecommendation(movie, () => this.moviesApi.unrecommendMovie(movie.imdbId));
   }
+
+  openCategories(movie: Movie): void { this.categoryMovie = movie; }
+  closeCategories(): void { this.categoryMovie = null; }
 
   private updateRecommendation(movie: Movie, requestFactory: () => ReturnType<MoviesApiService['recommendMovie']>): void {
     this.recommendationBusy[movie.imdbId] = true;

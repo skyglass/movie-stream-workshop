@@ -79,6 +79,10 @@
   color: #a73939;
 }
 
+.category-button .material-icons {
+  color: inherit;
+}
+
 .recommend-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;

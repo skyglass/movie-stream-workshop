@@ -21,6 +21,14 @@
             <span class="material-icons" aria-hidden="true">leaderboard</span>
             Users Favorite
           </div>
+          <button
+            type="button"
+            class="recommend-button category-button"
+            title="Edit Categories"
+            (click)="openCategories(movie)">
+            <span class="material-icons" aria-hidden="true">category</span>
+            Edit Categories
+          </button>
           <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
             <div class="movie-title">{{ movie.title }}</div>
             <dl>
@@ -52,5 +60,8 @@
       (pageChange)="loadUsersFavoriteMovies($event)" />
   } @else if (auth.token) {
     <div class="empty">{{ emptyMessage() }}</div>
+  }
+  @if (categoryMovie; as selectedMovie) {
+    <app-category-tree-dialog mode="assign" [movieId]="selectedMovie.imdbId" (closed)="closeCategories()" (assignmentsSaved)="closeCategories()" />
   }
 </section>
