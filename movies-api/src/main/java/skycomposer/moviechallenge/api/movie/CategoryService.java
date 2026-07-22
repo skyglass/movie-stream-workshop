@@ -100,10 +100,86 @@ public class CategoryService {
                     "Referenced categories are read-only here; edit them at their original location");
         }
         requireManage(id, username, adminOrGuide);
+        String trimmedName = request.name().trim();
+        syncGuideNameIfAnchor(id, trimmedName);
         jdbc.sql("update category set name=:name, description=:description, icon=:icon where id=:id")
-                .param("name", request.name().trim()).param("description", text(request.description()))
+                .param("name", trimmedName).param("description", text(request.description()))
                 .param("icon", text(request.icon())).param("id", id).update();
         return findInTree(id);
+    }
+
+    // A guide/personality's own anchor category and movie_guide.name are two independent columns that only start
+    // out equal (set together once, at creation -- MovieGuideService.createGuide). Nothing kept them in sync
+    // after that: this "Edit" path (the only rename UI that exists) was updating the category only, silently
+    // leaving movie_guide.name stale -- which broke anything keyed off the guide's own name, e.g.
+    // MovieGuideService.submitRanking's synthetic-username slugification. Locks the two together going forward,
+    // and if this personality already has a synthetic ranking user, renames that user's username to match the
+    // new name too (renameRankingUsername below) -- otherwise a rename here would silently leave the old,
+    // now-wrong-looking username (e.g. "robert-de-niro-suggestions" after renaming to "Robert De Niro") stuck
+    // forever, since MovieGuideService.submitRanking only ever allocates a username once and reuses it.
+    // Enforces movie_guide.name's own global case-insensitive uniqueness (uq_movie_guide_name), which plain
+    // category names aren't otherwise subject to.
+    private void syncGuideNameIfAnchor(long categoryId, String newName) {
+        Long guideId = jdbc.sql("select id from movie_guide where category_id=:categoryId")
+                .param("categoryId", categoryId).query(Long.class).optional().orElse(null);
+        if (guideId == null) return;
+        boolean nameTaken = jdbc.sql("select exists(select 1 from movie_guide where lower(name)=lower(:name) and id<>:id)")
+                .param("name", newName).param("id", guideId).query(Boolean.class).single();
+        if (nameTaken) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Movie Guide with the name \"" + newName + "\" already Exists");
+        }
+        String previousRankingUsername = jdbc.sql("select ranking_username from movie_guide where id=:id")
+                .param("id", guideId).query(String.class).optional().orElse(null);
+        jdbc.sql("update movie_guide set name=:name where id=:id").param("name", newName).param("id", guideId).update();
+        if (previousRankingUsername != null) {
+            renameRankingUsername(guideId, previousRankingUsername, newName);
+        }
+    }
+
+    // users.username is a plain (non-cascading) primary key -- none of the FKs referencing it declare "on update
+    // cascade" -- so renaming it can't be a single UPDATE; every referencing row has to be repointed to a new
+    // users row before the old one can be dropped, same as any manual primary-key rename.
+    private void renameRankingUsername(long guideId, String previousUsername, String newGuideName) {
+        String newUsername = allocatePersonaUsernameSlug(guideId, newGuideName, previousUsername);
+        if (newUsername.equals(previousUsername)) return;
+        jdbc.sql("insert into users(username, email, avatar) values (:username, :email, :username)")
+                .param("username", newUsername).param("email", newUsername + "@skycomposer.net").update();
+        jdbc.sql("update user_settings set username=:new where username=:old")
+                .param("new", newUsername).param("old", previousUsername).update();
+        jdbc.sql("update movie_recommendations set user_id=:new where user_id=:old")
+                .param("new", newUsername).param("old", previousUsername).update();
+        jdbc.sql("update user_movie_rank set user_id=:new where user_id=:old")
+                .param("new", newUsername).param("old", previousUsername).update();
+        jdbc.sql("update user_movie_challenge set user_id=:new where user_id=:old")
+                .param("new", newUsername).param("old", previousUsername).update();
+        jdbc.sql("update user_movie_challenge_vote set user_id=:new where user_id=:old")
+                .param("new", newUsername).param("old", previousUsername).update();
+        jdbc.sql("update movie_guide set ranking_username=:new where id=:id")
+                .param("new", newUsername).param("id", guideId).update();
+        jdbc.sql("delete from users where username=:old").param("old", previousUsername).update();
+    }
+
+    // Same slug + collision-disambiguation rule as MovieGuideService.resolveRankingUsername, adapted to exclude
+    // this guide's own current (about-to-be-renamed-away) username from the collision check.
+    private String allocatePersonaUsernameSlug(long guideId, String name, String excludingUsername) {
+        String base = PersonaUsernames.slugify(name);
+        if (base.isBlank()) base = "personality-" + guideId;
+        if (!personaUsernameTaken(base, excludingUsername)) return base;
+        String disambiguated = base + "-" + guideId;
+        String candidate = disambiguated;
+        int suffix = 1;
+        while (personaUsernameTaken(candidate, excludingUsername)) {
+            suffix++;
+            candidate = disambiguated + "-" + suffix;
+        }
+        return candidate;
+    }
+
+    private boolean personaUsernameTaken(String candidate, String excludingUsername) {
+        if (candidate.equals(excludingUsername)) return false;
+        return jdbc.sql("select exists(select 1 from users where username=:candidate)")
+                .param("candidate", candidate).query(Boolean.class).single();
     }
 
     @Transactional

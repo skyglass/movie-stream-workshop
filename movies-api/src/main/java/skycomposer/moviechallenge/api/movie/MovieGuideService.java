@@ -312,7 +312,7 @@ public class MovieGuideService {
     }
 
     private String slugify(String name) {
-        return name.toLowerCase(Locale.ROOT).trim().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
+        return PersonaUsernames.slugify(name);
     }
 
     private boolean usernameTaken(String candidate) {

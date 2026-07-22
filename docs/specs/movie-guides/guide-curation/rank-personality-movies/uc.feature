@@ -52,6 +52,16 @@ Feature: rank-personality-movies
     And movie "tt301" has Personality's Rating rank 2
     And movie "tt303" has Personality's Rating rank 3
 
+  Scenario: Renaming an already-ranked Personality renames its synthetic ranking user to match
+    Given user "curator" with role "USER" ranks the Movie Personality "Robert De Niro Persona" with movies "tt301,tt302,tt303"
+    When user "curator" with role "USER" renames the Movie Guide "Robert De Niro Persona" to "Robert De Niro"
+    Then the Movie Guide API response status is 200
+    And the Movie Personality "Robert De Niro Persona" has ranking username "robert-de-niro"
+    When anonymous viewer requests shared favorite movies for encoded username "robert-de-niro"
+    Then the movie list is ordered "tt301,tt302,tt303"
+    When anonymous viewer requests shared favorite movies for encoded username "robert-de-niro-persona"
+    Then the movie API response status is 404
+
   Scenario: Re-submitting a ranking without a previously-ranked movie drops it from the synthetic user's favorites
     Given user "curator" with role "USER" ranks the Movie Personality "Robert De Niro Persona" with movies "tt301,tt302,tt303"
     When user "curator" with role "USER" ranks the Movie Personality "Robert De Niro Persona" with movies "tt301,tt302"

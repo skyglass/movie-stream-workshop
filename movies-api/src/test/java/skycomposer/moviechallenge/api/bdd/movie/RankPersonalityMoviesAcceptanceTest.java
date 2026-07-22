@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 // Covers the "rank-personality-movies" use case (docs/specs/movie-guides/guide-curation/rank-personality-movies/uc.feature).
 // Deliberately doesn't reuse MovieGuideAcceptanceTest's "creates a Movie Guide/Personality"/"adds movie" steps --
@@ -100,6 +101,26 @@ public class RankPersonalityMoviesAcceptanceTest {
                 "select movie_id from personality_movie_rank where personality_id=? order by rank asc",
                 String.class, guideId);
         assertEquals(splitIds(commaSeparatedImdbIds), actual);
+    }
+
+    // Goes through the real "Edit" entry point (CategoryController.update, the only rename path that exists --
+    // EditGuideDialogComponent calls updateCategory, never a movie-guide-specific endpoint), scoped to the
+    // guide's own anchor category id.
+    @When("user {string} with role {string} renames the Movie Guide {string} to {string}")
+    public void renamesGuide(String username, String role, String guideName, String newName) throws Exception {
+        MovieGuideDto guide = guidesByName.get(guideName);
+        String body = objectMapper.writeValueAsString(Map.of("name", newName, "description", "", "icon", ""));
+        var result = mockMvc.perform(put("/api/categories/{id}", guide.categoryId())
+                .with(restApi.jwt(username, role))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)).andReturn();
+        restApi.record(result);
+        if (result.getResponse().getStatus() < 400) {
+            var refreshed = mockMvc.perform(get("/api/movie-guides/by-category/{categoryId}", guide.categoryId())).andReturn();
+            MovieGuideDto updated = objectMapper.readValue(refreshed.getResponse().getContentAsString(), MovieGuideDto.class);
+            guidesByName.put(guideName, updated);
+            guidesByName.put(newName, updated);
+        }
     }
 
     @Then("the Movie Personality {string} has ranking username {string}")
