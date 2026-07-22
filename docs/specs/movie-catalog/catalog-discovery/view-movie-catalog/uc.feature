@@ -31,6 +31,7 @@ Feature: view-movie-catalog
     Then the catalog discovery list shows "Community Favorite" before "One User Favorite"
     And the catalog discovery list shows "One User Favorite" before "Unrated Movie"
     And the catalog discovery list contains 5 movies
+    And catalog movie "tt103" has Users Rank 1 and rating "10.00"
 
   Scenario: Empty catalog is available
     Given the movie catalog is empty

@@ -79,15 +79,29 @@
               <dt>Genre:</dt>
               <dd itemprop="genre">{{ movie.genre || 'N/A' }}</dd>
             </div>
-            @if (showPersonalityRating) {
+            @if (movie.usersRankPosition != null && movie.usersRating != null) {
               <div>
-                <dt>Persona's Rating:</dt>
-                <dd>{{ movie.rating != null && movie.rankPosition != null ? '#' + movie.rankPosition + ' (' + (movie.rating | number:'1.1-2') + ')' : '-' }}</dd>
+                <dt>Users Rank:</dt>
+                <dd>#{{ movie.usersRankPosition }} ({{ movie.usersRating | number:'1.1-2' }})</dd>
               </div>
-            } @else if (auth.token) {
+            }
+            @if (showPersonalityRating) {
+              @if (movie.rating != null && movie.rankPosition != null) {
+                <div>
+                  <dt>Persona's Rank:</dt>
+                  <dd>#{{ movie.rankPosition }} ({{ movie.rating | number:'1.1-2' }})</dd>
+                </div>
+              }
+              @if (auth.token && movie.viewerRankPosition != null && movie.viewerRating != null) {
+                <div>
+                  <dt>Your Rank:</dt>
+                  <dd>#{{ movie.viewerRankPosition }} ({{ movie.viewerRating | number:'1.1-2' }})</dd>
+                </div>
+              }
+            } @else if (auth.token && movie.rating != null && movie.rankPosition != null) {
               <div>
-                <dt>Your Rating:</dt>
-                <dd>{{ movie.rating != null && movie.rankPosition != null ? (movie.rating | number:'1.1-2') + ' (#' + movie.rankPosition + ')' : '-' }}</dd>
+                <dt>Your Rank:</dt>
+                <dd>#{{ movie.rankPosition }} ({{ movie.rating | number:'1.1-2' }})</dd>
               </div>
             }
           </dl>

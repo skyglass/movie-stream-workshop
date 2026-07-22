@@ -1,8 +1,20 @@
 <section class="movie-page">
   <header class="similar-header">
-    <p class="eyebrow">Recommend Similar Movies</p>
-    <h1>{{ isPublicView ? ('Similar to ' + publicUsername + '\'s Favorite Movies') : 'Similar to My Favorite Movies' }}</h1>
+    <div class="similar-header-copy">
+      <p class="eyebrow">Recommend Similar Movies</p>
+      <h1>{{ isPublicView ? ('Similar to ' + publicUsername + '\'s Favorite Movies') : 'Similar to My Favorite Movies' }}</h1>
+    </div>
+    @if (isPublicView) {
+      <button type="button" class="share-button" (click)="sharePublicSimilarMovies()" title="Share" aria-label="Share">
+        <span class="material-icons" aria-hidden="true">share</span>
+        Share
+      </button>
+    }
   </header>
+
+  @if (shareDialogVisible) {
+    <app-share-dialog [shareUrl]="shareUrl" [fetchOrderedMovies]="fetchOrderedMovies" (closed)="closeShareDialog()" />
+  }
 
   @if (!isPublicView && !auth.token) {
     <div class="empty">Sign in to see similar movies</div>
@@ -19,16 +31,10 @@
     <div class="movie-grid">
       @for (movie of movies; track movie.imdbId) {
         <article class="movie-card">
-          @if (isPublicView) {
-            <div class="poster-link">
-              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-            </div>
-          } @else {
-            <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
-              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-            </a>
-          }
-          @if (!isPublicView) {
+          <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
+            <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+          </a>
+          @if (auth.token) {
             @if (movie.recommended) {
               <button
                 type="button"
@@ -80,34 +86,42 @@
               Edit Categories
             </button>
           }
-          @if (isPublicView) {
-            <div class="movie-link linkless">
-              <div class="movie-title">{{ movie.title }}</div>
-              <dl>
-                <div><dt>Year:</dt><dd>{{ movie.year }}</dd></div>
-                <div><dt>Director:</dt><dd>{{ movie.director }}</dd></div>
-                <div><dt>Genre:</dt><dd>{{ movie.genre || 'N/A' }}</dd></div>
-              </dl>
-            </div>
-          } @else {
-            <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
-              <div class="movie-title">{{ movie.title }}</div>
-              <dl>
+          <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
+            <div class="movie-title">{{ movie.title }}</div>
+            <dl>
+              <div>
+                <dt>Year:</dt>
+                <dd>{{ movie.year }}</dd>
+              </div>
+              <div>
+                <dt>Director:</dt>
+                <dd>{{ movie.director }}</dd>
+              </div>
+              <div>
+                <dt>Genre:</dt>
+                <dd>{{ movie.genre || 'N/A' }}</dd>
+              </div>
+              @if (movie.usersRankPosition != null && movie.usersRating != null) {
                 <div>
-                  <dt>Year:</dt>
-                  <dd>{{ movie.year }}</dd>
+                  <dt>Users Rank:</dt>
+                  <dd>{{ movie.usersRankPosition | rankFormat }} ({{ movie.usersRating | ratingFormat }})</dd>
                 </div>
+              }
+              @if (isPublicView) {
+                @if (auth.token && movie.viewerRankPosition != null && movie.viewerRating != null) {
+                  <div>
+                    <dt>Your Rank:</dt>
+                    <dd>{{ movie.viewerRankPosition | rankFormat }} ({{ movie.viewerRating | ratingFormat }})</dd>
+                  </div>
+                }
+              } @else if (movie.rating | showRatingRank:movie.rankPosition:auth.token) {
                 <div>
-                  <dt>Director:</dt>
-                  <dd>{{ movie.director }}</dd>
+                  <dt>Your Rank:</dt>
+                  <dd>{{ movie.rankPosition | rankFormat }} ({{ movie.rating | ratingFormat }})</dd>
                 </div>
-                <div>
-                  <dt>Genre:</dt>
-                  <dd>{{ movie.genre || 'N/A' }}</dd>
-                </div>
-              </dl>
-            </a>
-          }
+              }
+            </dl>
+          </a>
         </article>
       }
     </div>

@@ -1,15 +1,11 @@
 package skycomposer.moviechallenge.api.movie.application.service;
 
-import skycomposer.moviechallenge.api.movie.MovieChallengeRepository;
 import skycomposer.moviechallenge.api.movie.MovieRecommendationService;
 import skycomposer.moviechallenge.api.movie.MovieService;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
-import skycomposer.moviechallenge.api.movie.dto.MovieRatingDto;
-import skycomposer.moviechallenge.api.movie.mapper.MovieDtoMapper;
-import skycomposer.moviechallenge.api.movie.model.Movie;
+import skycomposer.moviechallenge.api.movie.mapper.MovieDtoEnricher;
 import skycomposer.moviechallenge.api.userextra.UserExtraService;
 import skycomposer.moviechallenge.api.userextra.model.UserExtra;
-import java.util.Map;
 import java.util.Set;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +20,7 @@ public class ViewFavoriteMoviesUseCase {
 
     private final MovieService movieService;
     private final MovieRecommendationService movieRecommendationService;
-    private final MovieChallengeRepository movieChallengeRepository;
-    private final MovieDtoMapper movieMapper;
+    private final MovieDtoEnricher movieDtoEnricher;
     private final UserExtraService userExtraService;
 
     @Transactional
@@ -64,21 +59,24 @@ public class ViewFavoriteMoviesUseCase {
         return viewFavoriteMovies(username, pageable, filter, year, List.of());
     }
 
+    // The owner's own page (private view): subject and viewer are the same person, so "Your Rank" and whatever
+    // rankPosition/rating already mean here coincide -- no need for the two-username overload below.
     @Transactional(readOnly = true)
     public MoviePageDto viewFavoriteMovies(String username, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
-        Set<String> recommendedMovieIds = movieRecommendationService.recommendedMovieIds(username);
-        var movies = movieService.getFavoriteMovies(username, pageable, filter, year, selectedCategories);
-        Map<String, MovieRatingDto> ratings = movieChallengeRepository.movieRatings(
-                username,
-                movies.getContent().stream().map(Movie::getImdbId).toList());
+        return viewFavoriteMovies(username, username, pageable, filter, year, selectedCategories);
+    }
+
+    // Public share page: subjectUsername is the page owner (whose favorites these are, and whose rank
+    // rankPosition/rating already carry); viewerUsername is the actual signed-in visitor (null if anonymous, or
+    // if they're a different person than the owner) -- only used to populate viewerRankPosition/viewerRating so
+    // "Your Rank" reflects the visitor, not the page owner.
+    @Transactional(readOnly = true)
+    public MoviePageDto viewFavoriteMovies(String subjectUsername, String viewerUsername, Pageable pageable,
+                                            String filter, String year, List<Long> selectedCategories) {
+        Set<String> recommendedMovieIds = movieRecommendationService.recommendedMovieIds(subjectUsername);
+        var movies = movieService.getFavoriteMovies(subjectUsername, pageable, filter, year, selectedCategories);
         return new MoviePageDto(
-                movies.getContent().stream()
-                        .map(movie -> movieMapper.toMovieDto(
-                                movie,
-                                recommendedMovieIds.contains(movie.getImdbId()),
-                                false,
-                                ratings.get(movie.getImdbId())))
-                        .toList(),
+                movieDtoEnricher.toMovieDtos(movies.getContent(), recommendedMovieIds, Set.of(), subjectUsername, viewerUsername),
                 movies.getTotalElements());
     }
 }

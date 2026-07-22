@@ -1060,6 +1060,77 @@ public class MovieChallengeRepository {
         return ratings;
     }
 
+    // "Users Rank" is calculated across the whole catalog before being narrowed to the current page. Its ordering
+    // uses the exact Bayesian-popularity formula used by the Home page, while its displayed rating is normalized
+    // from that resulting rank: #1 is always 10.00 and the final rated movie is 1.00. The raw Bayesian score is a
+    // useful sort signal but not a rank-derived 1..10 rating (and can legitimately put #1 at e.g. 6.6), so it must
+    // not be exposed as Users Rating. A movie nobody has rated remains null for both fields.
+    public Map<String, MovieRatingDto> usersPopularityRatings(Collection<String> movieIds) {
+        if (movieIds.isEmpty()) {
+            return Map.of();
+        }
+
+        String sql = """
+                with user_rating_average as (
+                    select rating.user_id, avg(rating.rating) as user_average
+                    from user_movie_rating rating group by rating.user_id
+                ),
+                catalog_prior as (
+                    select avg(user_rating_average.user_average) as catalog_average
+                    from user_rating_average
+                ),
+                movie_rating_stats as (
+                    select rating.movie_id, avg(rating.rating) as average_rating,
+                        count(distinct rating.user_id) as voter_count
+                    from user_movie_rating rating group by rating.movie_id
+                ),
+                ranked as (
+                    select m.imdb_id as movie_id,
+                        case when movie_rating_stats.voter_count is null then null else row_number() over (
+                            order by case when movie_rating_stats.voter_count is null then 1 else 0 end asc,
+                                catalog_prior.catalog_average
+                                    + (cast(movie_rating_stats.voter_count as numeric(12,6))
+                                        / cast(movie_rating_stats.voter_count + :priorWeight as numeric(12,6)))
+                                    * (movie_rating_stats.average_rating - catalog_prior.catalog_average) desc,
+                                movie_rating_stats.voter_count desc,
+                                movie_rating_stats.average_rating desc,
+                                regexp_replace(lower(m.title), '^(the|a)[[:space:]]+', '') asc,
+                                lower(m.title) asc,
+                                m.imdb_id asc
+                        ) end as users_rank_position
+                    from movies m
+                    left join movie_rating_stats on movie_rating_stats.movie_id = m.imdb_id
+                    cross join catalog_prior
+                ),
+                rated as (
+                    select movie_id, users_rank_position,
+                        case
+                            when users_rank_position is null then null
+                            when max(users_rank_position) over () = 1 then cast(10.00 as numeric(4,2))
+                            else cast(round(
+                                cast(10 as numeric(12,6))
+                                    - cast(9 as numeric(12,6))
+                                        * cast(users_rank_position - 1 as numeric(12,6))
+                                        / cast(max(users_rank_position) over () - 1 as numeric(12,6)),
+                                2) as numeric(4,2))
+                        end as users_rating
+                    from ranked
+                )
+                select movie_id, users_rank_position, users_rating
+                from rated
+                where movie_id in (:movieIds)
+                """;
+        Map<String, Object> params = Map.of("priorWeight", MovieService.HOMEPAGE_RATING_PRIOR_WEIGHT, "movieIds", movieIds);
+        Map<String, MovieRatingDto> ratings = new HashMap<>();
+        jdbcTemplate.query(sql, params, (rs, rowNum) -> {
+                    int rankPosition = rs.getInt("users_rank_position");
+                    return Map.entry(rs.getString("movie_id"),
+                            new MovieRatingDto(rs.wasNull() ? null : rankPosition, rs.getBigDecimal("users_rating")));
+                })
+                .forEach(rating -> ratings.put(rating.getKey(), rating.getValue()));
+        return ratings;
+    }
+
     private List<ChallengeVote> directChallengeVotes(String username) {
         return jdbcTemplate.query("""
                 select winner_id, loser_id

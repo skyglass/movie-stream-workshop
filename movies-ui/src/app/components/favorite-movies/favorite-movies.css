@@ -39,6 +39,38 @@
   flex-wrap: wrap;
 }
 
+.ranking-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.edit-ranks-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  border-radius: 6px;
+  border: 1px solid #1b6fa8;
+  background: #ffffff;
+  color: #1b6fa8;
+  font: inherit;
+  font-weight: 800;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.edit-ranks-button:hover {
+  background: #f1f8fc;
+}
+
+.edit-ranks-button .material-icons {
+  font-size: 1.15rem;
+}
+
 .favorite-filter {
   margin: 0;
 }
@@ -77,6 +109,9 @@
 .share-button,
 .copy-button,
 .close-share-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   min-height: 2.35rem;
   border-radius: 6px;
   border: 1px solid #1b6fa8;
@@ -91,6 +126,11 @@
 .share-button:hover,
 .copy-button:hover {
   background: #155c8d;
+}
+
+.share-button .material-icons {
+  font-size: 1.15rem;
+  color: #ffffff;
 }
 
 .close-share-button {
@@ -145,8 +185,76 @@
 
 .category-button .material-icons { color: inherit; }
 
-.movie-link.linkless {
-  cursor: default;
+.recommend-button.recommended {
+  border-color: #66ad78;
+  color: #1d6b36;
+  background: #f3fbf5;
+}
+
+.recommend-button.recommended .material-icons {
+  color: #268242;
+}
+
+.recommend-button.disliked {
+  border-color: #d18b8b;
+  color: #8f2d2d;
+  background: #fff6f6;
+}
+
+.recommend-button.disliked .material-icons {
+  color: #a73939;
+}
+
+.recommendation-actions {
+  width: calc(100% - 1rem);
+  min-height: 2.4rem;
+  margin: 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.recommend-action {
+  min-width: 0;
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2933;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.recommend-action .material-icons {
+  font-size: 1.1rem;
+}
+
+.recommend-action.like {
+  border-color: #66ad78;
+  color: #1d6b36;
+}
+
+.recommend-action.like .material-icons {
+  color: #268242;
+}
+
+.recommend-action.dislike {
+  border-color: #d18b8b;
+  color: #8f2d2d;
+}
+
+.recommend-action.dislike .material-icons {
+  color: #a73939;
+}
+
+.recommend-action:disabled,
+.recommend-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 @media (max-width: 760px) {

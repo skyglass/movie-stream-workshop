@@ -2,6 +2,8 @@ package skycomposer.moviechallenge.api.movie;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -10,6 +12,8 @@ import skycomposer.moviechallenge.api.movie.application.service.ShareUsersRecomm
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
 import skycomposer.moviechallenge.api.movie.exception.SharedRecommendedMoviesNotFoundException;
 import java.util.List;
+
+import static skycomposer.moviechallenge.api.movie.JwtUsernames.username;
 
 // Mirrors MyFavoriteMoviesController exactly: the public, unauthenticated view of a user's Recommended Movies
 // page once they've opted in via "Share" (is_my_recommended_movies_public). Anonymous and read-only -- no
@@ -26,6 +30,7 @@ public class MyRecommendedMoviesController {
 
     @GetMapping("/**")
     public MoviePageDto getSharedRecommendedMovies(HttpServletRequest request,
+                                                    @AuthenticationPrincipal Jwt jwt,
                                                     @RequestParam(required = false) Integer page,
                                                     @RequestParam(required = false) Integer pageSize,
                                                     @RequestParam(required = false) String filter,
@@ -33,6 +38,7 @@ public class MyRecommendedMoviesController {
                                                     @RequestParam(required = false) List<Long> selectedCategories) {
         return shareUsersRecommendedMovies.viewSharedRecommendedMovies(
                 encodedUsername(request),
+                username(jwt),
                 moviePaging.pageable(page, pageSize),
                 filter,
                 year,

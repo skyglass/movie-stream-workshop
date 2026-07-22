@@ -8,6 +8,8 @@ import { BackButtonComponent } from '../back-button/back-button';
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
+import { RankFormatPipe } from '../../pipes/rank-format.pipe';
+import { RatingFormatPipe } from '../../pipes/rating-format.pipe';
 
 // Reachable from the "Recommend Similar Movies" footer link on a Movie Guide/Personality page. Public, same
 // personalization rule as SimilarMoviesComponent (Movie Details' own "Similar Movies"): categories touched by
@@ -18,7 +20,10 @@ import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tr
 @Component({
   standalone: true,
   selector: 'app-guide-similar-movies',
-  imports: [CommonModule, RouterLink, BackButtonComponent, MoviePageNavigatorComponent, MovieFilterSearchComponent, CategoryTreeDialogComponent],
+  imports: [
+    CommonModule, RouterLink, BackButtonComponent, MoviePageNavigatorComponent, MovieFilterSearchComponent,
+    CategoryTreeDialogComponent, RankFormatPipe, RatingFormatPipe
+  ],
   templateUrl: './guide-similar-movies.html',
   styleUrl: './guide-similar-movies.css'
 })

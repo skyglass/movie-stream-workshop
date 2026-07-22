@@ -1,0 +1,53 @@
+<div class="dialog-backdrop" (click)="close()">
+  <section class="rank-movies-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-favorite-ranks-title" (click)="$event.stopPropagation()">
+    <header>
+      <div><p class="eyebrow">Rank Movies</p><h2 id="edit-favorite-ranks-title">Edit Your Ranks</h2></div>
+      <button type="button" class="icon-button" title="Close" aria-label="Close" (click)="close()" [disabled]="submitting"><span class="material-icons">close</span></button>
+    </header>
+
+    <div class="dialog-body" cdkScrollable>
+      @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+      @if (loading) {
+        <p>Loading movies…</p>
+      } @else if (movies.length === 0) {
+        <p class="empty">No movies to rank yet.</p>
+      } @else {
+        <p class="warning">Arrange movies in your preferred order by dragging them or using the move-to-top and move-to-bottom buttons. Select Submit when you are happy with the ranking.</p>
+        <ul class="movie-rows" cdkDropList (cdkDropListDropped)="drop($event)">
+          @for (movie of movies; track movie.imdbId) {
+            <li class="movie-row" cdkDrag>
+              <span class="drag-handle" cdkDragHandle title="Drag to reorder" aria-label="Drag to reorder">
+                <span class="material-icons" aria-hidden="true">drag_indicator</span>
+              </span>
+              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+              <span class="movie-info">
+                <span class="movie-title">{{ movie.title }}</span>
+                <span class="movie-meta">{{ movie.year }} · {{ movie.director }}</span>
+              </span>
+              <span class="movie-rank" title="New rank within the loaded movies" aria-label="New rank">{{ rankOf(movie) }}</span>
+              <span class="jump-buttons">
+                <button type="button" class="icon-button" title="Move to top" aria-label="Move to top" (click)="moveToTop(movie)">
+                  <span class="material-icons" aria-hidden="true">vertical_align_top</span>
+                </button>
+                <button type="button" class="icon-button" title="Move to bottom" aria-label="Move to bottom" (click)="moveToBottom(movie)">
+                  <span class="material-icons" aria-hidden="true">vertical_align_bottom</span>
+                </button>
+              </span>
+            </li>
+          }
+        </ul>
+        @if (hasNext) {
+          <button type="button" class="next-button" (click)="loadNext()" [disabled]="loadingNext || submitting">
+            {{ loadingNext ? 'Loading…' : 'Next' }}
+          </button>
+        }
+      }
+    </div>
+
+    <footer>
+      <span class="loaded-count">{{ movies.length }} of {{ totalCount }} loaded</span>
+      <button type="button" class="secondary" (click)="close()" [disabled]="submitting">Cancel</button>
+      <button type="button" (click)="submit()" [disabled]="submitting || loading || loadingNext || movies.length === 0">{{ submitting ? 'Submitting…' : 'Submit' }}</button>
+    </footer>
+  </section>
+</div>

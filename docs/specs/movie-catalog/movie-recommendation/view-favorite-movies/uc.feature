@@ -44,3 +44,24 @@ Feature: view-favorite-movies
     And favorite movies total count is 1
     And favorite movies contain movie "tt101"
     And favorite movies do not contain movie "tt102"
+
+  Scenario: Editing a loaded favorite prefix preserves every later rank and disliked movie
+    Given movie "tt101" exists with title "Movie One"
+    And movie "tt102" exists with title "Movie Two"
+    And movie "tt103" exists with title "Movie Three"
+    And movie "tt104" exists with title "Movie Four"
+    And movie "tt105" exists with title "New Challenge Movie"
+    And movie "tt-disliked" exists with title "Disliked Movie"
+    And user "user" has already ranked movies "tt101,tt102,tt103,tt104" from best to worst
+    And movie "tt105" is already recommended by "user"
+    And movie "tt-disliked" is already disliked by "user"
+    When regular user "user" submits favorite movie ranks "tt102,tt101"
+    Then the movie API response status is 200
+    And movie "tt102" keeps exact rank 1 for "user"
+    And movie "tt101" keeps exact rank 2 for "user"
+    And movie "tt103" keeps exact rank 3 for "user"
+    And movie "tt104" keeps exact rank 4 for "user"
+    And movie "tt-disliked" is disliked by "user"
+    When regular user "user" selects movie "tt105" from movie challenge pair "tt105" and "tt101"
+    Then movie "tt105" is recorded as winner over "tt101" for "user"
+    And movie "tt105" has 1 direct comparison for "user"

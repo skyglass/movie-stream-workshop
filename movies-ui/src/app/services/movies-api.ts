@@ -27,6 +27,14 @@ export interface Movie {
   disliked: boolean;
   rankPosition: number | null;
   rating: number | null;
+  // All-users popularity rank/rating -- same score that sorts the Home page, independent of any viewer.
+  usersRankPosition: number | null;
+  usersRating: number | null;
+  // The actual signed-in viewer's own rank, independent of whatever rankPosition/rating mean in context (the
+  // Movie Personality's own synthetic rank on the Personality page, or the page owner's rank on a public share
+  // page) -- lets "Your Rank" be shown correctly even where rankPosition/rating mean someone else's rank.
+  viewerRankPosition: number | null;
+  viewerRating: number | null;
   comments: MovieComment[];
 }
 
@@ -393,6 +401,10 @@ export class MoviesApiService {
     return this.http.post<void>(`${this.categoriesBase}/${categoryId}/movies-from-search`, this.movieFromOmdb(movie));
   }
 
+  addMoviesToCategory(categoryId: number, imdbIds: string[]): Observable<void> {
+    return this.http.post<void>(`${this.categoriesBase}/${categoryId}/movies`, { imdbIds });
+  }
+
   createGuide(type: 'Guide' | 'Personality', name: string, description: string, icon: string,
               subscribedCategoryIds: number[]): Observable<MovieGuideDto> {
     return this.http.post<MovieGuideDto>(`${this.movieGuidesBase}/wizard`, { type, name, description, icon, subscribedCategoryIds });
@@ -439,8 +451,8 @@ export class MoviesApiService {
     return this.http.get<MoviePage>(`${this.movieGuidesBase}/${movieGuideId}/personality-movies`, { params });
   }
 
-  // Backs the "Rank Movies as Personality" dialog's Submit action -- fully replaces the personality's own
-  // ranking with the given order (rank 1..N assigned server-side from array position).
+  // The dialog sends its loaded prefix (100, 200, ...); the server merges it with the untouched current suffix
+  // and then fully rebuilds the Personality's synthetic ranking from that complete order.
   submitPersonalityRanking(movieGuideId: number, orderedImdbIds: string[]): Observable<MovieGuideDto> {
     return this.http.post<MovieGuideDto>(`${this.movieGuidesBase}/${movieGuideId}/ranking`, { orderedImdbIds });
   }
@@ -554,6 +566,12 @@ export class MoviesApiService {
 
   listFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {
     return this.http.get<MoviePage>(this.favoriteMoviesBase, { params: this.pageParams(page, pageSize, filter, year, selectedCategories) });
+  }
+
+  // Re-ranks exactly the currently loaded first N favorites. The server verifies that this is still the current
+  // prefix before changing anything, so a stale dialog cannot accidentally move or omit later movies.
+  submitFavoriteMoviesRanking(orderedImdbIds: string[]): Observable<void> {
+    return this.http.post<void>(`${this.favoriteMoviesBase}/ranking`, { orderedImdbIds });
   }
 
   listPublicFavoriteMovies(username: string, page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {

@@ -15,7 +15,10 @@ import java.util.List;
 @Service
 public class MovieService {
 
-    private static final int HOMEPAGE_RATING_PRIOR_WEIGHT = 10;
+    // Package-private (not private): MovieChallengeRepository.usersPopularityRatings reuses this same weight so
+    // the "Users Rank" field it computes always matches the Home page's actual sort order, rather than risking a
+    // second, independently-tunable copy of "10" drifting out of sync with this one.
+    static final int HOMEPAGE_RATING_PRIOR_WEIGHT = 10;
     private static final int CATEGORY_SIMILARITY_PRIOR_WEIGHT = 10;
 
     private final MovieRepository movieRepository;

@@ -5,6 +5,8 @@ import skycomposer.moviechallenge.api.movie.application.service.ViewCategorySimi
 import skycomposer.moviechallenge.api.movie.application.service.ShareMyFavoriteMoviesUseCase;
 import skycomposer.moviechallenge.api.movie.dto.FavoriteMoviesShareDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
+import skycomposer.moviechallenge.api.movie.dto.SubmitFavoriteMoviesRankingRequest;
+import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
@@ -14,10 +16,12 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import static skycomposer.moviechallenge.api.config.SwaggerConfig.BEARER_KEY_SECURITY_SCHEME;
+import static skycomposer.moviechallenge.api.movie.JwtUsernames.username;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -28,6 +32,7 @@ public class FavoriteMoviesController {
     private final ViewFavoriteMoviesUseCase viewFavoriteMovies;
     private final ViewCategorySimilarMoviesUseCase viewCategorySimilarMovies;
     private final ShareMyFavoriteMoviesUseCase shareMyFavoriteMovies;
+    private final MovieRankRebuildService movieRankRebuildService;
     private final MoviePaging moviePaging;
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
@@ -39,6 +44,13 @@ public class FavoriteMoviesController {
                                           @RequestParam(required = false) String year,
                                           @RequestParam(required = false) List<Long> selectedCategories) {
         return viewFavoriteMovies.viewFavoriteMovies(jwt, moviePaging.pageable(page, pageSize), filter, year, selectedCategories);
+    }
+
+    @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
+    @PostMapping("/ranking")
+    public void submitFavoriteMoviesRanking(@AuthenticationPrincipal Jwt jwt,
+                                            @Valid @RequestBody SubmitFavoriteMoviesRankingRequest request) {
+        movieRankRebuildService.rebuildFavoritePrefixRanks(username(jwt), request.orderedImdbIds());
     }
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})

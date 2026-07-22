@@ -1,6 +1,11 @@
 @import '../movies-home/movies-home.css';
 
 .similar-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
   margin-bottom: 1.25rem;
 }
 
@@ -12,6 +17,31 @@
   margin: 0.2rem 0 0;
   color: #203349;
   font-size: 1.45rem;
+}
+
+.share-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  border-radius: 6px;
+  border: 1px solid #1b6fa8;
+  background: #1b6fa8;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.share-button:hover {
+  background: #155c8d;
+}
+
+.share-button .material-icons {
+  font-size: 1.15rem;
+  color: #ffffff;
 }
 
 .recommend-button {

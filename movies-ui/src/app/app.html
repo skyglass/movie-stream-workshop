@@ -3,6 +3,7 @@
     <a class="brand-name" routerLink="/home" aria-label="Movie Challenge home">Movie Challenge</a>
     <nav>
       <a routerLink="/home" routerLinkActive="active">Home</a>
+      <a routerLink="/categories/root" routerLinkActive="active">Browse Categories</a>
       @if (auth.token) {
         <a routerLink="/movie-challenge" routerLinkActive="active">Movie Challenge</a>
       }

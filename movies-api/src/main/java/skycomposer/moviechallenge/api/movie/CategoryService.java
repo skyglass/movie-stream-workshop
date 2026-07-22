@@ -311,6 +311,20 @@ public class CategoryService {
                 .param("movie", movie.getImdbId()).param("category", categoryId).update();
     }
 
+    // Bulk-assigns already-cataloged movies (picked via the Movie Selector, not an OMDb search) to one category in
+    // a single call -- backs the "Add Movies" action on the category browsing page, mirroring
+    // MovieGuideService.assignMovies's bulk-insert shape but for an arbitrary (non-guide-anchored) category.
+    @Transactional
+    public void addMoviesToCategory(long categoryId, List<String> imdbIds) {
+        requireCategory(categoryId);
+        List<String> distinct = imdbIds.stream().distinct().toList();
+        distinct.forEach(this::requireMovie);
+        for (String imdbId : distinct) {
+            jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
+                    .param("movie", imdbId).param("category", categoryId).update();
+        }
+    }
+
     private CategoryDto findInTree(long id) {
         return flatten(tree(null)).stream().filter(category -> category.id() == id).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));

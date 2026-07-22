@@ -16,6 +16,11 @@
 }
 
 .recommended-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
   margin-bottom: 1rem;
 }
 
@@ -29,6 +34,9 @@
 }
 
 .share-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   min-height: 2.4rem;
   border: 0;
   border-radius: 0.45rem;
@@ -45,6 +53,11 @@
   cursor: not-allowed;
 }
 
+.share-button .material-icons {
+  font-size: 1.15rem;
+  color: #fff;
+}
+
 .recommend-button {
   cursor: pointer;
 }
@@ -57,6 +70,16 @@
 
 .recommend-button.recommended .material-icons {
   color: #268242;
+}
+
+.recommend-button.disliked {
+  border-color: #d18b8b;
+  color: #8f2d2d;
+  background: #fff6f6;
+}
+
+.recommend-button.disliked .material-icons {
+  color: #a73939;
 }
 
 .recommendation-actions {

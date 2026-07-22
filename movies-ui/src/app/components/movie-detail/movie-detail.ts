@@ -8,11 +8,17 @@ import { Movie, MovieCategory, MoviesApiService } from '../../services/movies-ap
 import { BackButtonComponent } from '../back-button/back-button';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 import { MovieCategoryPathViewComponent } from '../movie-category-path-view/movie-category-path-view';
+import { RankFormatPipe } from '../../pipes/rank-format.pipe';
+import { RatingFormatPipe } from '../../pipes/rating-format.pipe';
+import { ShowRatingRankPipe } from '../../pipes/show-rating-rank.pipe';
 
 @Component({
   standalone: true,
   selector: 'app-movie-detail',
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, BackButtonComponent, CategoryTreeDialogComponent, MovieCategoryPathViewComponent],
+  imports: [
+    CommonModule, ReactiveFormsModule, RouterLink, BackButtonComponent, CategoryTreeDialogComponent,
+    MovieCategoryPathViewComponent, RankFormatPipe, RatingFormatPipe, ShowRatingRankPipe
+  ],
   templateUrl: './movie-detail.html',
   styleUrl: './movie-detail.css'
 })

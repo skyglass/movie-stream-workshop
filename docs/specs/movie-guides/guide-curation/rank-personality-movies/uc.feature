@@ -62,10 +62,9 @@ Feature: rank-personality-movies
     When anonymous viewer requests shared favorite movies for encoded username "robert-de-niro-persona"
     Then the movie API response status is 404
 
-  Scenario: Re-submitting a ranking without a previously-ranked movie drops it from the synthetic user's favorites
+  Scenario: Submitting only the loaded prefix preserves and rebuilds the unloaded suffix
     Given user "curator" with role "USER" ranks the Movie Personality "Robert De Niro Persona" with movies "tt301,tt302,tt303"
-    When user "curator" with role "USER" ranks the Movie Personality "Robert De Niro Persona" with movies "tt301,tt302"
+    When user "curator" with role "USER" ranks the Movie Personality "Robert De Niro Persona" with movies "tt302,tt301"
     Then the Movie Guide API response status is 200
     When anonymous viewer requests shared favorite movies for encoded username "robert-de-niro-persona"
-    Then the movie list does not contain "tt303"
-    And the movie list is ordered "tt301,tt302"
+    Then the movie list is ordered "tt302,tt301,tt303"

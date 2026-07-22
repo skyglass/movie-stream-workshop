@@ -9,6 +9,9 @@ import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
 import { ShareDialogComponent } from '../share-dialog/share-dialog';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
+import { RankFormatPipe } from '../../pipes/rank-format.pipe';
+import { RatingFormatPipe } from '../../pipes/rating-format.pipe';
+import { ShowRatingRankPipe } from '../../pipes/show-rating-rank.pipe';
 
 // Owner's own authenticated view (default) plus a public, read-only view at /my-recommended-movies/:username
 // once the owner has opted into sharing -- same dual-mode shape as FavoriteMoviesComponent. "Share" (and the
@@ -17,7 +20,10 @@ import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tr
 @Component({
   standalone: true,
   selector: 'app-users-recommended-movies',
-  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent, ShareDialogComponent, CategoryTreeDialogComponent],
+  imports: [
+    CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent, ShareDialogComponent,
+    CategoryTreeDialogComponent, RankFormatPipe, RatingFormatPipe, ShowRatingRankPipe
+  ],
   templateUrl: './users-recommended-movies.html',
   styleUrl: './users-recommended-movies.css'
 })
@@ -154,6 +160,14 @@ export class UsersRecommendedMoviesComponent implements OnInit, OnDestroy {
     this.shareDialogVisible = true;
   }
 
+  // Anonymous/public-view "Share" -- no link to copy (this page's own URL already is the shareable link), so
+  // the dialog surfaces only "Download Poster Collage"/"Download CSV file" (ShareDialogComponent hides the
+  // link row whenever shareUrl is blank).
+  sharePublicRecommendedMovies(): void {
+    this.shareUrl = '';
+    this.shareDialogVisible = true;
+  }
+
   closeShareDialog(): void {
     this.shareDialogVisible = false;
   }
@@ -164,7 +178,9 @@ export class UsersRecommendedMoviesComponent implements OnInit, OnDestroy {
   // Fetches up to maxMovies movies in the exact order shown on-screen for the current filter, without
   // touching this component's own movies/currentPage/totalCount state.
   fetchOrderedMovies = (maxMovies: number): Observable<Movie[]> =>
-    this.moviesApi.listUsersRecommendedMovies(1, maxMovies, this.activeFilter, this.activeYear, this.activeCategories)
+    (this.isPublicView
+      ? this.moviesApi.listPublicUsersRecommendedMovies(this.publicUsername, 1, maxMovies, this.activeFilter, this.activeYear, this.activeCategories)
+      : this.moviesApi.listUsersRecommendedMovies(1, maxMovies, this.activeFilter, this.activeYear, this.activeCategories))
       .pipe(map(page => page.movies));
 
   private updateRecommendation(movie: Movie, requestFactory: () => ReturnType<MoviesApiService['recommendMovie']>): void {
@@ -209,7 +225,7 @@ export class UsersRecommendedMoviesComponent implements OnInit, OnDestroy {
 
   private applySeoMetadata(): void {
     const pageTitle = this.isPublicView
-      ? `${this.publicUsername}'s Recommended Movies | Movie Challenge`
+      ? `User Recommendations for ${this.publicUsername} | Movie Challenge`
       : 'Users Recommended Movies | Movie Challenge';
     this.title.setTitle(pageTitle);
     this.meta.updateTag({ name: 'robots', content: this.isPublicView ? 'index, follow' : 'noindex' });

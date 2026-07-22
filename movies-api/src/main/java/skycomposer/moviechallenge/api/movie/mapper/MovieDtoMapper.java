@@ -31,6 +31,16 @@ public class MovieDtoMapper {
     }
 
     public MovieDto toMovieDto(Movie movie, boolean recommended, boolean disliked, MovieRatingDto rating) {
+        return toMovieDto(movie, recommended, disliked, rating, null);
+    }
+
+    public MovieDto toMovieDto(Movie movie, boolean recommended, boolean disliked, MovieRatingDto rating,
+                               MovieRatingDto usersPopularity) {
+        return toMovieDto(movie, recommended, disliked, rating, usersPopularity, null);
+    }
+
+    public MovieDto toMovieDto(Movie movie, boolean recommended, boolean disliked, MovieRatingDto rating,
+                               MovieRatingDto usersPopularity, MovieRatingDto viewerRating) {
         List<MovieDto.CommentDto> comments = movie.getComments().stream()
                 .map(this::toMovieDtoCommentDto)
                 .toList();
@@ -50,6 +60,10 @@ public class MovieDtoMapper {
                 disliked,
                 rating == null ? null : rating.rankPosition(),
                 rating == null ? null : rating.rating(),
+                usersPopularity == null ? null : usersPopularity.rankPosition(),
+                usersPopularity == null ? null : usersPopularity.rating(),
+                viewerRating == null ? null : viewerRating.rankPosition(),
+                viewerRating == null ? null : viewerRating.rating(),
                 comments
         );
     }

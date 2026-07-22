@@ -54,12 +54,13 @@ public class ShareUsersRecommendedMoviesUseCase {
     }
 
     @Transactional(readOnly = true)
-    public MoviePageDto viewSharedRecommendedMovies(String encodedUsername, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+    public MoviePageDto viewSharedRecommendedMovies(String encodedUsername, String viewerUsername, Pageable pageable,
+                                                     String filter, String year, List<Long> selectedCategories) {
         String username = decodeUsername(encodedUsername);
         if (!userSettingsRepository.existsByUsernameAndMyRecommendedMoviesPublicTrue(username)) {
             throw new SharedRecommendedMoviesNotFoundException(encodedUsername);
         }
-        return viewUsersRecommendedMovies.viewUsersRecommendedMovies(username, pageable, filter, year, selectedCategories);
+        return viewUsersRecommendedMovies.viewUsersRecommendedMovies(username, viewerUsername, pageable, filter, year, selectedCategories);
     }
 
     private UserSettings getOrCreateSettings(String username) {

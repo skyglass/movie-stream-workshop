@@ -13,6 +13,7 @@ import { ImportCsvDialogComponent } from '../import-csv-dialog/import-csv-dialog
 import { DeleteMoviesSelectorComponent } from '../delete-movies-selector/delete-movies-selector';
 import { ShareDialogComponent } from '../share-dialog/share-dialog';
 import { RankMoviesDialogComponent } from '../rank-movies-dialog/rank-movies-dialog';
+import { findCategoryPath } from '../../utils/category-path';
 
 @Component({
   standalone: true,
@@ -232,7 +233,7 @@ export class MovieGuideDetailComponent implements OnInit {
   // "Guides -> Heist Movies -> Genres -> Drama" becomes just ["Genres", "Drama"], relative to the guide itself.
   get selectedCategoryPath(): MovieCategory[] {
     if (this.selectedCategory == null || !this.category) return [];
-    return this.findCategoryPath(this.category.children, this.selectedCategory) ?? [];
+    return findCategoryPath(this.category.children, this.selectedCategory) ?? [];
   }
 
   get selectedCategoryLeaf(): MovieCategory | null {
@@ -246,15 +247,6 @@ export class MovieGuideDetailComponent implements OnInit {
 
   closeSelectedCategoryDescription(): void {
     this.selectedCategoryDescriptionVisible = false;
-  }
-
-  private findCategoryPath(categories: MovieCategory[], targetId: number): MovieCategory[] | null {
-    for (const category of categories) {
-      if (category.id === targetId) return [category];
-      const found = this.findCategoryPath(category.children, targetId);
-      if (found) return [category, ...found];
-    }
-    return null;
   }
 
   openSubscribeCategories(): void {

@@ -1,7 +1,11 @@
 <section class="movie-page">
   @if (isPublicView) {
     <header class="recommended-header">
-      <h1>{{ publicUsername }}'s Recommended Movies</h1>
+      <h1>User Recommendations for {{ publicUsername }}</h1>
+      <button type="button" class="share-button" (click)="sharePublicRecommendedMovies()" title="Share" aria-label="Share">
+        <span class="material-icons" aria-hidden="true">share</span>
+        Share
+      </button>
     </header>
   }
 
@@ -31,16 +35,10 @@
     <div class="movie-grid">
       @for (movie of movies; track movie.imdbId) {
         <article class="movie-card">
-          @if (isPublicView) {
-            <div class="poster-link">
-              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-            </div>
-          } @else {
-            <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
-              <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
-            </a>
-          }
-          @if (!isPublicView) {
+          <a class="poster-link" [routerLink]="['/movies', movie.imdbId]">
+            <img [src]="poster(movie)" [alt]="movie.title + ' poster'" />
+          </a>
+          @if (auth.token) {
             @if (movie.recommended) {
               <button
                 type="button"
@@ -92,25 +90,24 @@
               Edit Categories
             </button>
           }
-          @if (isPublicView) {
-            <div class="movie-link linkless">
-              <div class="movie-title">{{ movie.title }}</div>
-              <dl>
-                <div><dt>Year:</dt><dd>{{ movie.year }}</dd></div>
-                <div><dt>Director:</dt><dd>{{ movie.director }}</dd></div>
-                <div><dt>Genre:</dt><dd>{{ movie.genre || 'N/A' }}</dd></div>
-              </dl>
-            </div>
-          } @else {
-            <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
-              <div class="movie-title">{{ movie.title }}</div>
-              <dl>
-                <div><dt>Year:</dt><dd>{{ movie.year }}</dd></div>
-                <div><dt>Director:</dt><dd>{{ movie.director }}</dd></div>
-                <div><dt>Genre:</dt><dd>{{ movie.genre || 'N/A' }}</dd></div>
-              </dl>
-            </a>
-          }
+          <a class="movie-link" [routerLink]="['/movies', movie.imdbId]">
+            <div class="movie-title">{{ movie.title }}</div>
+            <dl>
+              <div><dt>Year:</dt><dd>{{ movie.year }}</dd></div>
+              <div><dt>Director:</dt><dd>{{ movie.director }}</dd></div>
+              <div><dt>Genre:</dt><dd>{{ movie.genre || 'N/A' }}</dd></div>
+              @if (movie.usersRankPosition != null && movie.usersRating != null) {
+                <div><dt>Users Rank:</dt><dd>{{ movie.usersRankPosition | rankFormat }} ({{ movie.usersRating | ratingFormat }})</dd></div>
+              }
+              @if (isPublicView) {
+                @if (auth.token && movie.viewerRankPosition != null && movie.viewerRating != null) {
+                  <div><dt>Your Rank:</dt><dd>{{ movie.viewerRankPosition | rankFormat }} ({{ movie.viewerRating | ratingFormat }})</dd></div>
+                }
+              } @else if (movie.rating | showRatingRank:movie.rankPosition:auth.token) {
+                <div><dt>Your Rank:</dt><dd>{{ movie.rankPosition | rankFormat }} ({{ movie.rating | ratingFormat }})</dd></div>
+              }
+            </dl>
+          </a>
         </article>
       }
     </div>

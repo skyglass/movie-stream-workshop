@@ -1,36 +1,8 @@
 <section class="movie-page">
   @if (!auth.token) {
-    <section class="intro-section" aria-labelledby="home-title">
-      <div class="intro-copy">
-        <p class="eyebrow">Movie Challenge</p>
-        <h1 id="home-title">Discover movies recommended by people who vote like you</h1>
-        <div class="intro-actions">
-          <button type="button" class="primary-action" (click)="auth.register()">Create account</button>
-        </div>
-      </div>
-
-      <div class="intro-highlights" aria-label="Movie Challenge features">
-        <article>
-          <span class="material-icons" aria-hidden="true">collections_bookmark</span>
-          <h2>Movie Search</h2>
-          <p>Find films by title, year and type.</p>
-        </article>
-        <article>
-          <span class="material-icons" aria-hidden="true">movie</span>
-          <h2>Movie Challenge</h2>
-          <p>Compare movies in 1-1 challenges to rank them from highest to lowest.</p>
-        </article>
-        <article>
-          <span class="material-icons" aria-hidden="true">favorite</span>
-          <h2>Favorite movies</h2>
-          <p>Build a personal favorite movies list, ranked from highest to lowest, based on the Movie Challenge votes.</p>
-        </article>
-        <article>
-          <span class="material-icons" aria-hidden="true">recommend</span>
-          <h2>Community recommendations</h2>
-          <p>Discover movies recommended by people who vote like you, ranked from strongest weighted match to weakest.</p>
-        </article>
-      </div>
+    <section class="compact-intro" aria-labelledby="home-title">
+      <p class="eyebrow">Movie Challenge</p>
+      <h1 id="home-title">Your personal Space for Movie Recommendations</h1>
     </section>
 
     <section class="search-summary seo-copy" aria-labelledby="search-summary-title" aria-hidden="true">

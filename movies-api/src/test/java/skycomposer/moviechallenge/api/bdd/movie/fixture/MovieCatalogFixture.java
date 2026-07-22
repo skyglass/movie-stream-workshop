@@ -413,6 +413,13 @@ public class MovieCatalogFixture {
         assertEquals(0, new BigDecimal(rating).compareTo(movieRating.rating()));
     }
 
+    public void assertMovieListItemUsersRankAndRating(String imdbId, int rankPosition, String rating) {
+        MovieDto movie = movieList.stream().filter(item -> item.imdbId().equals(imdbId)).findFirst()
+                .orElseThrow(() -> new AssertionError("Movie " + imdbId + " not found in movie list"));
+        assertEquals(rankPosition, movie.usersRankPosition());
+        assertEquals(0, new BigDecimal(rating).compareTo(movie.usersRating()));
+    }
+
     public void assertMovieHasNoRankAndRating(String imdbId, String username) {
         assertTrue(movieChallengeRepository.movieRating(username, imdbId).isEmpty());
     }

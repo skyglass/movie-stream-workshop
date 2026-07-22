@@ -22,7 +22,7 @@ import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesResponse;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
 import skycomposer.moviechallenge.api.movie.dto.UpdateWatchlistRequest;
 import skycomposer.moviechallenge.api.movie.dto.WatchlistDto;
-import skycomposer.moviechallenge.api.movie.mapper.MovieDtoMapper;
+import skycomposer.moviechallenge.api.movie.mapper.MovieDtoEnricher;
 import skycomposer.moviechallenge.api.movie.model.Movie;
 
 import java.sql.Types;
@@ -42,7 +42,7 @@ public class WatchlistService {
     private final JdbcTemplate jdbcTemplate;
     private final MovieService movieService;
     private final PrivateCategoryService privateCategories;
-    private final MovieDtoMapper movieMapper;
+    private final MovieDtoEnricher movieDtoEnricher;
 
     private record Row(long id, long categoryId, String name, String description, String icon, String owner) {}
 
@@ -255,7 +255,9 @@ public class WatchlistService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Cannot mix subscribed and private categories in one selection");
         }
-        return new MoviePageDto(movies.getContent().stream().map(movieMapper::toMovieDto).toList(), movies.getTotalElements());
+        return new MoviePageDto(
+                movieDtoEnricher.toMovieDtos(movies.getContent(), Set.of(), Set.of(), username, username),
+                movies.getTotalElements());
     }
 
     @Transactional

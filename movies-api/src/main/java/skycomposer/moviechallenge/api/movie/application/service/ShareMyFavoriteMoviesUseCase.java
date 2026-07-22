@@ -52,27 +52,28 @@ public class ShareMyFavoriteMoviesUseCase {
     }
 
     @Transactional(readOnly = true)
-    public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, Pageable pageable) {
-        return viewSharedFavoriteMovies(encodedUsername, pageable, null);
+    public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, String viewerUsername, Pageable pageable) {
+        return viewSharedFavoriteMovies(encodedUsername, viewerUsername, pageable, null);
     }
 
     @Transactional(readOnly = true)
-    public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, Pageable pageable, String filter) {
-        return viewSharedFavoriteMovies(encodedUsername, pageable, filter, null);
+    public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, String viewerUsername, Pageable pageable, String filter) {
+        return viewSharedFavoriteMovies(encodedUsername, viewerUsername, pageable, filter, null);
     }
 
     @Transactional(readOnly = true)
-    public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, Pageable pageable, String filter, String year) {
-        return viewSharedFavoriteMovies(encodedUsername, pageable, filter, year, List.of());
+    public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, String viewerUsername, Pageable pageable, String filter, String year) {
+        return viewSharedFavoriteMovies(encodedUsername, viewerUsername, pageable, filter, year, List.of());
     }
 
     @Transactional(readOnly = true)
-    public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+    public MoviePageDto viewSharedFavoriteMovies(String encodedUsername, String viewerUsername, Pageable pageable,
+                                                  String filter, String year, List<Long> selectedCategories) {
         String username = decodeUsername(encodedUsername);
         if (!userSettingsRepository.existsByUsernameAndMyFavoriteMoviesPublicTrue(username)) {
             throw new SharedFavoriteMoviesNotFoundException(encodedUsername);
         }
-        return viewFavoriteMovies.viewFavoriteMovies(username, pageable, filter, year, selectedCategories);
+        return viewFavoriteMovies.viewFavoriteMovies(username, viewerUsername, pageable, filter, year, selectedCategories);
     }
 
     // Backs "Recommend Similar Movies" on a public shared-favorites page (favorite-movies.ts isPublicView):
@@ -80,11 +81,12 @@ public class ShareMyFavoriteMoviesUseCase {
     // list endpoint above works with), so this checks the same public-visibility boundary directly rather than
     // going through decodeUsername() again.
     @Transactional(readOnly = true)
-    public MoviePageDto viewSharedSimilarToFavoriteMovies(String username, Pageable pageable, String filter, String year, List<Long> selectedCategories) {
+    public MoviePageDto viewSharedSimilarToFavoriteMovies(String username, String viewerUsername, Pageable pageable,
+                                                           String filter, String year, List<Long> selectedCategories) {
         if (!userSettingsRepository.existsByUsernameAndMyFavoriteMoviesPublicTrue(username)) {
             throw new SharedFavoriteMoviesNotFoundException(username);
         }
-        return viewCategorySimilarMovies.viewSimilarToFavorites(username, pageable, filter, year, selectedCategories);
+        return viewCategorySimilarMovies.viewSimilarToFavorites(username, viewerUsername, pageable, filter, year, selectedCategories);
     }
 
     private UserSettings getOrCreateSettings(String username) {

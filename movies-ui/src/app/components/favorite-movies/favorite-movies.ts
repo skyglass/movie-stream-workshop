@@ -9,11 +9,18 @@ import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
 import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tree-dialog';
 import { ShareDialogComponent } from '../share-dialog/share-dialog';
+import { RankFormatPipe } from '../../pipes/rank-format.pipe';
+import { RatingFormatPipe } from '../../pipes/rating-format.pipe';
+import { ShowRatingRankPipe } from '../../pipes/show-rating-rank.pipe';
+import { EditFavoriteRanksDialogComponent } from '../edit-favorite-ranks-dialog/edit-favorite-ranks-dialog';
 
 @Component({
   standalone: true,
   selector: 'app-favorite-movies',
-  imports: [CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent, CategoryTreeDialogComponent, ShareDialogComponent],
+  imports: [
+    CommonModule, RouterLink, MoviePageNavigatorComponent, MovieFilterSearchComponent, CategoryTreeDialogComponent,
+    ShareDialogComponent, EditFavoriteRanksDialogComponent, RankFormatPipe, RatingFormatPipe, ShowRatingRankPipe
+  ],
   templateUrl: './favorite-movies.html',
   styleUrl: './favorite-movies.css'
 })
@@ -33,6 +40,7 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   shareErrorMessage = '';
   shareUrl = '';
   shareDialogVisible = false;
+  editRanksDialogVisible = false;
   share?: FavoriteMoviesShare;
   isPublicView = false;
   publicUsername = '';
@@ -48,6 +56,7 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
   activeCategories: number[] = [];
   hasActiveFilter = false;
   categoryMovie: Movie | null = null;
+  recommendationBusy: Record<string, boolean> = {};
 
   ngOnInit(): void {
     this.routeSub = this.route.paramMap.subscribe(params => {
@@ -140,14 +149,37 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     this.shareDialogVisible = true;
   }
 
+  // Anonymous/public-view "Share" -- no link to copy (this page's own URL already is the shareable link), so
+  // the dialog surfaces only "Download Poster Collage"/"Download CSV file" (ShareDialogComponent hides the
+  // link row whenever shareUrl is blank).
+  sharePublicFavoriteMovies(): void {
+    this.shareUrl = '';
+    this.shareDialogVisible = true;
+  }
+
   closeShareDialog(): void {
     this.shareDialogVisible = false;
+  }
+
+  openEditRanksDialog(): void {
+    this.editRanksDialogVisible = true;
+  }
+
+  closeEditRanksDialog(): void {
+    this.editRanksDialogVisible = false;
+  }
+
+  favoriteRankingSubmitted(): void {
+    this.closeEditRanksDialog();
+    this.loadFavoriteMovies(1);
   }
 
   // Fetches up to maxMovies movies in the exact order shown on-screen for the current filter, without
   // touching this component's own movies/currentPage/totalCount state.
   fetchOrderedMovies = (maxMovies: number): Observable<Movie[]> =>
-    this.moviesApi.listFavoriteMovies(1, maxMovies, this.activeFilter, this.activeYear, this.activeCategories)
+    (this.isPublicView
+      ? this.moviesApi.listPublicFavoriteMovies(this.publicUsername, 1, maxMovies, this.activeFilter, this.activeYear, this.activeCategories)
+      : this.moviesApi.listFavoriteMovies(1, maxMovies, this.activeFilter, this.activeYear, this.activeCategories))
       .pipe(map(page => page.movies));
 
   poster(movie: Movie): string {
@@ -156,6 +188,37 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
 
   openCategories(movie: Movie): void { this.categoryMovie = movie; }
   closeCategories(): void { this.categoryMovie = null; }
+
+  likeMovie(movie: Movie): void {
+    if (this.recommendationBusy[movie.imdbId]) return;
+    this.updateRecommendation(movie, () => this.moviesApi.recommendMovie(movie.imdbId));
+  }
+
+  dislikeMovie(movie: Movie): void {
+    if (this.recommendationBusy[movie.imdbId]) return;
+    this.updateRecommendation(movie, () => this.moviesApi.dislikeMovie(movie.imdbId));
+  }
+
+  clearRecommendation(movie: Movie): void {
+    if (this.recommendationBusy[movie.imdbId]) return;
+    this.updateRecommendation(movie, () => this.moviesApi.unrecommendMovie(movie.imdbId));
+  }
+
+  private updateRecommendation(movie: Movie, requestFactory: () => ReturnType<MoviesApiService['recommendMovie']>): void {
+    this.recommendationBusy[movie.imdbId] = true;
+    this.errorMessage = '';
+    requestFactory().subscribe({
+      next: updatedMovie => {
+        movie.recommended = updatedMovie.recommended;
+        movie.disliked = updatedMovie.disliked;
+        this.recommendationBusy[movie.imdbId] = false;
+      },
+      error: err => {
+        this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not update recommendation';
+        this.recommendationBusy[movie.imdbId] = false;
+      }
+    });
+  }
 
   private applyShare(share: FavoriteMoviesShare): void {
     this.share = share;
@@ -186,6 +249,7 @@ export class FavoriteMoviesComponent implements OnInit, OnDestroy {
     this.shareErrorMessage = '';
     this.shareLoading = false;
     this.shareDialogVisible = false;
+    this.editRanksDialogVisible = false;
   }
 
   private decodeUsername(value: string): string {

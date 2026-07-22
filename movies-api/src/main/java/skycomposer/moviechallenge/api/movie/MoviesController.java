@@ -37,6 +37,7 @@ import java.security.Principal;
 import java.util.List;
 
 import static skycomposer.moviechallenge.api.config.SwaggerConfig.BEARER_KEY_SECURITY_SCHEME;
+import static skycomposer.moviechallenge.api.movie.JwtUsernames.username;
 
 @RequiredArgsConstructor
 @RestController
@@ -157,22 +158,4 @@ public class MoviesController {
         return addMovieComment.addComment(new AddCommentCommand(imdbId, principal.getName(), addCommentRequest.text()));
     }
 
-    private String username(Jwt jwt) {
-        if (jwt == null) {
-            return null;
-        }
-        return firstNonBlank(
-                jwt.getClaimAsString("preferred_username"),
-                jwt.getClaimAsString("username"),
-                jwt.getSubject());
-    }
-
-    private String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
-        }
-        return null;
-    }
 }

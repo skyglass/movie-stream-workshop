@@ -7,13 +7,12 @@
 
     <div class="dialog-body" cdkScrollable>
       @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
-      @if (truncated) { <p class="warning">Showing the first {{ movies.length }} movies — this personality has more than that.</p> }
       @if (loading) {
         <p>Loading movies…</p>
       } @else if (movies.length === 0) {
         <p class="empty">No movies to rank yet.</p>
       } @else {
-        <p class="rank-hint">Drag movies up or down (dragging near the top/bottom edge scrolls the list), or use the jump buttons to move a movie straight to the top or bottom.</p>
+        <p class="rank-hint">Drag movies up or down, or use the jump buttons. Submit updates the {{ movies.length }} loaded movies; the backend keeps the remaining {{ totalCount - movies.length }} movies in their current order and rebuilds the complete Personality ranking.</p>
         <ul class="movie-rows" cdkDropList (cdkDropListDropped)="drop($event)">
           @for (movie of movies; track movie.imdbId) {
             <li class="movie-row" cdkDrag>
@@ -37,12 +36,18 @@
             </li>
           }
         </ul>
+        @if (hasNext) {
+          <button type="button" class="next-button" (click)="loadNext()" [disabled]="loadingNext || submitting">
+            {{ loadingNext ? 'Loading…' : 'Next' }}
+          </button>
+        }
       }
     </div>
 
     <footer>
+      <span class="loaded-count">{{ movies.length }} of {{ totalCount }} loaded</span>
       <button type="button" class="secondary" (click)="close()" [disabled]="submitting">Cancel</button>
-      <button type="button" (click)="submit()" [disabled]="submitting || loading || movies.length === 0">{{ submitting ? 'Submitting…' : 'Submit' }}</button>
+      <button type="button" (click)="submit()" [disabled]="submitting || loading || loadingNext || movies.length === 0">{{ submitting ? 'Submitting…' : 'Submit' }}</button>
     </footer>
   </section>
 </div>

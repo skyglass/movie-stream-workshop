@@ -1,0 +1,58 @@
+<section class="category-page">
+  <aside class="category-tree-panel">
+    <app-category-tree-nav [selectedCategoryId]="categoryId" (categoriesLoaded)="onCategoriesLoaded($event)" />
+  </aside>
+
+  <main class="category-content">
+    <nav class="category-breadcrumbs" aria-label="Category breadcrumbs">
+      @if (categoryPath.length) {
+        <a [routerLink]="['/categories', 'root']">All Movies</a>
+        <span class="path-arrow">→</span>
+        @for (segment of categoryPath; track segment.id; let last = $last) {
+          @if (last || segment.parentId == null) {
+            <span class="path-segment-name" [class.current]="last"><span class="emoji">{{ segment.icon || '📁' }}</span>{{ segment.name }}</span>
+          } @else {
+            <a [routerLink]="categoryPageSegments(categoryPath.slice(0, $index + 1))">
+              <span class="emoji">{{ segment.icon || '📁' }}</span>{{ segment.name }}
+            </a>
+          }
+          @if (!last) { <span class="path-arrow">→</span> }
+        }
+      } @else {
+        <span class="path-segment-name current">All Movies</span>
+      }
+    </nav>
+
+    <header class="category-header">
+      <h1>{{ selectedCategory?.name || 'All Movies' }}</h1>
+      @if (auth.token) {
+        <button type="button" class="category-filter-button" [title]="addMoviesTitle" [attr.aria-label]="addMoviesTitle"
+          [disabled]="addMoviesDisabled" (click)="openMovieSelector()">
+          <span class="material-icons">playlist_add</span>
+          Add Movies
+        </button>
+      }
+    </header>
+
+    @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+
+    <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies in this category" [showSelectCategories]="false"
+      (internalSearch)="applyFilter($event)" />
+
+    <h2>Movie Results</h2>
+
+    <app-movie-grid
+      [movies]="movies"
+      [loading]="moviesLoading"
+      [errorMessage]="''"
+      [currentPage]="currentPage"
+      [totalCount]="totalCount"
+      [pageSize]="pageSize"
+      [emptyMessage]="emptyMessage()"
+      (pageChange)="loadMovies($event)" />
+  </main>
+
+  @if (movieSelectorVisible) {
+    <app-movie-selector (moviesSelected)="onMoviesSelected($event)" />
+  }
+</section>

@@ -21,6 +21,8 @@ import skycomposer.moviechallenge.api.movie.dto.SubscribeGuideCategoriesRequest;
 
 import java.util.List;
 
+import static skycomposer.moviechallenge.api.movie.JwtUsernames.username;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/movie-guides")
@@ -119,7 +121,7 @@ public class MovieGuideController {
     }
 
     // The Personality page's own "Movie Results" grid (ranked movies first, see MovieGuideService.personalityMovies)
-    // and the "Rank Movies as Personality" dialog's unpaginated initial load (pageSize = the whole personality).
+    // and the "Rank Movies as Personality" dialog's append-only pages of 100 movies.
     // Open to anonymous viewers, same as similarMovies above -- only affects the "Not Recommended" filter, which
     // is a no-op without a signed-in username anyway.
     @GetMapping("/{id}/personality-movies")
@@ -148,22 +150,4 @@ public class MovieGuideController {
                 .anyMatch(authority -> authority.equals("ROLE_MOVIES_ADMIN") || authority.equals("ROLE_MOVIES_GUIDE"));
     }
 
-    private String username(Jwt jwt) {
-        if (jwt == null) {
-            return null;
-        }
-        return firstNonBlank(
-                jwt.getClaimAsString("preferred_username"),
-                jwt.getClaimAsString("username"),
-                jwt.getSubject());
-    }
-
-    private String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
-        }
-        return null;
-    }
 }

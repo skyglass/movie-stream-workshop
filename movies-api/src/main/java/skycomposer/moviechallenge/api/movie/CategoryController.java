@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import skycomposer.moviechallenge.api.movie.dto.AddMoviesToCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.CategoryDto;
 import skycomposer.moviechallenge.api.movie.dto.MoveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.RecommendMovieRequest;
@@ -75,6 +76,13 @@ public class CategoryController {
     public void addMovieFromSearchToCategory(@PathVariable long categoryId,
                                               @Valid @RequestBody RecommendMovieRequest request) {
         categories.addMovieFromSearchToCategory(categoryId, request);
+    }
+
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PostMapping("/{categoryId}/movies")
+    public void addMoviesToCategory(@PathVariable long categoryId,
+                                     @Valid @RequestBody AddMoviesToCategoryRequest request) {
+        categories.addMoviesToCategory(categoryId, request.imdbIds());
     }
 
     private boolean isAdminOrGuide(Authentication authentication) {

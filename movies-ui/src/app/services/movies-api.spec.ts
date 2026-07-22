@@ -246,6 +246,15 @@ describe('MoviesApiService', () => {
     });
   });
 
+  it('submits only the loaded favorite ranking prefix', (done) => {
+    service.submitFavoriteMoviesRanking(['tt2', 'tt1']).subscribe(() => done());
+
+    const request = http.expectOne(`${appConfig.apiBaseUrl}${appConfig.favoriteMoviesPath}/ranking`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ orderedImdbIds: ['tt2', 'tt1'] });
+    request.flush(null);
+  });
+
   it('sends the parsed year separately when listing catalog movies', (done) => {
     service.listMovies(1, 20, 'The Matrix', '1999').subscribe(() => done());
 

@@ -88,14 +88,14 @@
             <dt>Genre:</dt>
             <dd>{{ movie.genre || 'N/A' }}</dd>
           </div>
-          @if (auth.token) {
+          @if (movie.rating | showRatingRank:movie.rankPosition:auth.token) {
             <div>
               <dt>Your Rank:</dt>
-              <dd>{{ movie.rankPosition ?? '-' }}</dd>
+              <dd>{{ movie.rankPosition | rankFormat }}</dd>
             </div>
             <div>
               <dt>Your Rating:</dt>
-              <dd>{{ movie.rating != null ? (movie.rating | number:'1.2-2') : '-' }}</dd>
+              <dd>{{ movie.rating | ratingFormat }}</dd>
             </div>
           }
           <div>

@@ -1,0 +1,19 @@
+@if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
+@if (loading) {
+  <p class="state">Loading categories…</p>
+} @else {
+  <ul class="category-tree">
+    <li class="tree-node">
+      <div class="node-row">
+        <span class="expand-spacer"></span>
+        <a class="category-link root-link" [class.active]="selectedCategoryId == null" [routerLink]="['/categories', 'root']">
+          <span class="emoji">🏠</span><span class="category-name">All Movies</span>
+        </a>
+      </div>
+    </li>
+    @if (categories.length === 0) { <li class="empty">No categories yet.</li> }
+    @for (category of categories; track category.id) {
+      <app-category-tree-nav-node [category]="category" [expanded]="expanded" [selectedCategoryId]="selectedCategoryId" />
+    }
+  </ul>
+}

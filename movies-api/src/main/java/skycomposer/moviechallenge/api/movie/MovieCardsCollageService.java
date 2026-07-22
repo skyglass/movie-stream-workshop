@@ -22,12 +22,14 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -52,13 +54,39 @@ public class MovieCardsCollageService {
     private static final Set<String> ALLOWED_HOSTS = Set.of("img.omdbapi.com");
     private static final Duration FETCH_TIMEOUT = Duration.ofSeconds(5);
     private static final long MAX_POSTER_BYTES = 5_000_000;
+    // A collage can request up to MAX_MOVIES posters at once; firing all of them at the same one or two
+    // origin hosts (img.omdbapi.com / *.media-amazon.com) simultaneously looks like abuse and gets throttled,
+    // which is what was causing posters to intermittently render as "not found" even though they exist --
+    // capping concurrency keeps each burst small enough not to trip that.
+    private static final int MAX_CONCURRENT_FETCHES = 6;
+    // Poster URLs are effectively immutable per movie, so caching successful fetches means a regenerate
+    // (e.g. the user changing "movies to include") re-fetches nothing it has already fetched successfully --
+    // this TTL is just a safety valve against unbounded staleness, not a correctness requirement.
+    private static final Duration POSTER_CACHE_TTL = Duration.ofHours(6);
+    private static final int MAX_CACHED_POSTERS = 500;
 
     private final MovieRepository movieRepository;
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(FETCH_TIMEOUT).build();
     private final BufferedImage placeholder = loadPlaceholder();
+    private final Semaphore fetchThrottle = new Semaphore(MAX_CONCURRENT_FETCHES);
+    // Failed fetches (timeout, throttled, bad decode) are deliberately never stored here -- only ever the
+    // placeholder is returned for those, so a transient failure gets a fresh chance to succeed on the next
+    // generate() call instead of being stuck showing "not found" forever.
+    private final Map<String, CachedPoster> posterCache = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, CachedPoster> eldest) {
+            return size() > MAX_CACHED_POSTERS;
+        }
+    };
 
     public MovieCardsCollageService(MovieRepository movieRepository) {
         this.movieRepository = movieRepository;
+    }
+
+    private record CachedPoster(BufferedImage image, long fetchedAtMillis) {
+        boolean isExpired() {
+            return System.currentTimeMillis() - fetchedAtMillis > POSTER_CACHE_TTL.toMillis();
+        }
     }
 
     public byte[] generateCollage(List<String> imdbIds) {
@@ -108,26 +136,51 @@ public class MovieCardsCollageService {
         if (posterUrl == null || posterUrl.isBlank() || "N/A".equals(posterUrl) || !isAllowedHost(posterUrl)) {
             return CompletableFuture.completedFuture(placeholder);
         }
+        BufferedImage cached = getCached(posterUrl);
+        if (cached != null) {
+            return CompletableFuture.completedFuture(cached);
+        }
         HttpRequest request;
         try {
             request = HttpRequest.newBuilder(URI.create(posterUrl)).timeout(FETCH_TIMEOUT).GET().build();
         } catch (RuntimeException malformed) {
             return CompletableFuture.completedFuture(placeholder);
         }
+        // Bounds how many poster fetches are ever in flight at once -- see MAX_CONCURRENT_FETCHES. The permit
+        // is acquired on the caller's thread (fine here: callers just build a list of these futures in a loop)
+        // and released once the request settles, whichever way it settles.
+        fetchThrottle.acquireUninterruptibly();
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
                 .orTimeout(FETCH_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
-                .thenApply(this::decodeIfValid)
-                .exceptionally(error -> placeholder);
+                .thenApply(response -> decodeIfValid(response, posterUrl))
+                .exceptionally(error -> placeholder)
+                .whenComplete((image, error) -> fetchThrottle.release());
     }
 
-    private BufferedImage decodeIfValid(HttpResponse<byte[]> response) {
+    private BufferedImage decodeIfValid(HttpResponse<byte[]> response, String posterUrl) {
         if (response.statusCode() != 200 || response.body().length > MAX_POSTER_BYTES) return placeholder;
         try {
             BufferedImage image = ImageIO.read(new ByteArrayInputStream(response.body()));
-            return image != null ? image : placeholder;
+            if (image == null) return placeholder;
+            putCached(posterUrl, image);
+            return image;
         } catch (IOException malformedImage) {
             return placeholder;
         }
+    }
+
+    private synchronized BufferedImage getCached(String posterUrl) {
+        CachedPoster cached = posterCache.get(posterUrl);
+        if (cached == null) return null;
+        if (cached.isExpired()) {
+            posterCache.remove(posterUrl);
+            return null;
+        }
+        return cached.image();
+    }
+
+    private synchronized void putCached(String posterUrl, BufferedImage image) {
+        posterCache.put(posterUrl, new CachedPoster(image, System.currentTimeMillis()));
     }
 
     private boolean isAllowedHost(String posterUrl) {

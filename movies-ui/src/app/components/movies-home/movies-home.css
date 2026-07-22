@@ -7,10 +7,25 @@
 }
 
 .intro-section,
+.compact-intro,
 .catalog-intro,
 .search-summary,
 .catalog-section {
   margin-bottom: 1.5rem;
+}
+
+.compact-intro {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+}
+
+.compact-intro h1 {
+  margin: 0;
+  color: #203349;
+  font-size: clamp(1.05rem, 3.5vw, 1.4rem);
+  line-height: 1.25;
+  letter-spacing: 0;
 }
 
 .intro-section {

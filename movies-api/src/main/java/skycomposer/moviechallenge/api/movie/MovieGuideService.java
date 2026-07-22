@@ -22,8 +22,7 @@ import skycomposer.moviechallenge.api.movie.dto.MoveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.MovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieGuideDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
-import skycomposer.moviechallenge.api.movie.dto.MovieRatingDto;
-import skycomposer.moviechallenge.api.movie.mapper.MovieDtoMapper;
+import skycomposer.moviechallenge.api.movie.mapper.MovieDtoEnricher;
 import skycomposer.moviechallenge.api.movie.model.Movie;
 import skycomposer.moviechallenge.api.movie.model.MovieGuideType;
 
@@ -40,17 +39,13 @@ import java.util.Set;
 @Service
 public class MovieGuideService {
     private static final int MAX_CSV_MOVIES = 2000;
-    // Bradley-Terry-driven ranking simulation: each movie is compared against its next few rank-neighbors (local
-    // ordering) plus a handful of exponentially-further movies (global "bridge" anchoring) -- O(N log N) pairs
-    // instead of a full O(N^2) round-robin, see generateComparisonGraph.
-    private static final int LOCAL_COMPARISON_WINDOW = 4;
-
+    private static final int MAX_RANKING_MOVIES = 50000;
     private final JdbcClient jdbc;
     private final JdbcTemplate jdbcTemplate;
     private final MovieService movieService;
     private final CategoryService categories;
-    private final MovieDtoMapper movieMapper;
-    private final MovieChallengeRepository movieChallengeRepository;
+    private final MovieDtoEnricher movieDtoEnricher;
+    private final MovieRankRebuildService movieRankRebuild;
     private final MovieRecommendationService movieRecommendations;
 
     private record Row(long id, long categoryId, int type, String name, String description, String icon,
@@ -236,7 +231,7 @@ public class MovieGuideService {
     // Backs the "Rank Movies as Personality" dialog's Submit action -- Personality-only (rejects a plain Guide).
     // The submitted order fully replaces this personality's own personality_movie_rank ordering (delete + batch
     // insert 1..N), and separately seeds/refreshes a synthetic "ranked as this personality" user: a bounded set of
-    // simulated Movie Challenge votes reproducing the submitted order (see generateComparisonGraph), fed through
+    // simulated Movie Challenge votes reproducing the submitted order (see MovieRankRebuildService), fed through
     // the real Bradley-Terry fit exactly once, plus movie_recommendations(positive=true) for every ranked movie so
     // the existing Favorite Movies query picks them up unmodified. The username is allocated once (from the
     // Personality's own name) and reused on every subsequent submit.
@@ -247,19 +242,19 @@ public class MovieGuideService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only Movie Personalities support ranking");
         }
         categories.requireGuideManage(guideId, username, adminOrGuide);
-        List<String> ordered = orderedImdbIds.stream().distinct().toList();
-        if (ordered.isEmpty()) {
+        if (orderedImdbIds.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot submit an empty ranking");
         }
-        requireMoviesWithinPersonality(guide, ordered);
+        if (new HashSet<>(orderedImdbIds).size() != orderedImdbIds.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The ranking contains duplicate movies");
+        }
+        List<String> ordered = mergePersonalityRankingPrefix(guide, orderedImdbIds);
 
         replacePersonalityMovieRank(guideId, ordered);
 
         String rankingUsername = resolveRankingUsername(guide);
         ensureSyntheticUser(rankingUsername);
-        replaceSyntheticVotes(rankingUsername, generateComparisonGraph(ordered));
-        movieChallengeRepository.rebuildUserMovieRanks(rankingUsername);
-        movieChallengeRepository.rebuildUserMovieChallengeCounts(rankingUsername);
+        movieRankRebuild.rebuildRanks(rankingUsername, ordered);
         replaceSyntheticRecommendations(rankingUsername, ordered);
 
         if (guide.rankingUsername() == null) {
@@ -269,17 +264,27 @@ public class MovieGuideService {
         return toDto(requireGuide(guideId));
     }
 
-    // Same transitive-closure membership check the page's own "Movie Results" grid uses (includes subscribed
-    // categories) -- rejects a stray imdbId that doesn't actually belong to this personality.
-    private void requireMoviesWithinPersonality(Row guide, List<String> imdbIds) {
-        long validCount = jdbc.sql("""
-                select count(distinct mc.movie_id) from category_parent_child_all c
-                join movie_category mc on mc.category_id = c.descendant_id
-                where c.ancestor_id = :root and mc.movie_id in (:ids)
-                """).param("root", guide.categoryId()).param("ids", imdbIds).query(Long.class).single();
-        if (validCount != imdbIds.size()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Some movies are not part of this personality");
+    // The dialog submits only what it has loaded (100, 200, ...). Verify that those ids are exactly the current
+    // first N movies, then append the untouched suffix. From here on submitRanking still performs the same full
+    // Personality replacement/rebuild as before, just using this complete merged order.
+    private List<String> mergePersonalityRankingPrefix(Row guide, List<String> submittedPrefix) {
+        Page<Movie> page = movieService.getPersonalityMovies(guide.id(), PageRequest.of(0, MAX_RANKING_MOVIES),
+                "", "", List.of(guide.categoryId()), null, false);
+        if (page.getTotalElements() > MAX_RANKING_MOVIES) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "This personality has too many movies to rank (maximum " + MAX_RANKING_MOVIES + ")");
         }
+        List<String> currentOrder = page.getContent().stream().map(Movie::getImdbId).toList();
+        if (submittedPrefix.size() > currentOrder.size()
+                || !new HashSet<>(currentOrder.subList(0, submittedPrefix.size()))
+                        .equals(new HashSet<>(submittedPrefix))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "The ranking must contain exactly the currently loaded personality movies");
+        }
+        List<String> merged = new ArrayList<>(currentOrder.size());
+        merged.addAll(submittedPrefix);
+        merged.addAll(currentOrder.subList(submittedPrefix.size(), currentOrder.size()));
+        return merged;
     }
 
     private void replacePersonalityMovieRank(long guideId, List<String> orderedImdbIds) {
@@ -328,36 +333,6 @@ public class MovieGuideService {
                 values (:username, true, true)
                 on conflict (username) do update set is_my_favorite_movies_public=true, is_my_recommended_movies_public=true
                 """).param("username", username).update();
-    }
-
-    // Given the fully-known submitted order (rank 1 = best), builds a bounded winner/loser vote set instead of a
-    // full O(N^2) round-robin: each movie is compared against its next LOCAL_COMPARISON_WINDOW neighbors (local
-    // ordering) plus a handful of exponentially-further movies at halving distances down to that same window
-    // (global "bridge" anchoring, similar to a skip-list) -- O(N log N) pairs, enough for the real Bradley-Terry
-    // fit to reproduce this exact order on its own. Always forward (winner index < loser index), so no unordered
-    // pair is ever generated twice.
-    private List<String[]> generateComparisonGraph(List<String> orderedImdbIds) {
-        int n = orderedImdbIds.size();
-        List<String[]> pairs = new ArrayList<>();
-        for (int i = 0; i < n; i++) {
-            for (int window = 1; window <= LOCAL_COMPARISON_WINDOW && i + window < n; window++) {
-                pairs.add(new String[]{orderedImdbIds.get(i), orderedImdbIds.get(i + window)});
-            }
-            for (int distance = n / 2; distance > LOCAL_COMPARISON_WINDOW; distance /= 2) {
-                int j = i + distance;
-                if (j < n) {
-                    pairs.add(new String[]{orderedImdbIds.get(i), orderedImdbIds.get(j)});
-                }
-            }
-        }
-        return pairs;
-    }
-
-    private void replaceSyntheticVotes(String username, List<String[]> pairs) {
-        jdbc.sql("delete from user_movie_challenge_vote where user_id=:username").param("username", username).update();
-        if (pairs.isEmpty()) return;
-        List<Object[]> batchArgs = pairs.stream().map(pair -> new Object[]{username, pair[0], pair[1]}).toList();
-        jdbcTemplate.batchUpdate("insert into user_movie_challenge_vote(user_id, winner_id, loser_id) values (?, ?, ?)", batchArgs);
     }
 
     // Full replace, not a diff against the previous submit -- a movie dropped from the ranking (removed from the
@@ -441,30 +416,24 @@ public class MovieGuideService {
     // unpaginated initial load) -- unlike guideMovies below, this includes movies reachable via subscribed
     // categories too, matching the same category scope selectedCategories already governs everywhere else.
     //
-    // Each returned movie carries two independent, differently-scoped pieces of enrichment: recommended/disliked
+    // Each returned movie carries three independent, differently-scoped pieces of enrichment: recommended/disliked
     // reflects the CURRENT VIEWER's own like/dislike (so the card's Like/Dislike buttons behave correctly, same
-    // as every other movie grid), while rating/rankPosition is repurposed here to carry the PERSONALITY's own
-    // synthetic-user rank/rating (see MovieGuideService.submitRanking) rather than the viewer's -- the frontend
-    // shows this as "Personality's Rating" specifically on this page, never mixed with the viewer's own rating.
+    // as every other movie grid); rating/rankPosition (subjectUsername = guide.rankingUsername()) is the
+    // PERSONALITY's own synthetic-user rank -- shown as "Persona's Rank"; viewerRankPosition/viewerRating
+    // (viewerUsername = the real viewer) is that viewer's own "Your Rank", shown alongside it -- these two are
+    // now shown together rather than one hiding the other.
     @Transactional(readOnly = true)
     public MoviePageDto personalityMovies(long guideId, int page, int pageSize, String filter, String year,
                                            List<Long> selectedCategories, String username, boolean onlyNotRecommended) {
         Row guide = requireGuide(guideId);
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), pageSize);
         Page<Movie> movies = movieService.getPersonalityMovies(guideId, pageable, filter, year, selectedCategories, username, onlyNotRecommended);
-        List<String> imdbIds = movies.getContent().stream().map(Movie::getImdbId).toList();
 
         Set<String> recommendedMovieIds = username == null ? Set.of() : movieRecommendations.recommendedMovieIds(username);
         Set<String> dislikedMovieIds = username == null ? Set.of() : movieRecommendations.dislikedMovieIds(username);
-        Map<String, MovieRatingDto> personalityRatings = guide.rankingUsername() == null
-                ? Map.of() : movieChallengeRepository.movieRatings(guide.rankingUsername(), imdbIds);
 
-        List<MovieDto> movieDtos = movies.getContent().stream()
-                .map(movie -> movieMapper.toMovieDto(movie,
-                        recommendedMovieIds.contains(movie.getImdbId()),
-                        dislikedMovieIds.contains(movie.getImdbId()),
-                        personalityRatings.get(movie.getImdbId())))
-                .toList();
+        List<MovieDto> movieDtos = movieDtoEnricher.toMovieDtos(movies.getContent(), recommendedMovieIds, dislikedMovieIds,
+                guide.rankingUsername(), username);
         return new MoviePageDto(movieDtos, movies.getTotalElements());
     }
 
@@ -474,11 +443,15 @@ public class MovieGuideService {
         List<Long> subscribed = subscribedCategoryIds(guideId);
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), pageSize);
         Page<Movie> movies = movieService.getGuideMovies(guide.categoryId(), subscribed, filter, year, pageable);
-        return new MoviePageDto(movies.getContent().stream().map(movieMapper::toMovieDto).toList(), movies.getTotalElements());
+        return new MoviePageDto(
+                movieDtoEnricher.toMovieDtos(movies.getContent(), Set.of(), Set.of(), null, null),
+                movies.getTotalElements());
     }
 
     // Backs the guide page's bottom "Recommend Similar Movies" section -- public (username nullable for an
-    // anonymous viewer, see MovieService.getCategorySimilarToGuideMovies).
+    // anonymous viewer, see MovieService.getCategorySimilarToGuideMovies). Candidates are guaranteed unrated by
+    // :username by construction (same as ViewCategorySimilarMoviesUseCase), so there's no "subject" rating to
+    // show here -- :username only drives viewerRankPosition/viewerRating.
     @Transactional(readOnly = true)
     public MoviePageDto similarMovies(long guideId, int page, int pageSize, String username, String filter,
                                        String year, List<Long> selectedCategories) {
@@ -487,7 +460,9 @@ public class MovieGuideService {
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), pageSize);
         Page<Movie> movies = movieService.getCategorySimilarToGuideMovies(
                 guide.categoryId(), subscribed, username, pageable, filter, year, selectedCategories);
-        return new MoviePageDto(movies.getContent().stream().map(movieMapper::toMovieDto).toList(), movies.getTotalElements());
+        return new MoviePageDto(
+                movieDtoEnricher.toMovieDtos(movies.getContent(), Set.of(), Set.of(), null, username),
+                movies.getTotalElements());
     }
 
     private Row requireGuide(long guideId) {

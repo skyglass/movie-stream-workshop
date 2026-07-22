@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Observable, map, switchMap } from 'rxjs';
+import { Observable, map, of, switchMap } from 'rxjs';
 import { MoviesApiService, ShareableMovie } from '../../services/movies-api';
 
 // "Download Poster Collage": previews and downloads a poster-only collage (server-rendered PNG, see
@@ -31,12 +31,19 @@ export class MovieCardsCollageDialogComponent implements OnInit, OnDestroy {
   errorMessage = '';
   previewUrl: string | null = null;
 
+  // Caches a generated collage's object URL per exact set of movies it was built from, so switching "Movies to
+  // include" back to a value used earlier in this dialog session reuses the cached image instead of re-downloading
+  // it -- cleared (and every URL revoked) only when this dialog is destroyed, see ngOnDestroy.
+  private readonly cache = new Map<string, string>();
+
   ngOnInit(): void {
     this.generate();
   }
 
   ngOnDestroy(): void {
-    this.revokePreview();
+    this.cache.forEach(url => URL.revokeObjectURL(url));
+    this.cache.clear();
+    this.previewUrl = null;
   }
 
   onMaxMoviesChange(): void {
@@ -48,16 +55,24 @@ export class MovieCardsCollageDialogComponent implements OnInit, OnDestroy {
   generate(): void {
     this.loading = true;
     this.errorMessage = '';
-    this.revokePreview();
     this.fetchOrderedMovies(this.maxMovies).pipe(
       map(movies => movies.map(movie => movie.imdbId)),
       switchMap(imdbIds => {
         if (imdbIds.length === 0) throw { clientMessage: 'No movies match the current filter' };
-        return this.api.generateMovieCardsCollage(imdbIds);
+        const key = imdbIds.join(',');
+        const cached = this.cache.get(key);
+        if (cached) return of(cached);
+        return this.api.generateMovieCardsCollage(imdbIds).pipe(
+          map(blob => {
+            const url = URL.createObjectURL(blob);
+            this.cache.set(key, url);
+            return url;
+          })
+        );
       })
     ).subscribe({
-      next: blob => {
-        this.previewUrl = URL.createObjectURL(blob);
+      next: url => {
+        this.previewUrl = url;
         this.loading = false;
       },
       error: err => this.fail(err)
@@ -84,12 +99,5 @@ export class MovieCardsCollageDialogComponent implements OnInit, OnDestroy {
     this.errorMessage = err?.clientMessage ?? (err?.error instanceof Blob ? null : err?.error?.message)
       ?? err?.message ?? 'Could not generate the collage';
     this.loading = false;
-  }
-
-  private revokePreview(): void {
-    if (this.previewUrl) {
-      URL.revokeObjectURL(this.previewUrl);
-      this.previewUrl = null;
-    }
   }
 }

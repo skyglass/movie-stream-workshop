@@ -86,6 +86,18 @@
                 <dt>Genre:</dt>
                 <dd>{{ movie.genre || 'N/A' }}</dd>
               </div>
+              @if (movie.usersRankPosition != null && movie.usersRating != null) {
+                <div>
+                  <dt>Users Rank:</dt>
+                  <dd>{{ movie.usersRankPosition | rankFormat }} ({{ movie.usersRating | ratingFormat }})</dd>
+                </div>
+              }
+              @if (auth.token && movie.viewerRankPosition != null && movie.viewerRating != null) {
+                <div>
+                  <dt>Your Rank:</dt>
+                  <dd>{{ movie.viewerRankPosition | rankFormat }} ({{ movie.viewerRating | ratingFormat }})</dd>
+                </div>
+              }
             </dl>
           </a>
         </article>

@@ -4,11 +4,8 @@ import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { Movie, MoviesApiService } from '../../services/movies-api';
 
-// "Rank Movies as Personality" dialog -- Movie Personality only. Unlike DeleteMoviesSelectorComponent, this loads
-// the ENTIRE personality movie set in one unpaginated request (drag-and-drop reordering across paginated pages
-// isn't meaningful), and has no filter/search: a filtered view combined with full-list drag-and-drop risks losing
-// off-screen items' positions, so v1 keeps this simple. The displayed order is the payload -- rank is purely the
-// array position (recomputed on every render via rankOf), never a separately-tracked per-item field.
+// "Rank Movies as Personality" dialog -- loads an append-only 100-movie prefix. Submit sends that prefix; the
+// backend appends the untouched current suffix before performing the Personality's normal full rank rebuild.
 @Component({
   standalone: true,
   selector: 'app-rank-movies-dialog',
@@ -19,10 +16,7 @@ import { Movie, MoviesApiService } from '../../services/movies-api';
 export class RankMoviesDialogComponent implements OnInit {
   private readonly api = inject(MoviesApiService);
 
-  // Bounded so the dialog stays renderable/draggable in the DOM -- matches the CSV-import cap already used
-  // elsewhere for a single guide (MovieGuideService.MAX_CSV_MOVIES). A personality larger than this shows a
-  // truncation warning rather than silently dropping movies from the ranking.
-  private static readonly MAX_MOVIES = 2000;
+  private static readonly PAGE_SIZE = 100;
 
   @Input({ required: true }) movieGuideId!: number;
   @Input({ required: true }) guideCategoryId!: number;
@@ -31,22 +25,42 @@ export class RankMoviesDialogComponent implements OnInit {
 
   movies: Movie[] = [];
   loading = true;
+  loadingNext = false;
   submitting = false;
   errorMessage = '';
-  truncated = false;
+  totalCount = 0;
 
   ngOnInit(): void {
-    this.api.listPersonalityMovies(this.movieGuideId, 1, RankMoviesDialogComponent.MAX_MOVIES, '', '', [this.guideCategoryId]).subscribe({
+    this.loadPage(1, false);
+  }
+
+  get hasNext(): boolean {
+    return this.movies.length < this.totalCount;
+  }
+
+  private loadPage(pageNumber: number, append: boolean): void {
+    if (append) this.loadingNext = true;
+    else this.loading = true;
+    this.errorMessage = '';
+    this.api.listPersonalityMovies(this.movieGuideId, pageNumber, RankMoviesDialogComponent.PAGE_SIZE, '', '', [this.guideCategoryId]).subscribe({
       next: page => {
-        this.movies = page.movies;
-        this.truncated = page.totalCount > RankMoviesDialogComponent.MAX_MOVIES;
+        this.movies = append ? [...this.movies, ...page.movies] : page.movies;
+        this.totalCount = page.totalCount;
         this.loading = false;
+        this.loadingNext = false;
       },
       error: err => {
         this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not load movies';
         this.loading = false;
+        this.loadingNext = false;
       }
     });
+  }
+
+  loadNext(): void {
+    if (!this.hasNext || this.loadingNext || this.submitting) return;
+    const nextPage = Math.floor(this.movies.length / RankMoviesDialogComponent.PAGE_SIZE) + 1;
+    this.loadPage(nextPage, true);
   }
 
   rankOf(movie: Movie): number {
@@ -77,7 +91,7 @@ export class RankMoviesDialogComponent implements OnInit {
   }
 
   submit(): void {
-    if (this.submitting || this.movies.length === 0) return;
+    if (this.submitting || this.loadingNext || this.movies.length === 0) return;
     this.submitting = true;
     this.errorMessage = '';
     const orderedImdbIds = this.movies.map(movie => movie.imdbId);

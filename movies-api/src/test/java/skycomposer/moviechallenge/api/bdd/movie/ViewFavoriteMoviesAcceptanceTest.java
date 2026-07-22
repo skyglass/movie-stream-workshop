@@ -2,17 +2,56 @@ package skycomposer.moviechallenge.api.bdd.movie;
 
 import skycomposer.moviechallenge.api.bdd.movie.fixture.MovieCatalogFixture;
 import skycomposer.moviechallenge.api.movie.application.service.ViewFavoriteMoviesUseCase;
+import skycomposer.moviechallenge.api.bdd.fixture.RestApiFixture;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.util.Arrays;
+import java.util.Map;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ViewFavoriteMoviesAcceptanceTest {
 
     private final MovieCatalogFixture fixture;
     private final ViewFavoriteMoviesUseCase viewFavoriteMovies;
+    private final RestApiFixture restApi;
+    private final MockMvc mockMvc;
+    private final ObjectMapper objectMapper;
+    private final JdbcTemplate jdbc;
 
-    public ViewFavoriteMoviesAcceptanceTest(MovieCatalogFixture fixture, ViewFavoriteMoviesUseCase viewFavoriteMovies) {
+    public ViewFavoriteMoviesAcceptanceTest(MovieCatalogFixture fixture, ViewFavoriteMoviesUseCase viewFavoriteMovies,
+                                            RestApiFixture restApi, MockMvc mockMvc, ObjectMapper objectMapper,
+                                            JdbcTemplate jdbc) {
         this.fixture = fixture;
         this.viewFavoriteMovies = viewFavoriteMovies;
+        this.restApi = restApi;
+        this.mockMvc = mockMvc;
+        this.objectMapper = objectMapper;
+        this.jdbc = jdbc;
+    }
+
+    @When("regular user {string} submits favorite movie ranks {string}")
+    public void submitsFavoriteMovieRanks(String username, String commaSeparatedImdbIds) throws Exception {
+        var imdbIds = Arrays.stream(commaSeparatedImdbIds.split(",")).map(String::trim).toList();
+        var result = mockMvc.perform(post("/api/favorite-movies/ranking")
+                .with(restApi.jwt(username, "MOVIES_USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("orderedImdbIds", imdbIds)))).andReturn();
+        fixture.lastResponse(result);
+    }
+
+    @Then("movie {string} keeps exact rank {int} for {string}")
+    public void movieKeepsExactRank(String imdbId, int rank, String username) {
+        Integer actual = jdbc.queryForObject(
+                "select rank_position from user_movie_rank where user_id=? and movie_id=?",
+                Integer.class, username, imdbId);
+        assertEquals(rank, actual);
     }
 
     @When("regular user {string} requests favorite movies")

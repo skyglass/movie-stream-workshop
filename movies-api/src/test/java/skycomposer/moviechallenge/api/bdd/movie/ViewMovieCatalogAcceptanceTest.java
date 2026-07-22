@@ -75,4 +75,9 @@ public class ViewMovieCatalogAcceptanceTest {
     public void catalogMovieIsMarkedDisliked(String imdbId) {
         fixture.assertMovieListItemDislikedIs(imdbId, true);
     }
+
+    @Then("catalog movie {string} has Users Rank {int} and rating {string}")
+    public void catalogMovieHasUsersRankAndRating(String imdbId, int rankPosition, String rating) {
+        fixture.assertMovieListItemUsersRankAndRating(imdbId, rankPosition, rating);
+    }
 }

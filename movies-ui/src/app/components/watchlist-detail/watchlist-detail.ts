@@ -12,6 +12,7 @@ import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tr
 import { ImportCsvDialogComponent } from '../import-csv-dialog/import-csv-dialog';
 import { DeleteMoviesSelectorComponent } from '../delete-movies-selector/delete-movies-selector';
 import { ShareDialogComponent } from '../share-dialog/share-dialog';
+import { findCategoryPath } from '../../utils/category-path';
 
 // Trimmed port of MovieGuideDetailComponent for a private watchlist: same "Select Category"/"Subscribe to
 // Categories"/"Add Movies"/CSV import/"Delete Movies" mechanics, reusing the exact same dialog components (just
@@ -142,21 +143,12 @@ export class WatchlistDetailComponent implements OnInit {
   // (the picker never nests anything under a subscribed entry).
   get selectedCategoryPath(): MovieCategory[] {
     if (this.selectedCategory == null) return [];
-    return this.findCategoryPath(this.categoryTree, this.selectedCategory) ?? [];
+    return findCategoryPath(this.categoryTree, this.selectedCategory) ?? [];
   }
 
   get selectedCategoryLeaf(): MovieCategory | null {
     const path = this.selectedCategoryPath;
     return path.length ? path[path.length - 1] : null;
-  }
-
-  private findCategoryPath(categories: MovieCategory[], targetId: number): MovieCategory[] | null {
-    for (const category of categories) {
-      if (category.id === targetId) return [category];
-      const found = this.findCategoryPath(category.children, targetId);
-      if (found) return [category, ...found];
-    }
-    return null;
   }
 
   private loadCategoryTree(): void {

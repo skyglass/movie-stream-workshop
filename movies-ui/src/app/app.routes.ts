@@ -1,4 +1,4 @@
-import { Routes } from '@angular/router';
+import { Routes, UrlMatchResult, UrlSegment } from '@angular/router';
 import { MoviesHomeComponent } from './components/movies-home/movies-home';
 import { MovieChallengePageComponent } from './components/movie-challenge-page/movie-challenge-page';
 import { MovieDetailComponent } from './components/movie-detail/movie-detail';
@@ -20,7 +20,24 @@ import { MovieGuideDetailComponent } from './components/movie-guide-detail/movie
 import { GuideSimilarMoviesComponent } from './components/guide-similar-movies/guide-similar-movies';
 import { WatchlistDetailComponent } from './components/watchlist-detail/watchlist-detail';
 
+// Matches 'categories/root' (nothing selected) or 'categories/<id>/<any trailing segments>' -- the trailing
+// segments are a cosmetic, human-readable category path (e.g. 'Movies/Action/Neo-Noir') built by
+// categoryPageSegments; resolution is always by the numeric id, so their exact content is never validated here.
+export function categoryPageMatcher(segments: UrlSegment[]): UrlMatchResult | null {
+  if (segments.length < 2 || segments[0].path !== 'categories') return null;
+  if (segments[1].path === 'root') return { consumed: segments, posParams: {} };
+  if (/^\d+$/.test(segments[1].path)) return { consumed: segments, posParams: { id: segments[1] } };
+  return null;
+}
+
 export const routes: Routes = [
+  // Lazy-loaded (not a static import above): this is a newly-added page, and eagerly bundling it into main.js
+  // pushed the initial chunk over the production budget (angular.json) -- every other route here is small/old
+  // enough to already fit, so this is the one that needs to be the exception rather than raising the budget.
+  {
+    matcher: categoryPageMatcher,
+    loadComponent: () => import('./components/movie-category-page/movie-category-page').then(m => m.MovieCategoryPageComponent)
+  },
   { path: 'home', component: MoviesHomeComponent },
   { path: 'movie-guides', component: MovieGuidesComponent },
   { path: 'movie-guides/:id/similar', component: GuideSimilarMoviesComponent },
