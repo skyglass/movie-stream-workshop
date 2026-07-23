@@ -4,7 +4,8 @@ import skycomposer.moviechallenge.api.movie.application.service.MovieChallengeUs
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.dto.SelectMovieChallengeRequest;
 import skycomposer.moviechallenge.api.movie.dto.SubmitMovieChallengesRequest;
-import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengePageDto;
+import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengeDto;
+import java.util.List;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -29,7 +30,6 @@ import static org.springframework.http.HttpStatus.NO_CONTENT;
 public class MovieChallengesController {
 
     private final MovieChallengeUseCase movieChallengeUseCase;
-    private final MoviePaging moviePaging;
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
     @GetMapping("/next")
@@ -41,15 +41,12 @@ public class MovieChallengesController {
 
     @Operation(security = {@SecurityRequirement(name = BEARER_KEY_SECURITY_SCHEME)})
     @GetMapping("/suggested")
-    public SuggestedMovieChallengePageDto suggestedChallenges(@AuthenticationPrincipal Jwt jwt,
-                                                             @RequestParam(required = false) Integer page,
-                                                             @RequestParam(required = false) Integer pageSize,
+    public List<SuggestedMovieChallengeDto> suggestedChallenges(@AuthenticationPrincipal Jwt jwt,
                                                              @RequestParam(defaultValue = "false") boolean higherRankedFirst,
                                                              @RequestParam(defaultValue = "false") boolean boostHigherRanks,
                                                              @RequestParam(defaultValue = "false") boolean moreInterestingFirst) {
         return movieChallengeUseCase.suggestedChallenges(
                 jwt,
-                moviePaging.pageable(page, pageSize),
                 higherRankedFirst,
                 boostHigherRanks,
                 moreInterestingFirst);

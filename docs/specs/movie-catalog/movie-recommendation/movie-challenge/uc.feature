@@ -53,7 +53,7 @@ Feature: movie-challenge
     When regular user "user" requests the next movie challenge
     Then the movie challenge is movie "tt103" against movie "tt101"
 
-  Scenario: Suggested challenges are paginated with win chances
+  Scenario: Suggested challenges return up to twenty results with win chances
     Given movie "tt101" exists with title "Movie One"
     And movie "tt102" exists with title "Movie Two"
     And movie "tt103" exists with title "Movie Three"
@@ -62,9 +62,8 @@ Feature: movie-challenge
     And movie "tt102" is already recommended by "user"
     And movie "tt103" is already recommended by "user"
     And movie "tt104" is already recommended by "user"
-    When regular user "user" requests suggested movie challenges page 1 with size 2
-    Then the suggested movie challenge total count is 3
-    And the suggested movie challenge list contains 2 challenges
+    When regular user "user" requests suggested movie challenges
+    Then the suggested movie challenge list contains 3 challenges
     And suggested movie challenge 1 is movie "tt101" against movie "tt102"
 
   Scenario: Suggested exploration challenges stay ahead of top-ranked refinement
@@ -80,9 +79,8 @@ Feature: movie-challenge
     And movie "tt102" has rank 2, 4 direct comparisons, mu "0.0", and sigma "0.5" for "user"
     And movie "tt103" has rank 50 and 1 direct comparison for "user"
     And movie "tt104" has rank 51 and 1 direct comparison for "user"
-    When regular user "user" requests suggested movie challenges page 1 with size 2
-    Then the suggested movie challenge total count is 1
-    And the suggested movie challenge list contains 1 challenge
+    When regular user "user" requests suggested movie challenges
+    Then the suggested movie challenge list contains 1 challenge
     And suggested movie challenge 1 is movie "tt103" against movie "tt104"
 
   Scenario: Suggested challenges can prefer higher-ranked movies on request
@@ -98,9 +96,8 @@ Feature: movie-challenge
     And movie "tt102" has rank 2, 4 direct comparisons, mu "0.0", and sigma "0.5" for "user"
     And movie "tt103" has rank 50 and 1 direct comparison for "user"
     And movie "tt104" has rank 51 and 1 direct comparison for "user"
-    When regular user "user" requests suggested movie challenges page 1 with size 2 higher ranked first
-    Then the suggested movie challenge total count is 1
-    And the suggested movie challenge list contains 1 challenge
+    When regular user "user" requests suggested movie challenges higher ranked first
+    Then the suggested movie challenge list contains 1 challenge
     And suggested movie challenge 1 is movie "tt101" against movie "tt102"
 
   Scenario: Higher ranks first refinement uses the ten-bucket category of the best rank in either movie
@@ -120,9 +117,8 @@ Feature: movie-challenge
     And movie "tt102" has rank 37, 4 direct comparisons, mu "0.0", and sigma "0.5" for "user"
     And movie "tt103" has rank 38, 4 direct comparisons, mu "0.0", and sigma "0.5" for "user"
     And movie "tt104" has rank 40, 4 direct comparisons, mu "0.0", and sigma "0.5" for "user"
-    When regular user "user" requests suggested movie challenges page 1 with size 2 higher ranked first
-    Then the suggested movie challenge total count is 2
-    And the suggested movie challenge list contains 2 challenges
+    When regular user "user" requests suggested movie challenges higher ranked first
+    Then the suggested movie challenge list contains 2 challenges
     And suggested movie challenge 1 is movie "tt104" against movie "tt101"
     And suggested movie challenge 2 is movie "tt102" against movie "tt103"
 
@@ -141,9 +137,8 @@ Feature: movie-challenge
     And movie "tt102" has rank 5, 9 direct comparisons, mu "0.0", and sigma "0.5" for "user"
     And movie "tt103" has rank 2, 4 direct comparisons, mu "0.0", and sigma "0.9" for "user"
     And movie "tt104" has rank 3, 4 direct comparisons, mu "0.0", and sigma "0.9" for "user"
-    When regular user "user" requests suggested movie challenges page 1 with size 3
-    Then the suggested movie challenge total count is 3
-    And the suggested movie challenge list contains 3 challenges
+    When regular user "user" requests suggested movie challenges
+    Then the suggested movie challenge list contains 3 challenges
     And suggested movie challenge 1 is movie "tt103" against movie "tt104"
     And suggested movie challenge 3 is movie "tt101" against movie "tt102"
 
@@ -162,9 +157,8 @@ Feature: movie-challenge
     And movie "tt102" has rank 5, 4 direct comparisons, mu "0.0", and sigma "0.5" for "user"
     And movie "tt103" has rank 2, 4 direct comparisons, mu "0.0", and sigma "0.5" for "user"
     And movie "tt104" has rank 3, 4 direct comparisons, mu "0.0", and sigma "0.5" for "user"
-    When regular user "user" requests suggested movie challenges page 1 with size 2
-    Then the suggested movie challenge total count is 3
-    And the suggested movie challenge list contains 2 challenges
+    When regular user "user" requests suggested movie challenges
+    Then the suggested movie challenge list contains 3 challenges
     And suggested movie challenge 1 is movie "tt103" against movie "tt104"
 
   Scenario: Suggested refinement challenges use direct-comparison counts after rank distance
@@ -178,9 +172,8 @@ Feature: movie-challenge
     And movie "tt101" has rank 1, 9 direct comparisons, mu "0.0", and sigma "0.5" for "user"
     And movie "tt102" has rank 2, 9 direct comparisons, mu "0.0", and sigma "0.5" for "user"
     And movie "tt103" has rank 3, 4 direct comparisons, mu "0.0", and sigma "0.9" for "user"
-    When regular user "user" requests suggested movie challenges page 1 with size 2
-    Then the suggested movie challenge total count is 2
-    And the suggested movie challenge list contains 2 challenges
+    When regular user "user" requests suggested movie challenges
+    Then the suggested movie challenge list contains 2 challenges
     And suggested movie challenge 1 is movie "tt103" against movie "tt102"
     And suggested movie challenge 2 is movie "tt103" against movie "tt101"
 
@@ -209,9 +202,8 @@ Feature: movie-challenge
     And movie "tt103" has rank 3 and 60 direct comparisons for "user"
     When regular user "user" requests the next movie challenge
     Then no movie challenge is available
-    When regular user "user" requests suggested movie challenges page 1 with size 3
-    Then the suggested movie challenge total count is 0
-    And the suggested movie challenge list contains 0 challenges
+    When regular user "user" requests suggested movie challenges
+    Then the suggested movie challenge list contains 0 challenges
 
   Scenario: Distant pairs above the exploration floor are not offered
     Given movie "tt101" exists with title "Movie One"
@@ -222,9 +214,8 @@ Feature: movie-challenge
     And movie "tt102" has rank 10 and 4 direct comparisons for "user"
     When regular user "user" requests the next movie challenge
     Then no movie challenge is available
-    When regular user "user" requests suggested movie challenges page 1 with size 1
-    Then the suggested movie challenge total count is 0
-    And the suggested movie challenge list contains 0 challenges
+    When regular user "user" requests suggested movie challenges
+    Then the suggested movie challenge list contains 0 challenges
 
   Scenario: Disliked movies do not count as challenge candidates
     Given movie "tt101" exists with title "Movie One"

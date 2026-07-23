@@ -75,30 +75,19 @@ public class MovieChallengeAcceptanceTest {
         fixture.selectedMovieChallenge(movieChallenge.nextChallenge(username).orElse(null));
     }
 
-    @When("regular user {string} requests suggested movie challenges page {int} with size {int}")
-    public void regularUserRequestsSuggestedMovieChallengesPageWithSize(String username, int page, int pageSize) {
-        fixture.suggestedMovieChallengePage(movieChallenge.suggestedChallenges(username, fixture.moviePage(page, pageSize)));
+    @When("regular user {string} requests suggested movie challenges")
+    public void regularUserRequestsSuggestedMovieChallenges(String username) {
+        fixture.suggestedMovieChallenges(movieChallenge.suggestedChallenges(username, false, false, false));
     }
 
-    @When("regular user {string} requests suggested movie challenges page {int} with size {int} higher ranked first")
-    public void regularUserRequestsSuggestedMovieChallengesPageWithSizeHigherRankedFirst(String username,
-                                                                                         int page,
-                                                                                         int pageSize) {
-        fixture.suggestedMovieChallengePage(movieChallenge.suggestedChallenges(
-                username,
-                fixture.moviePage(page, pageSize),
-                true));
+    @When("regular user {string} requests suggested movie challenges higher ranked first")
+    public void regularUserRequestsSuggestedMovieChallengesHigherRankedFirst(String username) {
+        fixture.suggestedMovieChallenges(movieChallenge.suggestedChallenges(username, true, false, false));
     }
 
-    @When("regular user {string} requests suggested movie challenges page {int} with size {int} boost higher ranks")
-    public void regularUserRequestsSuggestedMovieChallengesPageWithSizeBoostHigherRanks(String username,
-                                                                                         int page,
-                                                                                         int pageSize) {
-        fixture.suggestedMovieChallengePage(movieChallenge.suggestedChallenges(
-                username,
-                fixture.moviePage(page, pageSize),
-                false,
-                true));
+    @When("regular user {string} requests suggested movie challenges with higher ranks boosted")
+    public void regularUserRequestsSuggestedMovieChallengesWithHigherRanksBoosted(String username) {
+        fixture.suggestedMovieChallenges(movieChallenge.suggestedChallenges(username, false, true, false));
     }
 
     @When("regular user {string} selects movie {string} from movie challenge pair {string} and {string}")
@@ -140,11 +129,6 @@ public class MovieChallengeAcceptanceTest {
     @Then("the suggested movie challenge list contains {int} challenge(s)")
     public void theSuggestedMovieChallengeListContainsChallenges(int count) {
         fixture.assertSuggestedMovieChallengeListSizeIs(count);
-    }
-
-    @Then("the suggested movie challenge total count is {int}")
-    public void theSuggestedMovieChallengeTotalCountIs(int count) {
-        fixture.assertSuggestedMovieChallengeTotalCountIs(count);
     }
 
     @Then("suggested movie challenge {int} is movie {string} against movie {string}")

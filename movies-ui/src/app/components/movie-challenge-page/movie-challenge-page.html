@@ -403,12 +403,6 @@
               </article>
             }
           </div>
-
-          <app-movie-page-navigator
-            [currentPage]="suggestedCurrentPage"
-            [totalCount]="suggestedTotalCount"
-            [pageSize]="suggestedPageSize"
-            (pageChange)="loadSuggestedChallenges($event)" />
         } @else {
           <div class="message">No extra challenges available</div>
         }

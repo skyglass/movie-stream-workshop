@@ -3,14 +3,13 @@ package skycomposer.moviechallenge.api.movie.application.service;
 import skycomposer.moviechallenge.api.movie.MovieChallengeRepository;
 import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.dto.SelectMovieChallengeRequest;
-import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengePageDto;
+import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.exception.MovieChallengeUnavailableException;
 import skycomposer.moviechallenge.api.userextra.UserExtraService;
 import skycomposer.moviechallenge.api.userextra.model.UserExtra;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,48 +33,16 @@ public class MovieChallengeUseCase {
     }
 
     @Transactional(readOnly = true)
-    public SuggestedMovieChallengePageDto suggestedChallenges(Jwt jwt, Pageable pageable) {
-        return suggestedChallenges(jwt, pageable, false);
-    }
-
-    @Transactional(readOnly = true)
-    public SuggestedMovieChallengePageDto suggestedChallenges(Jwt jwt, Pageable pageable, boolean higherRankedFirst) {
-        return suggestedChallenges(jwt, pageable, higherRankedFirst, false);
-    }
-
-    @Transactional(readOnly = true)
-    public SuggestedMovieChallengePageDto suggestedChallenges(Jwt jwt, Pageable pageable, boolean higherRankedFirst,
-                                                               boolean boostHigherRanks) {
-        return suggestedChallenges(jwt, pageable, higherRankedFirst, boostHigherRanks, false);
-    }
-
-    @Transactional(readOnly = true)
-    public SuggestedMovieChallengePageDto suggestedChallenges(Jwt jwt, Pageable pageable, boolean higherRankedFirst,
+    public List<SuggestedMovieChallengeDto> suggestedChallenges(Jwt jwt, boolean higherRankedFirst,
                                                                boolean boostHigherRanks, boolean moreInterestingFirst) {
         UserExtra userExtra = userExtraService.syncFromJwt(jwt);
-        return suggestedChallenges(userExtra.getUsername(), pageable, higherRankedFirst, boostHigherRanks, moreInterestingFirst);
+        return suggestedChallenges(userExtra.getUsername(), higherRankedFirst, boostHigherRanks, moreInterestingFirst);
     }
 
     @Transactional(readOnly = true)
-    public SuggestedMovieChallengePageDto suggestedChallenges(String username, Pageable pageable) {
-        return suggestedChallenges(username, pageable, false);
-    }
-
-    @Transactional(readOnly = true)
-    public SuggestedMovieChallengePageDto suggestedChallenges(String username, Pageable pageable, boolean higherRankedFirst) {
-        return suggestedChallenges(username, pageable, higherRankedFirst, false);
-    }
-
-    @Transactional(readOnly = true)
-    public SuggestedMovieChallengePageDto suggestedChallenges(String username, Pageable pageable, boolean higherRankedFirst,
-                                                               boolean boostHigherRanks) {
-        return suggestedChallenges(username, pageable, higherRankedFirst, boostHigherRanks, false);
-    }
-
-    @Transactional(readOnly = true)
-    public SuggestedMovieChallengePageDto suggestedChallenges(String username, Pageable pageable, boolean higherRankedFirst,
+    public List<SuggestedMovieChallengeDto> suggestedChallenges(String username, boolean higherRankedFirst,
                                                                boolean boostHigherRanks, boolean moreInterestingFirst) {
-        return movieChallengeRepository.findSuggestedChallenges(username, pageable, higherRankedFirst, boostHigherRanks,
+        return movieChallengeRepository.findSuggestedChallenges(username, higherRankedFirst, boostHigherRanks,
                 moreInterestingFirst);
     }
 

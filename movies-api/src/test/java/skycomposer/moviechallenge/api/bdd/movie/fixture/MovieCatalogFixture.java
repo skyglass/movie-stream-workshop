@@ -7,7 +7,6 @@ import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
 import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengeDto;
-import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengePageDto;
 import skycomposer.moviechallenge.api.movie.model.Movie;
 import skycomposer.moviechallenge.api.movie.model.MovieComment;
 import skycomposer.moviechallenge.api.movie.model.MovieRecommendation;
@@ -43,7 +42,6 @@ public class MovieCatalogFixture {
     private MovieDto selectedMovie;
     private MovieChallengeDto selectedMovieChallenge;
     private List<SuggestedMovieChallengeDto> suggestedMovieChallenges;
-    private long suggestedMovieChallengeTotalCount;
     private RuntimeException lastError;
     private MvcResult lastResponse;
     private String currentUsername;
@@ -70,7 +68,6 @@ public class MovieCatalogFixture {
         selectedMovie = null;
         selectedMovieChallenge = null;
         suggestedMovieChallenges = null;
-        suggestedMovieChallengeTotalCount = 0;
         lastError = null;
         lastResponse = null;
         currentUsername = null;
@@ -375,10 +372,6 @@ public class MovieCatalogFixture {
         assertEquals(count, suggestedMovieChallenges.size());
     }
 
-    public void assertSuggestedMovieChallengeTotalCountIs(long count) {
-        assertEquals(count, suggestedMovieChallengeTotalCount);
-    }
-
     public void assertSuggestedMovieChallengeIs(int number, String firstMovieId, String secondMovieId) {
         SuggestedMovieChallengeDto challenge = suggestedMovieChallenge(number);
         assertEquals(firstMovieId, challenge.movie1().imdbId(), suggestedMovieChallengeSummary());
@@ -607,9 +600,8 @@ public class MovieCatalogFixture {
         this.selectedMovieChallenge = selectedMovieChallenge;
     }
 
-    public void suggestedMovieChallengePage(SuggestedMovieChallengePageDto suggestedMovieChallengePage) {
-        this.suggestedMovieChallenges = suggestedMovieChallengePage.challenges();
-        this.suggestedMovieChallengeTotalCount = suggestedMovieChallengePage.totalCount();
+    public void suggestedMovieChallenges(List<SuggestedMovieChallengeDto> suggestedMovieChallenges) {
+        this.suggestedMovieChallenges = suggestedMovieChallenges;
     }
 
     public void lastError(RuntimeException lastError) {

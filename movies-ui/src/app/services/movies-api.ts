@@ -122,11 +122,6 @@ export interface SuggestedMovieChallenge {
   movie2: SuggestedMovieChallengeMovie;
 }
 
-export interface SuggestedMovieChallengePage {
-  challenges: SuggestedMovieChallenge[];
-  totalCount: number;
-}
-
 export interface MovieChallengeSelection {
   movie1Id: string;
   movie2Id: string;
@@ -716,13 +711,11 @@ export class MoviesApiService {
   }
 
   listSuggestedMovieChallenges(
-    page = 1,
-    pageSize = this.moviePageSize,
     higherRankedFirst = false,
     boostHigherRanks = false,
     moreInterestingFirst = false
-  ): Observable<SuggestedMovieChallengePage> {
-    const params = this.pageParams(page, pageSize);
+  ): Observable<SuggestedMovieChallenge[]> {
+    const params: Record<string, string> = {};
     if (higherRankedFirst) {
       params['higherRankedFirst'] = 'true';
     }
@@ -732,7 +725,7 @@ export class MoviesApiService {
     if (moreInterestingFirst) {
       params['moreInterestingFirst'] = 'true';
     }
-    return this.http.get<SuggestedMovieChallengePage>(`${this.movieChallengesBase}/suggested`, {
+    return this.http.get<SuggestedMovieChallenge[]>(`${this.movieChallengesBase}/suggested`, {
       params
     });
   }

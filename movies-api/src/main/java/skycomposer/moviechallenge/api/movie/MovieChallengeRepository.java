@@ -5,7 +5,6 @@ import skycomposer.moviechallenge.api.movie.dto.MovieChallengeDto.MovieChallenge
 import skycomposer.moviechallenge.api.movie.dto.MovieRatingDto;
 import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengeDto;
 import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengeDto.SuggestedMovieChallengeMovieDto;
-import skycomposer.moviechallenge.api.movie.dto.SuggestedMovieChallengePageDto;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -20,7 +19,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -29,6 +27,7 @@ import org.springframework.stereotype.Repository;
 public class MovieChallengeRepository {
 
     private static final int EXPLORATION_DIRECT_COMPARISONS = 4;
+    private static final int SUGGESTED_CHALLENGE_LIMIT = 20;
     private static final int CLOSE_RANK_WINDOW_MINIMUM = 3;
     private static final int CLOSE_RANK_WINDOW_RECOMMENDATION_DIVISOR = 33;
     private static final double CLOSE_SCORE_DISTANCE = 1.0;
@@ -51,25 +50,22 @@ public class MovieChallengeRepository {
         return explorationChallenge.or(() -> findRefinementChallenge(username));
     }
 
-    public SuggestedMovieChallengePageDto findSuggestedChallenges(String username, Pageable pageable) {
-        return findSuggestedChallenges(username, pageable, false);
+    public List<SuggestedMovieChallengeDto> findSuggestedChallenges(String username) {
+        return findSuggestedChallenges(username, false);
     }
 
-    public SuggestedMovieChallengePageDto findSuggestedChallenges(String username,
-                                                                  Pageable pageable,
+    public List<SuggestedMovieChallengeDto> findSuggestedChallenges(String username,
                                                                   boolean higherRankedFirst) {
-        return findSuggestedChallenges(username, pageable, higherRankedFirst, false);
+        return findSuggestedChallenges(username, higherRankedFirst, false);
     }
 
-    public SuggestedMovieChallengePageDto findSuggestedChallenges(String username,
-                                                                  Pageable pageable,
+    public List<SuggestedMovieChallengeDto> findSuggestedChallenges(String username,
                                                                   boolean higherRankedFirst,
                                                                   boolean boostHigherRanks) {
-        return findSuggestedChallenges(username, pageable, higherRankedFirst, boostHigherRanks, false);
+        return findSuggestedChallenges(username, higherRankedFirst, boostHigherRanks, false);
     }
 
-    public SuggestedMovieChallengePageDto findSuggestedChallenges(String username,
-                                                                  Pageable pageable,
+    public List<SuggestedMovieChallengeDto> findSuggestedChallenges(String username,
                                                                   boolean higherRankedFirst,
                                                                   boolean boostHigherRanks,
                                                                   boolean moreInterestingFirst) {
@@ -82,45 +78,31 @@ public class MovieChallengeRepository {
                         : SuggestedChallengeOrdering.PAIR_INFORMATION_FIRST;
         if (ordering.preferRankedRefinement()) {
             Map<String, Object> refinementParams = refinementParams(username);
-            long refinementCount = countChallenges(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
-                    refinementParams);
-            if (refinementCount > 0) {
-                return querySuggestedChallenges(
-                        pagedSql(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
-                                suggestedRefinementChallengeOrderSql(ordering)),
-                        pageParams(refinementParams, pageable),
-                        refinementCount);
+            List<SuggestedMovieChallengeDto> refinementChallenges = querySuggestedChallenges(
+                    suggestedSql(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                            suggestedRefinementChallengeOrderSql(ordering)), refinementParams);
+            if (!refinementChallenges.isEmpty()) {
+                return refinementChallenges;
             }
 
             Map<String, Object> explorationParams = explorationParams(username);
-            long explorationCount = countChallenges(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
-                    explorationParams);
             return querySuggestedChallenges(
-                    pagedSql(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
-                            suggestedExplorationChallengeOrderSql(ordering)),
-                    pageParams(explorationParams, pageable),
-                    explorationCount);
+                    suggestedSql(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                            suggestedExplorationChallengeOrderSql(ordering)), explorationParams);
         }
 
         Map<String, Object> explorationParams = explorationParams(username);
-        long explorationCount = countChallenges(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
-                explorationParams);
-        if (explorationCount > 0) {
-            return querySuggestedChallenges(
-                    pagedSql(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
-                            suggestedExplorationChallengeOrderSql(ordering)),
-                    pageParams(explorationParams, pageable),
-                    explorationCount);
+        List<SuggestedMovieChallengeDto> explorationChallenges = querySuggestedChallenges(
+                suggestedSql(explorationChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                        suggestedExplorationChallengeOrderSql(ordering)), explorationParams);
+        if (!explorationChallenges.isEmpty()) {
+            return explorationChallenges;
         }
 
         Map<String, Object> refinementParams = refinementParams(username);
-        long refinementCount = countChallenges(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
-                refinementParams);
         return querySuggestedChallenges(
-                pagedSql(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
-                        suggestedRefinementChallengeOrderSql(ordering)),
-                pageParams(refinementParams, pageable),
-                refinementCount);
+                suggestedSql(refinementChallengeBaseSql(ChallengeFilterMode.SUGGESTED_LIST),
+                        suggestedRefinementChallengeOrderSql(ordering)), refinementParams);
     }
 
     private Optional<MovieChallengeDto> findExplorationChallenge(String username) {
@@ -165,6 +147,20 @@ public class MovieChallengeRepository {
                 """
                 : "";
         String pairConfidenceSql = pairInformationConfidencePercentSql();
+        String suggestedCandidates = filterMode.applySuggestedPairLimit()
+                ? """
+                    , suggested_candidate_movie as (
+                        select *
+                        from recommended_movie
+                        where direct_comparisons < :explorationDirectComparisons
+                        order by direct_comparisons, sort_rank_position, movie_id
+                        limit %d
+                    )
+                    """.formatted(SUGGESTED_CHALLENGE_LIMIT)
+                : "";
+        String candidateMovieSource = filterMode.applySuggestedPairLimit()
+                ? "suggested_candidate_movie"
+                : "recommended_movie";
         return """
                 with recommended_movie as (
                     select recommendation.user_id,
@@ -180,7 +176,7 @@ public class MovieChallengeRepository {
                         and movie_rank.movie_id = recommendation.movie_id
                     where recommendation.user_id = :username
                         and recommendation.positive = true
-                ),
+                )%s,
                 selected_pair as (
                     select candidate_movie.user_id,
                         case
@@ -251,7 +247,7 @@ public class MovieChallengeRepository {
                             partition by candidate_movie.user_id, candidate_movie.movie_id
                             order by %s
                         ) as candidate_pair_priority
-                    from recommended_movie candidate_movie
+                    from %s candidate_movie
                     join recommended_movie partner_movie
                         on partner_movie.user_id = candidate_movie.user_id
                         and partner_movie.movie_id <> candidate_movie.movie_id
@@ -314,8 +310,10 @@ public class MovieChallengeRepository {
                 left join user_movie_rating movie2_rating
                     on movie2_rating.user_id = selected_pair.user_id
                     and movie2_rating.movie_id = selected_pair.movie2_id
-                """.formatted(pairInformationSql,
+                """.formatted(suggestedCandidates,
+                pairInformationSql,
                 candidatePairPriorityOrder,
+                candidateMovieSource,
                 pairConfidenceSql,
                 suggestedListFilters);
     }
@@ -420,6 +418,19 @@ public class MovieChallengeRepository {
                 """
                 : "";
         String pairInformationPrioritySql = pairInformationSortingPrioritySql();
+        String suggestedCandidates = filterMode.applySuggestedPairLimit()
+                ? """
+                    , suggested_first_rank as (
+                        select *
+                        from ranked_recommendation
+                        order by direct_comparisons, rank_position, movie_id
+                        limit %d
+                    )
+                    """.formatted(SUGGESTED_CHALLENGE_LIMIT)
+                : "";
+        String firstRankSource = filterMode.applySuggestedPairLimit()
+                ? "suggested_first_rank"
+                : "ranked_recommendation";
         return """
                 with ranked_recommendation as (
                     select movie_rank.user_id,
@@ -443,7 +454,7 @@ public class MovieChallengeRepository {
                         and recommendation.movie_id = movie_rank.movie_id
                         and recommendation.positive = true
                     where movie_rank.user_id = :username
-                ),
+                )%s,
                 selected_pair as (
                     select first_rank.user_id,
                         case
@@ -513,7 +524,7 @@ public class MovieChallengeRepository {
                             partition by first_rank.user_id, first_rank.movie_id
                             order by %s
                         ) as candidate_pair_priority
-                    from ranked_recommendation first_rank
+                    from %s first_rank
                     join ranked_recommendation second_rank
                         on second_rank.user_id = first_rank.user_id
                         and second_rank.rank_position > first_rank.rank_position
@@ -575,8 +586,10 @@ public class MovieChallengeRepository {
                 left join user_movie_rating movie2_rating
                     on movie2_rating.user_id = selected_pair.user_id
                     and movie2_rating.movie_id = selected_pair.movie2_id
-                """.formatted(pairInformationSql,
+                """.formatted(suggestedCandidates,
+                pairInformationSql,
                 candidatePairPriorityOrder,
+                firstRankSource,
                 closeRankJoinFilter,
                 pairInformationPrioritySql,
                 stopFilters,
@@ -754,9 +767,7 @@ public class MovieChallengeRepository {
         });
     }
 
-    private SuggestedMovieChallengePageDto querySuggestedChallenges(String sql,
-                                                                    Map<String, Object> params,
-                                                                    long totalCount) {
+    private List<SuggestedMovieChallengeDto> querySuggestedChallenges(String sql, Map<String, Object> params) {
         List<SuggestedMovieChallengeDto> challenges = jdbcTemplate.query(sql, params, (rs, rowNum) -> {
             BigDecimal movie1Mu = rs.getBigDecimal("movie1_mu");
             BigDecimal movie2Mu = rs.getBigDecimal("movie2_mu");
@@ -782,30 +793,15 @@ public class MovieChallengeRepository {
                             nullableInteger(rs, "movie2_rank_position"),
                             rs.getBigDecimal("movie2_rating")));
         });
-        return new SuggestedMovieChallengePageDto(challenges, totalCount);
-    }
-
-    private long countChallenges(String baseSql, Map<String, Object> params) {
-        Long count = jdbcTemplate.queryForObject(
-                "select count(1) from (" + baseSql + ") suggested_challenge",
-                params,
-                Long.class);
-        return Optional.ofNullable(count).orElse(0L);
-    }
-
-    private Map<String, Object> pageParams(Map<String, Object> params, Pageable pageable) {
-        Map<String, Object> pageParams = new HashMap<>(params);
-        pageParams.put("limit", pageable.getPageSize());
-        pageParams.put("offset", pageable.getOffset());
-        return pageParams;
+        return challenges;
     }
 
     private String singleSql(String baseSql, String orderSql) {
         return baseSql + "\n" + orderSql + "\nlimit 1";
     }
 
-    private String pagedSql(String baseSql, String orderSql) {
-        return baseSql + "\n" + orderSql + "\nlimit :limit offset :offset";
+    private String suggestedSql(String baseSql, String orderSql) {
+        return baseSql + "\n" + orderSql + "\nlimit " + SUGGESTED_CHALLENGE_LIMIT;
     }
 
     private int winProbabilityPercent(BigDecimal movieMu, BigDecimal opponentMu) {

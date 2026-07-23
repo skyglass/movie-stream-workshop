@@ -297,54 +297,50 @@ describe('MoviesApiService', () => {
     request.flush({ movies: [], totalCount: 0 });
   });
 
-  it('requests paginated suggested movie challenges', (done) => {
-    service.listSuggestedMovieChallenges(3, 7).subscribe(page => {
-      expect(page.challenges).toEqual([]);
-      expect(page.totalCount).toBe(0);
+  it('requests up to 20 suggested movie challenges without pagination', (done) => {
+    service.listSuggestedMovieChallenges().subscribe(challenges => {
+      expect(challenges).toEqual([]);
       done();
     });
 
-    const request = http.expectOne(`${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested?page=3&pageSize=7`);
-    request.flush({ challenges: [], totalCount: 0 });
+    const request = http.expectOne(`${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested`);
+    request.flush([]);
   });
 
   it('requests suggested movie challenges with higher ranked first ordering', (done) => {
-    service.listSuggestedMovieChallenges(3, 7, true).subscribe(page => {
-      expect(page.challenges).toEqual([]);
-      expect(page.totalCount).toBe(0);
+    service.listSuggestedMovieChallenges(true).subscribe(challenges => {
+      expect(challenges).toEqual([]);
       done();
     });
 
     const request = http.expectOne(
-      `${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested?page=3&pageSize=7&higherRankedFirst=true`
+      `${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested?higherRankedFirst=true`
     );
-    request.flush({ challenges: [], totalCount: 0 });
+    request.flush([]);
   });
 
   it('requests suggested movie challenges with higher ranks boosted', (done) => {
-    service.listSuggestedMovieChallenges(3, 7, false, true).subscribe(page => {
-      expect(page.challenges).toEqual([]);
-      expect(page.totalCount).toBe(0);
+    service.listSuggestedMovieChallenges(false, true).subscribe(challenges => {
+      expect(challenges).toEqual([]);
       done();
     });
 
     const request = http.expectOne(
-      `${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested?page=3&pageSize=7&boostHigherRanks=true`
+      `${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested?boostHigherRanks=true`
     );
-    request.flush({ challenges: [], totalCount: 0 });
+    request.flush([]);
   });
 
   it('requests suggested movie challenges with more interesting pairs first', (done) => {
-    service.listSuggestedMovieChallenges(3, 7, false, false, true).subscribe(page => {
-      expect(page.challenges).toEqual([]);
-      expect(page.totalCount).toBe(0);
+    service.listSuggestedMovieChallenges(false, false, true).subscribe(challenges => {
+      expect(challenges).toEqual([]);
       done();
     });
 
     const request = http.expectOne(
-      `${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested?page=3&pageSize=7&moreInterestingFirst=true`
+      `${appConfig.apiBaseUrl}${appConfig.movieChallengesPath}/suggested?moreInterestingFirst=true`
     );
-    request.flush({ challenges: [], totalCount: 0 });
+    request.flush([]);
   });
 
   it('submits selected movie challenges in a batch', (done) => {

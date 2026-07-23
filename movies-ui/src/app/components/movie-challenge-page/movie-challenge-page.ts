@@ -16,12 +16,11 @@ import {
   SuggestedMovieChallenge,
   SuggestedMovieChallengeMovie
 } from '../../services/movies-api';
-import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
 
 @Component({
   standalone: true,
   selector: 'app-movie-challenge-page',
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, MoviePageNavigatorComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   templateUrl: './movie-challenge-page.html',
   styleUrls: ['./movie-challenge-page.css', './movie-challenge-extra.css']
 })
@@ -71,15 +70,12 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
   suggestedLoading = false;
   suggestedSaving = false;
   suggestedErrorMessage = '';
-  suggestedCurrentPage = 1;
-  suggestedTotalCount = 0;
   higherRankedFirst = false;
   boostHigherRanks = false;
   moreInterestingFirst = false;
   selectedSuggestedMovieIds: Record<string, string> = {};
   visibleProbabilityHelpKey = '';
   visibleRankHelpKey = '';
-  readonly suggestedPageSize = this.moviesApi.moviePageSize;
   readonly probabilityHelpText = 'Chance of winning, based on previous comparisons';
   readonly rankHelpText = 'Your movie rank and rating, based on previous comparisons';
 
@@ -118,7 +114,7 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
         this.loading = false;
         if (!challenge) {
           this.resetFallbackWizardToSearch(preserveFallbackSuccess);
-          this.loadSuggestedChallenges(1);
+          this.loadSuggestedChallenges();
         }
       },
       error: err => {
@@ -360,7 +356,7 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
     return !!criteria.title;
   }
 
-  loadSuggestedChallenges(page = this.suggestedCurrentPage): void {
+  loadSuggestedChallenges(): void {
     if (!this.auth.token) return;
 
     this.suggestedSub?.unsubscribe();
@@ -369,22 +365,17 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
     this.visibleProbabilityHelpKey = '';
     this.visibleRankHelpKey = '';
     this.suggestedSub = this.moviesApi.listSuggestedMovieChallenges(
-      page,
-      this.suggestedPageSize,
       this.higherRankedFirst,
       this.boostHigherRanks,
       this.moreInterestingFirst
     ).subscribe({
-      next: challengePage => {
-        this.suggestedChallenges = challengePage.challenges;
-        this.suggestedTotalCount = challengePage.totalCount;
-        this.suggestedCurrentPage = page;
+      next: challenges => {
+        this.suggestedChallenges = challenges;
         this.selectedSuggestedMovieIds = {};
         this.suggestedLoading = false;
       },
       error: err => {
         this.suggestedChallenges = [];
-        this.suggestedTotalCount = 0;
         this.suggestedErrorMessage = err?.error?.message ?? err?.message ?? 'Could not load extra challenges';
         this.selectedSuggestedMovieIds = {};
         this.suggestedLoading = false;
@@ -395,19 +386,19 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
   toggleHigherRankedFirst(event: Event): void {
     this.higherRankedFirst = (event.target as HTMLInputElement).checked;
     if (this.higherRankedFirst) { this.boostHigherRanks = false; this.moreInterestingFirst = false; }
-    this.loadSuggestedChallenges(1);
+    this.loadSuggestedChallenges();
   }
 
   toggleBoostHigherRanks(event: Event): void {
     this.boostHigherRanks = (event.target as HTMLInputElement).checked;
     if (this.boostHigherRanks) { this.higherRankedFirst = false; this.moreInterestingFirst = false; }
-    this.loadSuggestedChallenges(1);
+    this.loadSuggestedChallenges();
   }
 
   toggleMoreInterestingFirst(event: Event): void {
     this.moreInterestingFirst = (event.target as HTMLInputElement).checked;
     if (this.moreInterestingFirst) { this.higherRankedFirst = false; this.boostHigherRanks = false; }
-    this.loadSuggestedChallenges(1);
+    this.loadSuggestedChallenges();
   }
 
   selectSuggestedMovie(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): void {
@@ -449,7 +440,7 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
       next: () => {
         this.suggestedSaving = false;
         this.selectedSuggestedMovieIds = {};
-        this.loadSuggestedChallenges(this.suggestedCurrentPage);
+        this.loadSuggestedChallenges();
       },
       error: err => {
         this.suggestedSaving = false;
@@ -462,7 +453,7 @@ export class MovieChallengePageComponent implements OnInit, OnDestroy {
     if (this.suggestedSaving) return;
 
     this.selectedSuggestedMovieIds = {};
-    this.loadSuggestedChallenges(this.suggestedCurrentPage);
+    this.loadSuggestedChallenges();
   }
 
   toggleProbabilityHelp(challenge: SuggestedMovieChallenge, movie: SuggestedMovieChallengeMovie): void {
