@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Output, ViewChild, inject, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ViewChild, inject, OnInit } from '@angular/core';
 import { Movie, MoviesApiService, OmdbMovieSearchResult, ParsedMovieSearch } from '../../services/movies-api';
 import { MovieFilterSearchComponent, ExternalMovieAction } from '../movie-filter-search/movie-filter-search';
 import { MoviePageNavigatorComponent } from '../movie-page-navigator/movie-page-navigator';
@@ -15,7 +15,9 @@ import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tr
 export class MovieSelectorComponent implements OnInit {
   private readonly api = inject(MoviesApiService);
   @ViewChild(MovieFilterSearchComponent) filterSearch!: MovieFilterSearchComponent;
+  @Input() categoryName?: string;
   @Output() moviesSelected = new EventEmitter<string[]>();
+  @Output() closed = new EventEmitter<void>();
 
   filterText = '';
   activeFilter = '';
@@ -112,6 +114,10 @@ export class MovieSelectorComponent implements OnInit {
 
   submit(): void {
     this.moviesSelected.emit([...this.selectedMovieIds]);
+  }
+
+  cancel(): void {
+    this.closed.emit();
   }
 
   private addSelected(movie: Movie): void {

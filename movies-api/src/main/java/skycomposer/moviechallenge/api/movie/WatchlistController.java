@@ -14,7 +14,6 @@ import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesRequest;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesResponse;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
 import skycomposer.moviechallenge.api.movie.dto.RemoveWatchlistMovieRequest;
-import skycomposer.moviechallenge.api.movie.dto.SubscribeWatchlistCategoriesRequest;
 import skycomposer.moviechallenge.api.movie.dto.UpdateWatchlistRequest;
 import skycomposer.moviechallenge.api.movie.dto.WatchlistDto;
 
@@ -62,14 +61,8 @@ public class WatchlistController {
         watchlists.deleteWatchlist(id, authentication.getName(), isAdmin(authentication));
     }
 
-    @PostMapping("/{id}/subscribe")
-    public WatchlistDto subscribe(@PathVariable long id, @Valid @RequestBody SubscribeWatchlistCategoriesRequest request,
-                                   Authentication authentication) {
-        return watchlists.subscribeCategories(id, request.categoryIds(), authentication.getName(), isAdmin(authentication));
-    }
-
-    // Merged "Select Category" source: direct children of the watchlist's own private anchor, plus its flat
-    // subscribed public categories -- see WatchlistService.categoryPicker.
+    // "Select Category" source: direct children of the watchlist's own private anchor -- see
+    // WatchlistService.categoryPicker.
     @GetMapping("/{id}/categories")
     public List<CategoryDto> categoryPicker(@PathVariable long id, @RequestParam(required = false) List<Long> exclude,
                                              Authentication authentication) {

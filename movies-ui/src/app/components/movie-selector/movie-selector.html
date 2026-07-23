@@ -1,8 +1,8 @@
-<div class="dialog-backdrop" (click)="submit()">
+<div class="dialog-backdrop" (click)="cancel()">
   <section class="movie-selector" role="dialog" aria-modal="true" aria-labelledby="movie-selector-title" (click)="$event.stopPropagation()">
     <header>
-      <div><p class="eyebrow">Add Movies</p><h2 id="movie-selector-title">Select movies for this guide</h2></div>
-      <button type="button" class="icon-button" title="Done" aria-label="Done" (click)="submit()"><span class="material-icons">close</span></button>
+      <div><p class="eyebrow">Add Movies</p><h2 id="movie-selector-title">Select movies for {{ categoryName || 'this guide' }}</h2></div>
+      <button type="button" class="icon-button" title="Cancel" aria-label="Cancel" (click)="cancel()"><span class="material-icons">close</span></button>
     </header>
 
     <div class="dialog-body">
@@ -64,6 +64,7 @@
     </div>
 
     <footer>
+      <button type="button" class="secondary" (click)="cancel()">Cancel</button>
       <button type="button" (click)="submit()">Submit</button>
     </footer>
   </section>

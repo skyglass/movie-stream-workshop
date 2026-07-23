@@ -43,15 +43,18 @@ export interface MoviePage {
   totalCount: number;
 }
 
-// The subset of Movie/CourseMovie fields ShareDialogComponent's "Download Poster Collage"/"Download CSV file"
-// actually need -- both Movie and CourseMovie already satisfy this structurally, so each host page's
-// fetchOrderedMovies callback can return either without any mapping.
+// The subset of Movie fields ShareDialogComponent's "Download Poster Collage"/"Download CSV file" actually need --
+// Movie already satisfies this structurally, so each host page's fetchOrderedMovies callback needs no mapping.
 export interface ShareableMovie {
   imdbId: string;
   title: string;
   year: string;
   director: string;
 }
+
+// Persisted server-side as an ordinal (OR=0, AND=1, see skycomposer...model.Operator) but carried over the wire
+// as its name -- Jackson's default enum (de)serialization, no custom mapping needed on either side.
+export type Operator = 'AND' | 'OR';
 
 export interface MovieCategory {
   id: number;
@@ -62,12 +65,20 @@ export interface MovieCategory {
   checked: boolean;
   leaf: boolean;
   empty: boolean;
-  referencedCategoryId: number | null;
-  // True for a "subscribed" entry in a watchlist's category picker (a flat pointer at a public category, via
-  // movie_watchlist_default_category) -- drives the same bell/"Subscribed" badge as Guide's referencedCategoryId,
-  // but without implying a physical DAG link (kept as a separate field so the two concepts don't get conflated).
-  subscribed: boolean;
   children: MovieCategory[];
+  // null for a plain category; set for a composition ('AND', every component required) or subscription ('OR',
+  // any component suffices) category -- the same mechanism, just a different combinator.
+  operator: Operator | null;
+  components: CategoryComponent[];
+}
+
+export interface CategoryComponent {
+  id: number;
+  name: string;
+  icon: string;
+  // Always true on the public tree. On the private/watchlist tree, distinguishes a private (watchlist-owned)
+  // component from a reference to an existing public category (e.g. "follows New 2026").
+  isPublic: boolean;
 }
 
 export interface SaveMovieCategory {
@@ -75,6 +86,11 @@ export interface SaveMovieCategory {
   description: string;
   icon: string;
   parentId: number | null;
+  componentCategoryIds?: number[];
+  // Private/watchlist categories only: existing PUBLIC categories to use as components alongside
+  // componentCategoryIds (private-category ids there). Always empty for the public category API.
+  publicComponentCategoryIds?: number[];
+  operator?: Operator;
 }
 
 export interface UsersRecommendedMoviesShare {
@@ -260,26 +276,6 @@ export interface WatchlistDto {
   subscribedCategoryIds: number[];
 }
 
-export interface CourseMovie {
-  imdbId: string; title: string; header: string; description: string; year: string; director: string;
-  writer: string; genre: string; poster: string; watchOrder: number;
-  linkedCourseId: number | null; linkedCourseTitle: string | null;
-  liked: boolean; disliked: boolean; rankPosition: number | null; rating: number | null;
-}
-
-export interface MovieCourse {
-  id: number; header: string; title: string; description: string; type: MovieJourneyType;
-  typeDescription: string; creator: string; owner: boolean;
-  applied: boolean; expert: boolean; averageRating: number | null; movieCount: number;
-  movies: CourseMovie[]; suggestedCourses: { id: number; title: string }[];
-}
-
-export type MovieJourneyType = 'JOURNEY' | 'GUIDE' | 'COURSE' | 'FESTIVAL' | 'TOUR';
-
-export interface CourseMovieInput {
-  movieId: string; header: string; description: string; watchOrder: number; linkedCourseId: number | null;
-}
-
 @Injectable({ providedIn: 'root' })
 export class MoviesApiService {
   private readonly omdbSearchPageSize = 10;
@@ -291,7 +287,6 @@ export class MoviesApiService {
   private readonly usersRecommendedMoviesBase: string;
   private readonly userExtrasBase: string;
   private readonly usersBase: string;
-  private readonly movieCoursesBase: string;
   private readonly categoriesBase: string;
   private readonly movieGuidesBase: string;
   private readonly watchlistsBase: string;
@@ -309,7 +304,6 @@ export class MoviesApiService {
     this.usersRecommendedMoviesBase = `${c.apiBaseUrl}${c.usersRecommendedMoviesPath}`;
     this.userExtrasBase = `${c.apiBaseUrl}${c.userExtrasPath}`;
     this.usersBase = `${c.apiBaseUrl}${c.usersApiPath}`;
-    this.movieCoursesBase = `${c.apiBaseUrl}/api/movies/movie-journeys`;
     this.categoriesBase = `${c.apiBaseUrl}/api/movies/categories`;
     this.movieGuidesBase = `${c.apiBaseUrl}/api/movies/movie-guides`;
     this.watchlistsBase = `${c.apiBaseUrl}/api/movies/watchlists`;
@@ -330,33 +324,6 @@ export class MoviesApiService {
     return this.http.get<MoviePage>(this.moviesBase, { params });
   }
 
-  listMovieCourses(): Observable<MovieCourse[]> { return this.http.get<MovieCourse[]>(this.movieCoursesBase); }
-  getMovieCourse(id: number): Observable<MovieCourse> { return this.http.get<MovieCourse>(`${this.movieCoursesBase}/${id}`); }
-  manageMovieCourse(id: number): Observable<MovieCourse> { return this.http.get<MovieCourse>(`${this.movieCoursesBase}/${id}/manage`); }
-  createMovieCourse(header: string, title: string, description: string, type: MovieJourneyType): Observable<MovieCourse> {
-    return this.http.post<MovieCourse>(this.movieCoursesBase, { header, title, description, type });
-  }
-  updateMovieCourse(id: number, header: string, title: string, description: string, type: MovieJourneyType): Observable<MovieCourse> {
-    return this.http.put<MovieCourse>(`${this.movieCoursesBase}/${id}`, { header, title, description, type });
-  }
-  deleteMovieCourse(id: number): Observable<void> { return this.http.delete<void>(`${this.movieCoursesBase}/${id}`); }
-  applyToMovieCourse(id: number): Observable<MovieCourse> {
-    return this.http.post<MovieCourse>(`${this.movieCoursesBase}/${id}/applications`, {});
-  }
-  addCourseMovie(id: number, input: CourseMovieInput): Observable<MovieCourse> {
-    return this.http.post<MovieCourse>(`${this.movieCoursesBase}/${id}/movies`, input);
-  }
-  addCourseMovieFromSearch(id: number, movie: OmdbMovieSearchResult, header: string, description: string, linkedCourseId: number | null): Observable<MovieCourse> {
-    return this.http.post<MovieCourse>(`${this.movieCoursesBase}/${id}/movies-from-search`, {
-      movie: this.movieFromOmdb(movie), header, description, linkedCourseId
-    });
-  }
-  updateCourseMovie(id: number, movieId: string, input: CourseMovieInput): Observable<MovieCourse> {
-    return this.http.put<MovieCourse>(`${this.movieCoursesBase}/${id}/movies/${movieId}`, input);
-  }
-  removeCourseMovie(id: number, movieId: string): Observable<MovieCourse> {
-    return this.http.delete<MovieCourse>(`${this.movieCoursesBase}/${id}/movies/${movieId}`);
-  }
 
   getCategoryTree(movieId?: string): Observable<MovieCategory[]> {
     return this.http.get<MovieCategory[]>(movieId
@@ -382,8 +349,8 @@ export class MoviesApiService {
     return this.http.delete<void>(`${this.categoriesBase}/${id}`, { params: { parentId } });
   }
 
-  moveCategory(id: number, sourceParentId: number, targetParentId: number | null, copy: boolean): Observable<MovieCategory> {
-    return this.http.post<MovieCategory>(`${this.categoriesBase}/${id}/move`, { sourceParentId, targetParentId, copy });
+  moveCategory(id: number, sourceParentId: number, targetParentId: number | null): Observable<MovieCategory> {
+    return this.http.post<MovieCategory>(`${this.categoriesBase}/${id}/move`, { sourceParentId, targetParentId });
   }
 
   saveMovieCategories(movieId: string, addedCategories: number[], removedCategories: number[]): Observable<MovieCategory[]> {
@@ -407,10 +374,6 @@ export class MoviesApiService {
 
   getMovieGuideByCategory(categoryId: number): Observable<MovieGuideDto> {
     return this.http.get<MovieGuideDto>(`${this.movieGuidesBase}/by-category/${categoryId}`);
-  }
-
-  subscribeGuideToCategories(movieGuideId: number, categoryIds: number[]): Observable<MovieGuideDto> {
-    return this.http.post<MovieGuideDto>(`${this.movieGuidesBase}/${movieGuideId}/subscribe`, { categoryIds });
   }
 
   // Category ids of every guide/personality the current user owns — backs the "Delete" action on the Movie
@@ -497,12 +460,8 @@ export class MoviesApiService {
     return this.http.delete<void>(`${this.watchlistsBase}/${id}`);
   }
 
-  subscribeWatchlistToCategories(watchlistId: number, categoryIds: number[]): Observable<WatchlistDto> {
-    return this.http.post<WatchlistDto>(`${this.watchlistsBase}/${watchlistId}/subscribe`, { categoryIds });
-  }
-
-  // Merged "Select Category" source for a watchlist: direct children of its own private anchor (full CRUD,
-  // expandable), plus its flat subscribed public categories (checkbox-only, "Subscribed" badge).
+  // "Select Category" source for a watchlist: direct children of its own private anchor -- an OR-subscription
+  // category is now just an ordinary composable child, already included here.
   getWatchlistCategoryPicker(watchlistId: number, exclude: number[] = []): Observable<MovieCategory[]> {
     const params: Record<string, string> = {};
     if (exclude.length) params['exclude'] = exclude.join(',');
@@ -555,8 +514,8 @@ export class MoviesApiService {
     return this.http.delete<void>(`${this.privateCategoriesBase}/${id}`, { params: { parentId } });
   }
 
-  movePrivateCategory(id: number, sourceParentId: number, targetParentId: number | null, copy: boolean): Observable<MovieCategory> {
-    return this.http.post<MovieCategory>(`${this.privateCategoriesBase}/${id}/move`, { sourceParentId, targetParentId, copy });
+  movePrivateCategory(id: number, sourceParentId: number, targetParentId: number | null): Observable<MovieCategory> {
+    return this.http.post<MovieCategory>(`${this.privateCategoriesBase}/${id}/move`, { sourceParentId, targetParentId });
   }
 
   listFavoriteMovies(page = 1, pageSize = this.moviePageSize, filter = '', year = '', selectedCategories: number[] = []): Observable<MoviePage> {

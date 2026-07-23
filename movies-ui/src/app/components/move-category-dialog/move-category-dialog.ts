@@ -15,11 +15,10 @@ export class MoveCategoryDialogComponent implements OnInit {
   private readonly api = inject(MoviesApiService);
   @Input({ required: true }) category!: MovieCategory;
   @Input({ required: true }) sourceParentId!: number;
-  @Input() allowCopy = true;
   // Set for a private watchlist's own category picker -- moves are then scoped to that watchlist's private
-  // sandbox (private_category) instead of the public category tree, and never offer "Copy" (there's nothing to
-  // subscribe to from inside your own sandbox). rootCategoryId must be the watchlist's own anchor category id
-  // (the outer category-tree-dialog already carries this for the same reason -- see its own rootCategoryId doc).
+  // sandbox (private_category) instead of the public category tree. rootCategoryId must be the watchlist's own
+  // anchor category id (the outer category-tree-dialog already carries this for the same reason -- see its own
+  // rootCategoryId doc).
   @Input() watchlistId?: number;
   @Input() rootCategoryId?: number;
   @Output() closed = new EventEmitter<void>();
@@ -28,7 +27,6 @@ export class MoveCategoryDialogComponent implements OnInit {
   categories: MovieCategory[] = [];
   expanded = new Set<number>();
   selected = new Set<number>();
-  copy = false;
   loading = true;
   saving = false;
   errorMessage = '';
@@ -36,7 +34,9 @@ export class MoveCategoryDialogComponent implements OnInit {
   ngOnInit(): void {
     const request = this.watchlistId != null && this.rootCategoryId != null
       ? this.api.getPrivateCategorySubtree(this.rootCategoryId)
-      : this.api.getCategoryTree();
+      : this.rootCategoryId != null
+        ? this.api.getCategorySubtree(this.rootCategoryId)
+        : this.api.getCategoryTree();
     request.subscribe({
       next: categories => { this.categories = categories; this.loading = false; },
       error: error => this.fail(error)
@@ -64,8 +64,8 @@ export class MoveCategoryDialogComponent implements OnInit {
     this.saving = true;
     this.errorMessage = '';
     const operation = this.watchlistId != null
-      ? this.api.movePrivateCategory(this.category.id, this.sourceParentId, this.targetId(), this.copy)
-      : this.api.moveCategory(this.category.id, this.sourceParentId, this.targetId(), this.copy);
+      ? this.api.movePrivateCategory(this.category.id, this.sourceParentId, this.targetId())
+      : this.api.moveCategory(this.category.id, this.sourceParentId, this.targetId());
     operation.subscribe({
       next: () => { this.saving = false; this.moved.emit(); },
       error: error => this.fail(error)

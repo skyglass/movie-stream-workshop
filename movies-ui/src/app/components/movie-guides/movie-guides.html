@@ -38,7 +38,7 @@
                   <span class="material-icons" aria-hidden="true">edit</span>
                 </button>
               }
-              @if (isOwnerOf(guide.id)) {
+              @if (isOwnerOf(guide.id) || auth.isAdmin) {
                 <button type="button" class="delete-icon-button" title="Delete Movie Guide" aria-label="Delete Movie Guide"
                   (click)="deleteGuide(guide, 'Guide', $event)">
                   <span class="material-icons" aria-hidden="true">delete</span>
@@ -79,7 +79,7 @@
                   <span class="material-icons" aria-hidden="true">edit</span>
                 </button>
               }
-              @if (isOwnerOf(personality.id)) {
+              @if (isOwnerOf(personality.id) || auth.isAdmin) {
                 <button type="button" class="delete-icon-button" title="Delete Movie Personality" aria-label="Delete Movie Personality"
                   (click)="deleteGuide(personality, 'Personality', $event)">
                   <span class="material-icons" aria-hidden="true">delete</span>

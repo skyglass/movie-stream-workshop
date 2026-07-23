@@ -93,38 +93,31 @@ public class MovieGuideAcceptanceTest {
         categoriesByName.put(name, category.id());
     }
 
+    // "Subscribing" is now just creating a new OR-composition category, under the guide's own root, with the
+    // followed category as its sole component -- the same generic mechanism CategoryController.create() backs for
+    // any composition/subscription category. Mirroring the followed category's own name (rather than requiring a
+    // separate name from the caller here) matches what the UI's "Subscribe to Categories" shortcut does.
     @When("user {string} with role {string} subscribes the Movie Guide {string} to category {string}")
     public void subscribes(String username, String role, String guideName, String categoryName) throws Exception {
-        long guideId = guidesByName.get(guideName).id();
+        long guideRootId = guidesByName.get(guideName).categoryId();
         long categoryId = categoriesByName.get(categoryName);
-        restApi.record(mockMvc.perform(post("/api/movie-guides/{id}/subscribe", guideId)
+        restApi.record(mockMvc.perform(post("/api/categories")
                 .with(restApi.jwt(username, role))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"categoryIds\":[%d]}".formatted(categoryId))).andReturn());
+                .content("""
+                        {"name":"%s","description":null,"icon":null,"parentId":%d,"componentCategoryIds":[%d],"publicComponentCategoryIds":[],"operator":"OR"}
+                        """.formatted(categoryName, guideRootId, categoryId))).andReturn());
     }
 
-    // Submitting the desired subscription state (here, empty) unsubscribes anything not in the list -- matches
-    // the dialog always sending its full live checkbox state, not a diff.
-    @When("user {string} with role {string} submits an empty subscription list for the Movie Guide {string}")
-    public void submitsEmptySubscriptions(String username, String role, String guideName) throws Exception {
-        long guideId = guidesByName.get(guideName).id();
-        restApi.record(mockMvc.perform(post("/api/movie-guides/{id}/subscribe", guideId)
+    // "Unsubscribing" is now an ordinary delete of the subscription wrapper category itself (see subscribes
+    // above) -- there's no separate reconcile/diff endpoint anymore, so this looks the wrapper up first.
+    @When("user {string} with role {string} unsubscribes the Movie Guide {string} from category {string}")
+    public void unsubscribes(String username, String role, String guideName, String categoryName) throws Exception {
+        long guideRootId = guidesByName.get(guideName).categoryId();
+        long wrapperId = subscriptionWrapperId(guideName, categoryName);
+        restApi.record(mockMvc.perform(delete("/api/categories/{id}", wrapperId)
                 .with(restApi.jwt(username, role))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"categoryIds\":[]}")).andReturn());
-    }
-
-    // Regression: the "Subscribe to Categories" dialog pre-populates already-subscribed category ids into the
-    // request, so a real submission always re-sends everything currently checked, not just newly-added ones.
-    @When("user {string} with role {string} subscribes the Movie Guide {string} to categories {string} and {string}")
-    public void subscribesToTwoCategories(String username, String role, String guideName, String categoryName1, String categoryName2) throws Exception {
-        long guideId = guidesByName.get(guideName).id();
-        long categoryId1 = categoriesByName.get(categoryName1);
-        long categoryId2 = categoriesByName.get(categoryName2);
-        restApi.record(mockMvc.perform(post("/api/movie-guides/{id}/subscribe", guideId)
-                .with(restApi.jwt(username, role))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"categoryIds\":[%d,%d]}".formatted(categoryId1, categoryId2))).andReturn());
+                .param("parentId", String.valueOf(guideRootId))).andReturn());
     }
 
     @When("an anonymous viewer requests the Movie Guide {string} through the API")
@@ -142,10 +135,16 @@ public class MovieGuideAcceptanceTest {
                 .content("{\"imdbIds\":[\"%s\"]}".formatted(imdbId))).andReturn());
     }
 
+    // categoryName may name either a plain native sub-category of the guide (categoriesByName already holds its
+    // real, guide-scoped id) or a category the guide has subscribed to (categoriesByName holds the ORIGINAL
+    // category's id, which -- unlike the old DAG-copy-link days -- is no longer itself a child of the guide's
+    // root; only the subscription wrapper is). Resolving through subscriptionWrapperId first (falling back to the
+    // plain id when there's no wrapper) lets every scenario share this one step regardless of which case applies.
     @When("user {string} with role {string} adds movie {string} to category {string} of the Movie Guide {string}")
     public void addsMovieToCategory(String username, String role, String imdbId, String categoryName, String guideName) throws Exception {
         long guideId = guidesByName.get(guideName).id();
-        long categoryId = categoriesByName.get(categoryName);
+        Long wrapperId = subscriptionWrapperIdOrNull(guideName, categoryName);
+        long categoryId = wrapperId != null ? wrapperId : categoriesByName.get(categoryName);
         restApi.record(mockMvc.perform(post("/api/movie-guides/{id}/wizard-movies", guideId)
                 .with(restApi.jwt(username, role))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -227,16 +226,37 @@ public class MovieGuideAcceptanceTest {
 
     @Then("the Movie Guide {string} is subscribed to category {string}")
     public void isSubscribedTo(String guideName, String categoryName) {
-        long categoryId = categoriesByName.get(categoryName);
-        MovieGuideDto refreshed = movieGuides.getByCategory(guidesByName.get(guideName).categoryId());
-        assertTrue(refreshed.subscribedCategoryIds().contains(categoryId));
+        assertTrue(subscriptionWrapperIdOrNull(guideName, categoryName) != null);
     }
 
     @Then("the Movie Guide {string} is not subscribed to category {string}")
     public void isNotSubscribedTo(String guideName, String categoryName) {
-        long categoryId = categoriesByName.get(categoryName);
-        MovieGuideDto refreshed = movieGuides.getByCategory(guidesByName.get(guideName).categoryId());
-        assertFalse(refreshed.subscribedCategoryIds().contains(categoryId));
+        assertFalse(subscriptionWrapperIdOrNull(guideName, categoryName) != null);
+    }
+
+    // A "subscription" is now just an OR-composition category, created directly under the guide's own root, whose
+    // sole component is the followed category -- there's no separate flat pointer table anymore, so "is guide G
+    // subscribed to category C" means "does such a wrapper exist", found by walking the guide root's direct
+    // composable children for one whose component is C (see MovieGuideService.subscribedCategoryIds, the same
+    // join this mirrors).
+    private Long subscriptionWrapperIdOrNull(String guideName, String categoryName) {
+        long guideRootId = guidesByName.get(guideName).categoryId();
+        Long categoryId = categoriesByName.get(categoryName);
+        if (categoryId == null) return null;
+        List<Long> wrapperIds = jdbc.queryForList("""
+                select cc.category_id from category_parent_child direct
+                join composition_category cc on cc.category_id = direct.child_id
+                join composition_category_component comp on comp.composition_category_id = cc.category_id
+                where direct.parent_id = ? and cc.operator = 0 and comp.component_category_id = ?
+                """, Long.class, guideRootId, categoryId);
+        return wrapperIds.isEmpty() ? null : wrapperIds.get(0);
+    }
+
+    private long subscriptionWrapperId(String guideName, String categoryName) {
+        Long wrapperId = subscriptionWrapperIdOrNull(guideName, categoryName);
+        if (wrapperId == null) throw new IllegalStateException(
+                "No subscription wrapper found for guide \"" + guideName + "\" and category \"" + categoryName + "\"");
+        return wrapperId;
     }
 
     @Then("category {string} still has parent {string}")

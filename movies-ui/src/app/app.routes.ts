@@ -12,13 +12,11 @@ import { AdminLayoutComponent } from './components/admin-layout/admin-layout';
 import { AdminUsersComponent } from './components/admin-users/admin-users';
 import { ProfileComponent } from './components/profile/profile';
 import { adminGuard, authGuard, movieEditGuard } from './services/auth-guard';
-import { MovieCoursesComponent } from './components/movie-courses/movie-courses';
-import { MovieCourseDetailComponent } from './components/movie-course-detail/movie-course-detail';
-import { MovieCourseEditComponent } from './components/movie-course-edit/movie-course-edit';
 import { MovieGuidesComponent } from './components/movie-guides/movie-guides';
 import { MovieGuideDetailComponent } from './components/movie-guide-detail/movie-guide-detail';
 import { GuideSimilarMoviesComponent } from './components/guide-similar-movies/guide-similar-movies';
 import { WatchlistDetailComponent } from './components/watchlist-detail/watchlist-detail';
+import { MyWatchlistsPageComponent } from './components/my-watchlists-page/my-watchlists-page';
 
 // Matches 'categories/root' (nothing selected) or 'categories/<id>/<any trailing segments>' -- the trailing
 // segments are a cosmetic, human-readable category path (e.g. 'Movies/Action/Neo-Noir') built by
@@ -27,6 +25,26 @@ export function categoryPageMatcher(segments: UrlSegment[]): UrlMatchResult | nu
   if (segments.length < 2 || segments[0].path !== 'categories') return null;
   if (segments[1].path === 'root') return { consumed: segments, posParams: {} };
   if (/^\d+$/.test(segments[1].path)) return { consumed: segments, posParams: { id: segments[1] } };
+  return null;
+}
+
+// Matches 'movie-guides/<rootId>' (nothing selected) or 'movie-guides/<rootId>/<subCategoryId>/<cosmetic slugs>'.
+// The third segment must be all-digits to match here, so 'movie-guides/<id>/similar' (a literal, non-numeric third
+// segment) never matches and instead falls through to the dedicated 'movie-guides/:id/similar' route below.
+export function movieGuideDetailMatcher(segments: UrlSegment[]): UrlMatchResult | null {
+  if (segments.length < 2 || segments[0].path !== 'movie-guides') return null;
+  if (!/^\d+$/.test(segments[1].path)) return null;
+  if (segments.length === 2) return { consumed: segments, posParams: { id: segments[1] } };
+  if (/^\d+$/.test(segments[2].path)) return { consumed: segments, posParams: { id: segments[1], subCategoryId: segments[2] } };
+  return null;
+}
+
+// Same shape as movieGuideDetailMatcher for 'my-watchlists/<rootId>[/<subCategoryId>/<cosmetic slugs>]'.
+export function watchlistDetailMatcher(segments: UrlSegment[]): UrlMatchResult | null {
+  if (segments.length < 2 || segments[0].path !== 'my-watchlists') return null;
+  if (!/^\d+$/.test(segments[1].path)) return null;
+  if (segments.length === 2) return { consumed: segments, posParams: { id: segments[1] } };
+  if (/^\d+$/.test(segments[2].path)) return { consumed: segments, posParams: { id: segments[1], subCategoryId: segments[2] } };
   return null;
 }
 
@@ -41,7 +59,7 @@ export const routes: Routes = [
   { path: 'home', component: MoviesHomeComponent },
   { path: 'movie-guides', component: MovieGuidesComponent },
   { path: 'movie-guides/:id/similar', component: GuideSimilarMoviesComponent },
-  { path: 'movie-guides/:id', component: MovieGuideDetailComponent },
+  { matcher: movieGuideDetailMatcher, component: MovieGuideDetailComponent },
   { path: 'movie-challenge', component: MovieChallengePageComponent, canActivate: [authGuard] },
   { path: 'movies/:imdbId/edit', component: MovieEditComponent, canActivate: [movieEditGuard] },
   { path: 'movies/:imdbId/similar', component: SimilarMoviesComponent },
@@ -51,10 +69,10 @@ export const routes: Routes = [
   { path: 'favorites', component: FavoriteMoviesComponent },
   { path: 'my-favorite-movies/:username/similar', component: SimilarFavoriteMoviesComponent },
   { path: 'my-favorite-movies/:username', component: FavoriteMoviesComponent },
-  { path: 'movie-journeys', component: MovieCoursesComponent },
-  { path: 'my-watchlists/:id', component: WatchlistDetailComponent, canActivate: [authGuard] },
-  { path: 'movie-journeys/:id', component: MovieCourseDetailComponent },
-  { path: 'movie-journeys/:id/edit', component: MovieCourseEditComponent, canActivate: [authGuard] },
+  // No guard: MyWatchlistsSectionComponent already renders its own signed-out "Sign in" prompt, same as the
+  // Movie Guides page's panels do -- matches the previous (unguarded) Movie Journeys page this replaces.
+  { path: 'my-watchlists', component: MyWatchlistsPageComponent },
+  { matcher: watchlistDetailMatcher, component: WatchlistDetailComponent, canActivate: [authGuard] },
   { path: 'users-recommended', component: UsersRecommendedMoviesComponent },
   { path: 'my-recommended-movies/:username', component: UsersRecommendedMoviesComponent },
   { path: 'profile', component: ProfileComponent, canActivate: [authGuard] },

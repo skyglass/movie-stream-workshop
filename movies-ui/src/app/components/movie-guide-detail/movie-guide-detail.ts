@@ -1,10 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ViewChild, inject } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Component, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
-import { Observable, map } from 'rxjs';
+import { Observable, Subscription, map } from 'rxjs';
 import { AuthService } from '../../services/auth';
-import { Movie, MovieCategory, MoviesApiService, OmdbMovieSearchResult, ParsedMovieSearch } from '../../services/movies-api';
+import { Movie, MovieCategory, MoviesApiService, Operator, OmdbMovieSearchResult, ParsedMovieSearch } from '../../services/movies-api';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
 import { MovieGridComponent } from '../movie-grid/movie-grid';
 import { MovieSelectorComponent } from '../movie-selector/movie-selector';
@@ -13,7 +13,7 @@ import { ImportCsvDialogComponent } from '../import-csv-dialog/import-csv-dialog
 import { DeleteMoviesSelectorComponent } from '../delete-movies-selector/delete-movies-selector';
 import { ShareDialogComponent } from '../share-dialog/share-dialog';
 import { RankMoviesDialogComponent } from '../rank-movies-dialog/rank-movies-dialog';
-import { findCategoryPath } from '../../utils/category-path';
+import { findCategoryPath, subCategorySegments } from '../../utils/category-path';
 
 @Component({
   standalone: true,
@@ -24,13 +24,16 @@ import { findCategoryPath } from '../../utils/category-path';
   templateUrl: './movie-guide-detail.html',
   styleUrl: './movie-guide-detail.css'
 })
-export class MovieGuideDetailComponent implements OnInit {
+export class MovieGuideDetailComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly api = inject(MoviesApiService);
   private readonly meta = inject(Meta);
   private readonly title = inject(Title);
   readonly auth = inject(AuthService);
   @ViewChild(MovieFilterSearchComponent) filterSearch!: MovieFilterSearchComponent;
+  private paramsSub?: Subscription;
+  private hasLoadedOnce = false;
 
   categoryId = 0;
   category: MovieCategory | null = null;
@@ -63,27 +66,58 @@ export class MovieGuideDetailComponent implements OnInit {
   rankingUsername: string | null = null;
   isOwner = false;
   movieSelectorVisible = false;
+  // Populated from MovieGuideService.subscribedCategoryIds -- despite the name, this now covers every composable
+  // (AND-composition or OR-subscription) direct child of the guide's own root, since both are equally read-only
+  // (movies can't be directly assigned to either).
   guideSubscribedCategoryIds: number[] = [];
   selectedCategory: number | null = null;
   categoryDialogVisible = false;
+  composeCategoryDialogVisible = false;
+  composeCategoryOperator: Operator = 'AND';
   csvDialogVisible = false;
   deleteMoviesSelectorVisible = false;
   rankMoviesDialogVisible = false;
-  subscribeCategoriesVisible = false;
-  subscribingCategoryIds: number[] = [];
-  subscribing = false;
   descriptionDialogVisible = false;
   selectedCategoryDescriptionVisible = false;
 
   ngOnInit(): void {
-    this.categoryId = Number(this.route.snapshot.paramMap.get('id'));
-    this.activeCategories = [this.categoryId];
-    this.defaultCategories = [this.categoryId];
-    this.loadCategory();
-    // loadMovies(1) is deliberately NOT called here: its sort depends on knowing movieGuideId/guideType first
-    // (a Personality sorts by its own ranking), so it's triggered from loadGuideInfo()'s own response instead --
-    // otherwise the very first paint would race ahead of that data and silently use the wrong sort.
-    this.loadGuideInfo();
+    // Reactive (not a one-shot route.snapshot read): the matcher-based route reuses the same component instance
+    // when only subCategoryId changes (e.g. a breadcrumb click or a fresh sub-category selection), so this must
+    // react to every paramMap emission, not just the first. hasLoadedOnce/categoryId dedupe (mirroring
+    // MovieCategoryPageComponent's own pattern) distinguishes "still the same guide, just a new sub-category" --
+    // which only needs a movie re-fetch -- from "navigated to a different guide entirely", which needs the full
+    // loadCategory()/loadGuideInfo() sequence.
+    this.paramsSub = this.route.paramMap.subscribe(params => {
+      const requestedRootId = Number(params.get('id'));
+      const subIdParam = params.get('subCategoryId');
+      const sameRoot = this.hasLoadedOnce && this.categoryId === requestedRootId;
+      this.categoryId = requestedRootId;
+      this.selectedCategory = subIdParam != null ? Number(subIdParam) : null;
+      if (sameRoot) {
+        this.loadMovies(1);
+        return;
+      }
+      this.hasLoadedOnce = true;
+      this.activeCategories = [this.categoryId];
+      this.defaultCategories = [this.categoryId];
+      this.loadCategory();
+      // loadMovies(1) is deliberately NOT called here: its sort depends on knowing movieGuideId/guideType first
+      // (a Personality sorts by its own ranking), so it's triggered from loadGuideInfo()'s own response instead --
+      // otherwise the very first paint would race ahead of that data and silently use the wrong sort.
+      this.loadGuideInfo();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.paramsSub?.unsubscribe();
+  }
+
+  guideRootSegments(): (string | number)[] {
+    return ['/movie-guides', this.categoryId];
+  }
+
+  guideBreadcrumbSegments(path: MovieCategory[]): (string | number)[] {
+    return subCategorySegments(this.guideRootSegments(), path);
   }
 
   // Gates "Subscribe to Categories"/"Select Category" -- these are the controls that change the selection itself,
@@ -165,13 +199,34 @@ export class MovieGuideDetailComponent implements OnInit {
     this.categoryDialogVisible = false;
   }
 
-  // Fires on every check/uncheck (not just on OK) -- same live-refresh pattern as the Filter "Select Categories"
-  // dialog, so the movie list behind the dialog updates immediately instead of only after closing it.
+  // Composition/subscription categories are always created directly under the guide/personality's own root --
+  // never under whatever sub-category happens to be selected -- to avoid confusion about where they land. The
+  // user can still move one into a sub-category afterwards.
+  get composeCategoryParentId(): number {
+    return this.categoryId;
+  }
+
+  openComposeCategoryDialog(operator: Operator = 'AND'): void {
+    this.composeCategoryOperator = operator;
+    this.composeCategoryDialogVisible = true;
+  }
+
+  closeComposeCategoryDialog(): void {
+    this.composeCategoryDialogVisible = false;
+  }
+
+  // Fires on every check/uncheck (not just on OK) -- navigates to the friendly URL for the picked sub-category
+  // (or back to the guide's own root URL when cleared) rather than setting selectedCategory directly; the
+  // paramMap subscription in ngOnInit is the single source of truth that actually applies the change and
+  // re-fetches movies, so the URL and the on-screen state can never drift apart.
   onCategorySelectionChanged(categoryIds: number[]): void {
-    this.selectedCategory = categoryIds.length ? categoryIds[0] : null;
-    // Unchecking without picking another category clears selectedCategory back to empty, which loadMovies()
-    // already treats as "no selectedCategory filter applied" — falls back to the regular activeCategories scope.
-    this.loadMovies(1);
+    const subId = categoryIds.length ? categoryIds[0] : null;
+    if (subId == null) {
+      this.router.navigate(this.guideRootSegments());
+      return;
+    }
+    const path = findCategoryPath(this.category?.children ?? [], subId) ?? [];
+    this.router.navigate(this.guideBreadcrumbSegments(path));
   }
 
   openImportCsv(): void {
@@ -247,37 +302,6 @@ export class MovieGuideDetailComponent implements OnInit {
 
   closeSelectedCategoryDescription(): void {
     this.selectedCategoryDescriptionVisible = false;
-  }
-
-  openSubscribeCategories(): void {
-    this.subscribingCategoryIds = [...this.guideSubscribedCategoryIds];
-    this.subscribeCategoriesVisible = true;
-  }
-
-  closeSubscribeCategories(): void {
-    this.subscribeCategoriesVisible = false;
-  }
-
-  onSubscribeCategorySelectionChanged(categoryIds: number[]): void {
-    this.subscribingCategoryIds = categoryIds;
-  }
-
-  saveSubscribeCategories(): void {
-    if (!this.movieGuideId || this.subscribing) return;
-    this.subscribing = true;
-    this.errorMessage = '';
-    this.api.subscribeGuideToCategories(this.movieGuideId, this.subscribingCategoryIds).subscribe({
-      next: guide => {
-        this.subscribing = false;
-        this.guideSubscribedCategoryIds = guide.subscribedCategoryIds;
-        this.subscribeCategoriesVisible = false;
-        this.loadMovies(1);
-      },
-      error: err => {
-        this.subscribing = false;
-        this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not subscribe to the selected categories';
-      }
-    });
   }
 
   private loadGuideInfo(): void {

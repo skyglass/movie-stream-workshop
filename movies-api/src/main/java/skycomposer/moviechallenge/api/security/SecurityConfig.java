@@ -53,8 +53,6 @@ public class SecurityConfig {
                         // ShareUsersRecommendedMoviesUseCase). The owner-only Share status/toggle endpoints stay
                         // under the existing authenticated "/api/users-recommended-movies/**" rule below.
                         .requestMatchers(HttpMethod.GET, "/api/my-recommended-movies/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/movie-journeys/*", "/api/movie-courses/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/movie-journeys", "/api/movie-courses").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/movies/*/similar-movies").permitAll()
                         // "Download Poster Collage": renders a poster collage from already-public catalog data
                         // (posters, imdb ids), same public-read posture as GET /api/movies.
@@ -67,8 +65,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/movies/*/recommendation/replay").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/movies/*/recommendation/dislike").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/movie-challenges", "/api/movie-challenges/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
-                        .requestMatchers("/api/movie-courses", "/api/movie-courses/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER, USER)
-                        .requestMatchers("/api/movie-journeys", "/api/movie-journeys/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER, USER)
                         .requestMatchers("/api/favorite-movies", "/api/favorite-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/users-favorite-movies", "/api/users-favorite-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)
                         .requestMatchers("/api/users-recommended-movies", "/api/users-recommended-movies/**").hasAnyRole(MOVIES_ADMIN, MOVIES_USER)

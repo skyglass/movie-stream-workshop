@@ -91,23 +91,31 @@ public class WatchlistAcceptanceTest {
         restApi.record(mockMvc.perform(get("/api/watchlists/{id}", id).with(restApi.jwt(username, role))).andReturn());
     }
 
+    // "Subscribing" is now just creating a new private OR-composition category, under the watchlist's own root,
+    // whose sole component is the followed PUBLIC category (via publicComponentCategoryIds) -- the same generic
+    // mechanism PrivateCategoryController.create() backs for any composition/subscription category. This never
+    // touches the public category tree at all: publicComponentCategoryIds is a plain reference, not a tree edge.
     @When("user {string} with role {string} subscribes the Watchlist {string} to category {string}")
     public void subscribes(String username, String role, String watchlistName, String categoryName) throws Exception {
-        long watchlistId = watchlistsByName.get(watchlistName).id();
+        long watchlistRootId = watchlistsByName.get(watchlistName).categoryId();
         long categoryId = categoryIdByName(categoryName);
-        restApi.record(mockMvc.perform(post("/api/watchlists/{id}/subscribe", watchlistId)
+        restApi.record(mockMvc.perform(post("/api/private-categories")
                 .with(restApi.jwt(username, role))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"categoryIds\":[%d]}".formatted(categoryId))).andReturn());
+                .content("""
+                        {"name":"%s","description":null,"icon":null,"parentId":%d,"componentCategoryIds":[],"publicComponentCategoryIds":[%d],"operator":"OR"}
+                        """.formatted(categoryName, watchlistRootId, categoryId))).andReturn());
     }
 
-    @When("user {string} with role {string} submits an empty subscription list for the Watchlist {string}")
-    public void submitsEmptySubscriptions(String username, String role, String watchlistName) throws Exception {
-        long watchlistId = watchlistsByName.get(watchlistName).id();
-        restApi.record(mockMvc.perform(post("/api/watchlists/{id}/subscribe", watchlistId)
+    // "Unsubscribing" is now an ordinary delete of the subscription wrapper private category itself (see
+    // subscribes above) -- there's no separate reconcile/diff endpoint anymore, so this looks the wrapper up first.
+    @When("user {string} with role {string} unsubscribes the Watchlist {string} from category {string}")
+    public void unsubscribes(String username, String role, String watchlistName, String categoryName) throws Exception {
+        long watchlistRootId = watchlistsByName.get(watchlistName).categoryId();
+        long wrapperId = subscriptionWrapperId(watchlistName, categoryName);
+        restApi.record(mockMvc.perform(delete("/api/private-categories/{id}", wrapperId)
                 .with(restApi.jwt(username, role))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"categoryIds\":[]}")).andReturn());
+                .param("parentId", String.valueOf(watchlistRootId))).andReturn());
     }
 
     @When("user {string} with role {string} adds movie {string} to the Watchlist {string}")
@@ -170,22 +178,35 @@ public class WatchlistAcceptanceTest {
 
     @Then("the Watchlist {string} is subscribed to category {string}")
     public void isSubscribedTo(String watchlistName, String categoryName) {
-        long watchlistId = watchlistsByName.get(watchlistName).id();
-        long categoryId = categoryIdByName(categoryName);
-        Boolean exists = jdbc.queryForObject(
-                "select exists(select 1 from movie_watchlist_default_category where watchlist_id=? and category_id=?)",
-                Boolean.class, watchlistId, categoryId);
-        assertTrue(Boolean.TRUE.equals(exists));
+        assertTrue(subscriptionWrapperIdOrNull(watchlistName, categoryName) != null);
     }
 
     @Then("the Watchlist {string} is not subscribed to category {string}")
     public void isNotSubscribedTo(String watchlistName, String categoryName) {
-        long watchlistId = watchlistsByName.get(watchlistName).id();
+        assertFalse(subscriptionWrapperIdOrNull(watchlistName, categoryName) != null);
+    }
+
+    // A "subscription" is now just a private OR-composition category, created directly under the watchlist's own
+    // root, whose sole component is the followed PUBLIC category -- there's no separate flat pointer table
+    // anymore, so "is watchlist W subscribed to category C" means "does such a wrapper exist" (mirrors
+    // WatchlistService.subscribedPublicCategoryIds's own join).
+    private Long subscriptionWrapperIdOrNull(String watchlistName, String categoryName) {
+        long watchlistRootId = watchlistsByName.get(watchlistName).categoryId();
         long categoryId = categoryIdByName(categoryName);
-        Boolean exists = jdbc.queryForObject(
-                "select exists(select 1 from movie_watchlist_default_category where watchlist_id=? and category_id=?)",
-                Boolean.class, watchlistId, categoryId);
-        assertFalse(Boolean.TRUE.equals(exists));
+        List<Long> wrapperIds = jdbc.queryForList("""
+                select cc.private_category_id from private_category_parent_child direct
+                join private_composition_category cc on cc.private_category_id = direct.child_id
+                join private_composition_category_component comp on comp.composition_category_id = cc.private_category_id
+                where direct.parent_id = ? and cc.operator = 0 and comp.public_component_category_id = ?
+                """, Long.class, watchlistRootId, categoryId);
+        return wrapperIds.isEmpty() ? null : wrapperIds.get(0);
+    }
+
+    private long subscriptionWrapperId(String watchlistName, String categoryName) {
+        Long wrapperId = subscriptionWrapperIdOrNull(watchlistName, categoryName);
+        if (wrapperId == null) throw new IllegalStateException(
+                "No subscription wrapper found for watchlist \"" + watchlistName + "\" and category \"" + categoryName + "\"");
+        return wrapperId;
     }
 
     // Confirms subscribing never grafts a DAG edge into the public tree (unlike Movie Guide's copy-link) -- the

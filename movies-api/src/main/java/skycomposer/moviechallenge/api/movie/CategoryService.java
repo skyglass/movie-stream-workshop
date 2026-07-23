@@ -9,13 +9,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import skycomposer.moviechallenge.api.movie.dto.CategoryDto;
+import skycomposer.moviechallenge.api.movie.dto.CategoryComponentDto;
 import skycomposer.moviechallenge.api.movie.dto.MoveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.RecommendMovieRequest;
 import skycomposer.moviechallenge.api.movie.dto.SaveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.SaveMovieCategoriesRequest;
 import skycomposer.moviechallenge.api.movie.model.Movie;
+import skycomposer.moviechallenge.api.movie.model.Operator;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -31,39 +35,51 @@ public class CategoryService {
     private final JdbcTemplate jdbcTemplate;
     private final MovieService movieService;
     private record Row(long id, String name, String description, String icon, long parentId,
-                       boolean checked, boolean leaf, boolean empty, Long referencedCategoryId) {}
+                       boolean checked, boolean leaf, boolean empty, Integer operator) {}
 
     @Transactional(readOnly = true)
     public List<CategoryDto> tree(String movieId) {
         List<Row> rows = jdbc.sql("""
                 select c.id, c.name, c.description, c.icon, direct.parent_id,
                     case when :movie is null then false else exists(
-                        select 1 from movie_category mc where mc.movie_id=:movie and mc.category_id=c.id) end checked,
+                        select 1 from category_movie_match match where match.movie_id=:movie and match.category_id=c.id) end checked,
                     not exists(select 1 from category_parent_child child
                         where child.parent_id=c.id and child.child_id<>c.id) leaf,
                     not exists(select 1 from movie_category mc where mc.category_id=c.id)
                         and not exists(select 1 from category_parent_child child
                             where child.parent_id=c.id and child.child_id<>c.id) empty,
-                    (select d.referenced_category_id from movie_guide_default_category d
-                        join movie_guide g on g.id=d.movie_guide_id and g.category_id=direct.parent_id
-                        where d.category_id=c.id and d.referenced_category_id is not null limit 1) referenced_category_id
+                    cc.operator operator
                 from category c
                 join category_parent_child direct on direct.child_id=c.id
+                left join composition_category cc on cc.category_id=c.id
                 order by lower(c.name), c.id
                 """).param("movie", movieId, Types.VARCHAR).query((rs, n) -> new Row(
                 rs.getLong("id"), rs.getString("name"), rs.getString("description"), rs.getString("icon"),
                 rs.getLong("parent_id"), rs.getBoolean("checked"), rs.getBoolean("leaf"), rs.getBoolean("empty"),
-                (Long) rs.getObject("referenced_category_id"))).list();
+                (Integer) rs.getObject("operator"))).list();
+
+        Map<Long, Row> byId = new HashMap<>();
+        rows.forEach(row -> byId.put(row.id(), row));
+        Map<Long, List<CategoryComponentDto>> components = new HashMap<>();
+        jdbc.sql("""
+                select composition_category_id, component_category_id
+                from composition_category_component
+                order by composition_category_id, component_category_id
+                """).query((rs, n) -> new long[] {rs.getLong(1), rs.getLong(2)}).list()
+                .forEach(pair -> {
+                    Row component = byId.get(pair[1]);
+                    if (component != null) components.computeIfAbsent(pair[0], ignored -> new ArrayList<>())
+                            .add(new CategoryComponentDto(component.id(), component.name(), component.icon(), true));
+                });
 
         Map<Long, List<Row>> children = new HashMap<>();
         rows.stream().filter(row -> row.parentId() != row.id())
                 .forEach(row -> children.computeIfAbsent(row.parentId(), ignored -> new ArrayList<>()).add(row));
-        return rows.stream().filter(row -> row.parentId() == row.id()).map(row -> toDto(row, children)).toList();
+        return rows.stream().filter(row -> row.parentId() == row.id()).map(row -> toDto(row, children, components)).toList();
     }
 
-    // The direct children of one category (e.g. a Movie Guide's own anchor category), excluding a given set of
-    // ids (e.g. its subscribed/referenced categories) -- backs a guide's own, sandboxed category picker so the
-    // owner only ever sees/manages categories that are genuinely native to their guide.
+    // The direct children of one category (e.g. a Movie Guide's own anchor category) -- backs a guide's own,
+    // sandboxed category picker.
     @Transactional(readOnly = true)
     public List<CategoryDto> subtree(long rootCategoryId, List<Long> excludeCategoryIds) {
         CategoryDto root = flatten(tree(null)).stream().filter(category -> category.id() == rootCategoryId).findFirst()
@@ -80,6 +96,14 @@ public class CategoryService {
             requireManage(request.parentId(), username, adminOrGuide);
         }
         validateParent(request.parentId(), null);
+        List<Long> components = request.componentCategoryIds() == null ? List.of()
+                : request.componentCategoryIds().stream().distinct().toList();
+        Operator operator = request.operator();
+        if (!components.isEmpty()) {
+            if (operator == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A composition/subscription category needs an operator");
+            validateCompositionComponents(null, components);
+        }
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("name", request.name().trim());
         values.put("description", text(request.description()));
@@ -88,6 +112,16 @@ public class CategoryService {
                 .usingGeneratedKeyColumns("id").executeAndReturnKey(values);
         long id = key.longValue();
         setParent(id, request.parentId());
+        if (!components.isEmpty()) {
+            jdbc.sql("insert into composition_category(category_id, operator) values (:id, :operator)")
+                    .param("id", id).param("operator", operator.getCode()).update();
+            for (Long component : components) {
+                jdbc.sql("""
+                        insert into composition_category_component(composition_category_id, component_category_id)
+                        values (:composition, :component)
+                        """).param("composition", id).param("component", component).update();
+            }
+        }
         rebuildClosure();
         return findInTree(id);
     }
@@ -95,11 +129,26 @@ public class CategoryService {
     @Transactional
     public CategoryDto update(long id, SaveCategoryRequest request, String username, boolean adminOrGuide) {
         requireCategory(id);
-        if (isReferencedAnywhere(id)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Referenced categories are read-only here; edit them at their original location");
-        }
         requireManage(id, username, adminOrGuide);
+        Operator existingOperator = compositionOperator(id);
+        if (existingOperator == null && request.componentCategoryIds() != null && !request.componentCategoryIds().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only a composition category can have components");
+        }
+        if (existingOperator != null && request.componentCategoryIds() != null) {
+            List<Long> components = request.componentCategoryIds().stream().distinct().toList();
+            validateCompositionComponents(id, components);
+            Operator newOperator = request.operator() != null ? request.operator() : existingOperator;
+            jdbc.sql("update composition_category set operator=:operator where category_id=:id")
+                    .param("operator", newOperator.getCode()).param("id", id).update();
+            jdbc.sql("delete from composition_category_component where composition_category_id=:id")
+                    .param("id", id).update();
+            for (Long component : components) {
+                jdbc.sql("""
+                        insert into composition_category_component(composition_category_id, component_category_id)
+                        values (:composition, :component)
+                        """).param("composition", id).param("component", component).update();
+            }
+        }
         String trimmedName = request.name().trim();
         syncGuideNameIfAnchor(id, trimmedName);
         jdbc.sql("update category set name=:name, description=:description, icon=:icon where id=:id")
@@ -185,31 +234,13 @@ public class CategoryService {
     @Transactional
     public CategoryDto move(long id, MoveCategoryRequest request, String username, boolean adminOrGuide) {
         requireCategory(id);
-        // Only a real move (copy=false) deletes the sourceParentId->id edge, which could silently break some
-        // guide's subscription if that edge is what it depends on -- a copy (subscribe) is purely additive (a
-        // new edge, nothing removed), so it's always safe even when the category is already referenced
-        // elsewhere, including by other guides subscribing to the same category.
-        if (!request.copy() && isReferencedAnywhere(id)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Referenced categories are read-only here; unlink them from the guide instead of moving");
-        }
         requireManage(id, username, adminOrGuide);
         validateParent(request.targetParentId(), id);
         long target = request.targetParentId() == null ? id : request.targetParentId();
-        if (!request.copy()) {
-            jdbc.sql("delete from category_parent_child where parent_id=:parent and child_id=:id")
-                    .param("parent", request.sourceParentId()).param("id", id).update();
-        }
-        // ON CONFLICT DO NOTHING rather than insert-then-catch(DuplicateKeyException): Postgres aborts the whole
-        // transaction at the server level the instant any statement raises a real error (SQLSTATE 25P02 "current
-        // transaction is aborted" on everything that follows), so catching the exception in Java does not
-        // actually let the transaction keep going for the rest of this request -- e.g. re-subscribing to an
-        // already-subscribed category (the client resends the full checked list, not just newly-added ones).
+        jdbc.sql("delete from category_parent_child where parent_id=:parent and child_id=:id")
+                .param("parent", request.sourceParentId()).param("id", id).update();
         jdbc.sql("insert into category_parent_child(parent_id,child_id) values (:parent,:id) on conflict do nothing")
                 .param("parent", target).param("id", id).update();
-        if (request.copy()) {
-            recordGuideReference(target, id);
-        }
         rebuildClosure();
         return findInTree(id);
     }
@@ -217,16 +248,6 @@ public class CategoryService {
     @Transactional
     public void delete(long id, long parentId, String username, boolean adminOrGuide) {
         requireCategory(id);
-        Long referencingGuideId = guideIdForReferenceEdge(id, parentId);
-        if (referencingGuideId != null) {
-            requireGuideManage(referencingGuideId, username, adminOrGuide);
-            unlinkGuideReference(referencingGuideId, parentId, id);
-            return;
-        }
-        if (isReferencedAnywhere(id)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "This category is referenced by a guide and can only be removed from that guide");
-        }
         requireManage(id, username, adminOrGuide);
         disablePersonalityRankingPublicAccess(id);
         deleteSubtree(id, parentId);
@@ -260,12 +281,13 @@ public class CategoryService {
         added.forEach(this::requireCategory);
         removed.forEach(this::requireCategory);
         for (Long categoryId : removed) {
-            jdbc.sql("delete from movie_category where movie_id=:movie and category_id=:category")
-                    .param("movie", movieId).param("category", categoryId).update();
+            // A composition/subscription has derived membership, not an assignment of its own. Its components
+            // are the only mutable facts, so an old/stale client trying to uncheck one is intentionally a no-op.
+            if (!isCompositionCategory(categoryId)) removeDirectMovieCategory(movieId, categoryId);
         }
         for (Long categoryId : added) {
-            jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
-                    .param("movie", movieId).param("category", categoryId).update();
+            if (isCompositionCategory(categoryId)) assignComposition(movieId, categoryId);
+            else assignDirectMovieCategory(movieId, categoryId);
         }
         return tree(movieId);
     }
@@ -274,12 +296,6 @@ public class CategoryService {
     // plus all its descendants) -- e.g. the "Delete Movies" dialog passes the guide's own category (or a picked
     // sub-category) as scope, and this reaches the movie regardless of which exact descendant category it's
     // actually filed under, matching how the movie list itself is matched via the same transitive closure.
-    //
-    // protectedSubtreeCategoryIds carves out categories that must never be touched by this removal, however scope
-    // was computed -- namely a guide's subscribed/referenced categories, which are physically DAG-linked into the
-    // guide's own subtree (so scope=[guide's root] would otherwise reach them) but are read-only references to a
-    // category that lives, and is owned, elsewhere. Pass an empty/null list when there's nothing to protect (e.g.
-    // the Watchlist path, whose private tree never contains a subscribed category's real rows in the first place).
     @Transactional
     public void removeMovieFromCategorySubtree(String movieId, List<Long> scopeCategoryIds, List<Long> protectedSubtreeCategoryIds) {
         requireMovie(movieId);
@@ -307,8 +323,7 @@ public class CategoryService {
     public void addMovieFromSearchToCategory(long categoryId, RecommendMovieRequest movieRequest) {
         requireCategory(categoryId);
         Movie movie = movieService.getOrCreateMovie(movieRequest);
-        jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
-                .param("movie", movie.getImdbId()).param("category", categoryId).update();
+        assignMovieToCategory(movie.getImdbId(), categoryId);
     }
 
     // Bulk-assigns already-cataloged movies (picked via the Movie Selector, not an OMDb search) to one category in
@@ -320,9 +335,43 @@ public class CategoryService {
         List<String> distinct = imdbIds.stream().distinct().toList();
         distinct.forEach(this::requireMovie);
         for (String imdbId : distinct) {
-            jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
-                    .param("movie", imdbId).param("category", categoryId).update();
+            assignMovieToCategory(imdbId, categoryId);
         }
+    }
+
+    // Reused by Guide/CSV assignment paths: a composition/subscription is assigned through its components, never
+    // by a direct movie_category row for itself.
+    public void assignMovieToCategory(String movieId, long categoryId) {
+        requireCategory(categoryId);
+        if (isCompositionCategory(categoryId)) assignComposition(movieId, categoryId);
+        else assignDirectMovieCategory(movieId, categoryId);
+    }
+
+    // Recursive: a component that's itself composable is fanned out into ITS OWN components rather than written
+    // as a direct movie_category row (which the DB wouldn't accept anyway -- composition_category_cannot_receive_
+    // movies rejects it). Safe from infinite recursion because the component graph is acyclic by construction
+    // (validateCompositionComponents rejects any edit that would create a cycle).
+    private void assignComposition(String movieId, long compositionCategoryId) {
+        for (Long componentId : compositionComponentIds(compositionCategoryId)) {
+            if (isCompositionCategory(componentId)) assignComposition(movieId, componentId);
+            else assignDirectMovieCategory(movieId, componentId);
+        }
+    }
+
+    private void assignDirectMovieCategory(String movieId, long categoryId) {
+        jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
+                .param("movie", movieId).param("category", categoryId).update();
+    }
+
+    private void removeDirectMovieCategory(String movieId, long categoryId) {
+        jdbc.sql("delete from movie_category where movie_id=:movie and category_id=:category")
+                .param("movie", movieId).param("category", categoryId).update();
+    }
+
+    private List<Long> compositionComponentIds(long compositionCategoryId) {
+        return jdbc.sql("""
+                select component_category_id from composition_category_component where composition_category_id=:composition
+                """).param("composition", compositionCategoryId).query(Long.class).list();
     }
 
     private CategoryDto findInTree(long id) {
@@ -339,8 +388,9 @@ public class CategoryService {
         return result;
     }
 
-    private CategoryDto toDto(Row row, Map<Long, List<Row>> children) {
-        return toDto(row, children, new HashSet<>());
+    private CategoryDto toDto(Row row, Map<Long, List<Row>> children,
+                              Map<Long, List<CategoryComponentDto>> components) {
+        return toDto(row, children, components, new HashSet<>());
     }
 
     // Write-time checks (validateParent's cycle check) should make a genuine cycle in category_parent_child
@@ -348,23 +398,75 @@ public class CategoryService {
     // instead of a clean error, so it defends itself too: `onPath` tracks the current root-to-node path (not a
     // global visited set -- the same category legitimately appears in multiple branches under the DAG, that's
     // not a cycle) and a repeat within that one path is where a real cycle would show up.
-    private CategoryDto toDto(Row row, Map<Long, List<Row>> children, Set<Long> onPath) {
+    private CategoryDto toDto(Row row, Map<Long, List<Row>> children,
+                              Map<Long, List<CategoryComponentDto>> components, Set<Long> onPath) {
+        Operator operator = row.operator() == null ? null : Operator.fromCode(row.operator());
         if (!onPath.add(row.id())) {
             return new CategoryDto(row.id(), row.name(), row.description(), row.icon(),
                     row.parentId() == row.id() ? null : row.parentId(), row.checked(), row.leaf(), row.empty(),
-                    row.referencedCategoryId(), false, List.of());
+                    List.of(), operator, components.getOrDefault(row.id(), List.of()));
         }
         List<CategoryDto> nested = children.getOrDefault(row.id(), List.of()).stream()
-                .map(child -> toDto(child, children, onPath)).toList();
+                .map(child -> toDto(child, children, components, onPath)).toList();
         onPath.remove(row.id());
         return new CategoryDto(row.id(), row.name(), row.description(), row.icon(),
                 row.parentId() == row.id() ? null : row.parentId(), row.checked(), row.leaf(), row.empty(),
-                row.referencedCategoryId(), false, nested);
+                nested, operator, components.getOrDefault(row.id(), List.of()));
+    }
+
+    // compositionId is null on create (a brand-new category can never already be part of a cycle, since it can
+    // only reference categories that pre-date it) and the editingId on update (where a cycle genuinely becomes
+    // possible -- see the class-level design note in the project plan for a worked example).
+    private void validateCompositionComponents(Long compositionId, List<Long> components) {
+        if (components.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "A composition category needs at least one component");
+        for (Long component : components) {
+            requireCategory(component);
+            if (compositionId != null && wouldCreateCycle(compositionId, component)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "This component would create a circular dependency");
+            }
+        }
+    }
+
+    // Starting from candidateComponentId, walks forward through the existing "depends on" graph (an edge A->B
+    // means "A has component B", i.e. A's match status depends on B's) -- if compositionId is ever reached,
+    // adding the edge compositionId->candidateComponentId would close a cycle back to compositionId. The
+    // self-reference case (candidateComponentId == compositionId) falls out for free: it's checked before the
+    // first expansion. Deliberately iterative in Java (plain flat queries, no recursive CTE) rather than a
+    // `WITH RECURSIVE` walk -- recursive CTEs are a portability hazard this codebase otherwise avoids.
+    private boolean wouldCreateCycle(long compositionId, long candidateComponentId) {
+        Set<Long> visited = new HashSet<>();
+        Deque<Long> pending = new ArrayDeque<>();
+        pending.push(candidateComponentId);
+        while (!pending.isEmpty()) {
+            long current = pending.pop();
+            if (current == compositionId) return true;
+            if (!visited.add(current)) continue;
+            jdbc.sql("select component_category_id from composition_category_component where composition_category_id=:id")
+                    .param("id", current).query(Long.class).list().forEach(pending::push);
+        }
+        return false;
+    }
+
+    private boolean isCompositionCategory(long categoryId) {
+        return jdbc.sql("select exists(select 1 from composition_category where category_id=:id)")
+                .param("id", categoryId).query(Boolean.class).single();
+    }
+
+    private Operator compositionOperator(long categoryId) {
+        Integer code = jdbc.sql("select operator from composition_category where category_id=:id")
+                .param("id", categoryId).query(Integer.class).optional().orElse(null);
+        return code == null ? null : Operator.fromCode(code);
     }
 
     private void validateParent(Long parentId, Long categoryId) {
         if (parentId == null) return;
         requireCategory(parentId);
+        boolean compositionParent = jdbc.sql("select exists(select 1 from composition_category where category_id=:id)")
+                .param("id", parentId).query(Boolean.class).single();
+        if (compositionParent) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "A composition category cannot have children");
         if (categoryId != null && parentId.equals(categoryId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A category cannot be its own parent");
         }
@@ -440,64 +542,10 @@ public class CategoryService {
         if (!owns) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not permitted to manage this guide");
     }
 
-    // --- Movie Guide default-category reference tracking. ---
-
-    private boolean isReferencedAnywhere(long categoryId) {
-        return jdbc.sql("select exists(select 1 from movie_guide_default_category where category_id=:id and referenced_category_id is not null)")
-                .param("id", categoryId).query(Boolean.class).single();
-    }
-
-    private Long guideIdForReferenceEdge(long categoryId, long parentId) {
-        return jdbc.sql("""
-                select g.id from movie_guide g
-                join movie_guide_default_category d on d.movie_guide_id=g.id
-                    and d.category_id=:category and d.referenced_category_id is not null
-                where g.category_id=:parent
-                """).param("category", categoryId).param("parent", parentId).query(Long.class).optional().orElse(null);
-    }
-
-    // Backs the "Subscribe to Categories" dialog's unsubscribe path (unchecking a previously-subscribed category):
-    // removes the guide's own reference edge and its movie_guide_default_category tracking row, leaving the
-    // category's original position (and any other guide's subscription to it) untouched.
-    @Transactional
-    public void unsubscribeGuideCategory(long guideId, long guideCategoryId, long categoryId) {
-        unlinkGuideReference(guideId, guideCategoryId, categoryId);
-    }
-
-    private void unlinkGuideReference(long guideId, long parentId, long categoryId) {
-        jdbc.sql("delete from movie_guide_default_category where movie_guide_id=:guide and category_id=:category")
-                .param("guide", guideId).param("category", categoryId).update();
-        jdbc.sql("delete from category_parent_child where parent_id=:parent and child_id=:category")
-                .param("parent", parentId).param("category", categoryId).update();
-        rebuildClosure();
-    }
-
-    // Copying a category into a guide's sandbox records it as that guide's default category, referencing its
-    // own id (no row duplication) -- this is what keeps the copy "live": movies added to the original later are
-    // automatically visible through this same category row from the guide's tree too.
-    private void recordGuideReference(long targetParentId, long categoryId) {
-        Long guideId = jdbc.sql("""
-                select g.id from movie_guide g
-                join category_parent_child_all a on a.ancestor_id=g.category_id
-                where a.descendant_id=:target
-                order by g.id limit 1
-                """).param("target", targetParentId).query(Long.class).optional().orElse(null);
-        if (guideId == null) return;
-        jdbc.sql("""
-                insert into movie_guide_default_category(movie_guide_id, category_id, referenced_category_id)
-                values (:guide, :category, :category) on conflict do nothing
-                """).param("guide", guideId).param("category", categoryId).update();
-    }
-
-    // Cascade-deletes id and its native descendants, but never destroys a category still reachable through some
-    // other parent edge elsewhere in the tree (a Move/Copy link, or a guide reference) -- such nodes are only
-    // unlinked from this branch, exactly like the top-level guide-reference unlink above, just for the general
-    // multi-parent case rather than the guide-specific one.
+    // Cascade-deletes id and its native descendants. Every category now has exactly one real parent edge (the
+    // old Copy/reference mechanism that could create multi-parent nodes is gone), but this still defends against
+    // that generically rather than assuming it -- cheap insurance, and it's the same proven logic as before.
     private void deleteSubtree(long id, long parentId) {
-        // Deliberately does NOT exclude id's own self-referencing root edge here (unlike the parentsOf query
-        // below, which has its own separate roots-seeding compensation): a category that is independently a
-        // root AND also reachable via the specific (parentId, id) edge being removed must survive as that root,
-        // not get destroyed just because this one edge happened to be its only *other* tracked parent.
         boolean idHasOtherParent = jdbc.sql("""
                 select exists(select 1 from category_parent_child where child_id=:id and parent_id<>:parent)
                 """).param("id", id).param("parent", parentId).query(Boolean.class).single();
@@ -516,10 +564,6 @@ public class CategoryService {
                     .param("id", node).query(Long.class).list());
         }
         Set<Long> kept = new HashSet<>();
-        // A node that is independently a root (its own self-referencing edge) must never be destroyed just
-        // because it's also reachable as a Copy-linked descendant of the thing being deleted -- the self-edge
-        // itself is filtered out of parentsOf above (parent_id<>id), so root-ness would otherwise be invisible
-        // to the reachability analysis below and the root would be wrongly swept up as "destroyable".
         Set<Long> roots = new HashSet<>(jdbc.sql("""
                 select child_id from category_parent_child where parent_id=child_id and child_id in (:ids) and child_id<>:root
                 """).param("ids", subtree).param("root", id).query(Long.class).list());

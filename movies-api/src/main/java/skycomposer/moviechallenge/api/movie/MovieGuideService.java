@@ -18,13 +18,14 @@ import skycomposer.moviechallenge.api.movie.dto.CsvMovieImport;
 import skycomposer.moviechallenge.api.movie.dto.CsvMovieRef;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesRequest;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesResponse;
-import skycomposer.moviechallenge.api.movie.dto.MoveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.MovieDto;
 import skycomposer.moviechallenge.api.movie.dto.MovieGuideDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
+import skycomposer.moviechallenge.api.movie.dto.SaveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.mapper.MovieDtoEnricher;
 import skycomposer.moviechallenge.api.movie.model.Movie;
 import skycomposer.moviechallenge.api.movie.model.MovieGuideType;
+import skycomposer.moviechallenge.api.movie.model.Operator;
 
 import java.sql.Types;
 import java.util.ArrayList;
@@ -91,43 +92,26 @@ public class MovieGuideService {
                 ? List.of() : request.subscribedCategoryIds().stream().distinct().toList();
         for (Long subscribedCategoryId : subscribed) {
             requireCategoryExists(subscribedCategoryId);
-            // Subscribing links an arbitrary existing category into the guide as a Copy edge. move()'s normal
-            // authorization checks manage-rights on the *source* category, which is the wrong check here --
-            // subscribing to "New 2026" doesn't require owning it. The real authorization boundary is ownership
-            // of the destination guide, already established above by inserting the movie_guide row with
-            // owner=owner, so the bypass flag is safe: it never lets this caller touch anything but their own
-            // brand-new guide's anchor category.
-            categories.move(subscribedCategoryId, new MoveCategoryRequest(subscribedCategoryId, categoryId, true), owner, true);
+            createSubscriptionCategory(categoryId, subscribedCategoryId, owner);
         }
         return toDto(requireGuide(guideId));
     }
 
-    // Step 2 of the interactive wizard: subscribe an already-created guide to additional categories. Split out
-    // from createGuide's own subscribedCategoryIds handling above because Step 1 no longer collects categories
-    // at creation time -- Step 1 now only creates the guide's name/description/icon, and category subscription
-    // happens here as its own step, on a guide that already exists.
-    //
-    // categoryIds is the full desired set (matching the dialog's live checkbox state, sent whole on Submit, not
-    // just newly-checked ones) -- reconciled against what's currently subscribed: missing ones are subscribed,
-    // no-longer-present ones are unsubscribed (unchecking a category removes it).
-    @Transactional
-    public MovieGuideDto subscribeCategories(long guideId, List<Long> categoryIds, String username, boolean adminOrGuide) {
-        Row guide = requireGuide(guideId);
-        categories.requireGuideManage(guideId, username, adminOrGuide);
-        Set<Long> desired = categoryIds == null ? Set.of() : new HashSet<>(categoryIds);
-        Set<Long> current = new HashSet<>(subscribedCategoryIds(guideId));
-        for (Long categoryId : desired) {
-            if (current.contains(categoryId)) continue;
-            requireCategoryExists(categoryId);
-            // Same bypass reasoning as createGuide's subscribedCategoryIds loop: the real authorization boundary
-            // is ownership of this guide, already verified by requireGuideManage above.
-            categories.move(categoryId, new MoveCategoryRequest(categoryId, guide.categoryId(), true), username, true);
-        }
-        for (Long categoryId : current) {
-            if (desired.contains(categoryId)) continue;
-            categories.unsubscribeGuideCategory(guideId, guide.categoryId(), categoryId);
-        }
-        return toDto(requireGuide(guideId));
+    private record SourceCategory(String name, String description, String icon) {}
+
+    // Wraps an existing category as a new one-component OR-composition category, parented under the guide's own
+    // root -- this is "subscribing", the same primitive the "Create Category" editor's OR toggle uses, just
+    // pre-filled from the source category's own name/icon/description so the wrapper looks identical to it.
+    // Authorization is guide-ownership-based (adminOrGuide=true bypass): the real boundary is "can this caller
+    // manage the destination guide," already verified by the caller, not "does this caller own the source category".
+    private void createSubscriptionCategory(long guideCategoryId, long sourceCategoryId, String owner) {
+        SourceCategory source = jdbc.sql("select name, description, icon from category where id=:id")
+                .param("id", sourceCategoryId).query((rs, n) -> new SourceCategory(
+                        rs.getString("name"), rs.getString("description"), rs.getString("icon")))
+                .single();
+        SaveCategoryRequest request = new SaveCategoryRequest(source.name(), source.description(), source.icon(),
+                guideCategoryId, List.of(sourceCategoryId), List.of(), Operator.OR);
+        categories.create(request, owner, true);
     }
 
     @Transactional(readOnly = true)
@@ -154,15 +138,11 @@ public class MovieGuideService {
     public void assignMovies(long guideId, AssignGuideMoviesRequest request, String username, boolean adminOrGuide) {
         Row guide = requireGuide(guideId);
         categories.requireGuideManage(guideId, username, adminOrGuide);
-        long targetCategoryId = resolveAssignmentTarget(guide, request.categoryId(), adminOrGuide);
+        long targetCategoryId = resolveAssignmentTarget(guide, request.categoryId());
         List<String> imdbIds = request.imdbIds().stream().distinct().toList();
         imdbIds.forEach(this::requireMovieExists);
         for (String imdbId : imdbIds) {
-            // ON CONFLICT DO NOTHING rather than insert-then-catch(DuplicateKeyException): Postgres aborts the
-            // whole transaction server-side the instant any statement raises a real error, so catching it in
-            // Java would not actually let this loop keep going for the rest of the batch.
-            jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
-                    .param("movie", imdbId).param("category", targetCategoryId).update();
+            categories.assignMovieToCategory(imdbId, targetCategoryId);
         }
     }
 
@@ -206,25 +186,15 @@ public class MovieGuideService {
     }
 
     // Movies may be assigned directly to the guide's own anchor category, or to one of its native sub-categories
-    // (picked via the guide-scoped category selector) -- but never anywhere outside the guide's own sandbox, and
-    // a plain owner (not MOVIES_GUIDE/MOVIES_ADMIN) may never target one of the guide's own default/subscribed
-    // categories directly -- those are read-only references to a category that lives (and is managed) elsewhere.
-    private long resolveAssignmentTarget(Row guide, Long requestedCategoryId, boolean adminOrGuide) {
+    // (picked via the guide-scoped category selector) -- but never anywhere outside the guide's own sandbox. A
+    // composable (AND/OR) category can still be targeted here: CategoryService.assignMovieToCategory already fans
+    // that out to its components rather than writing a direct row, for any caller, so no special-casing is needed.
+    private long resolveAssignmentTarget(Row guide, Long requestedCategoryId) {
         if (requestedCategoryId == null) return guide.categoryId();
         boolean withinGuide = jdbc.sql("""
                 select exists(select 1 from category_parent_child_all where ancestor_id=:root and descendant_id=:target)
                 """).param("root", guide.categoryId()).param("target", requestedCategoryId).query(Boolean.class).single();
         if (!withinGuide) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is not part of this guide");
-        if (!adminOrGuide) {
-            boolean isDefaultCategory = jdbc.sql("""
-                    select exists(select 1 from movie_guide_default_category
-                        where movie_guide_id=:guide and category_id=:category and referenced_category_id is not null)
-                    """).param("guide", guide.id()).param("category", requestedCategoryId).query(Boolean.class).single();
-            if (isDefaultCategory) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "This category is a read-only reference; only MOVIES_GUIDE/MOVIES_ADMIN can add movies to it directly");
-            }
-        }
         return requestedCategoryId;
     }
 
@@ -355,7 +325,7 @@ public class MovieGuideService {
         }
         Row guide = requireGuide(guideId);
         categories.requireGuideManage(guideId, username, adminOrGuide);
-        long targetCategoryId = resolveAssignmentTarget(guide, request.categoryId(), adminOrGuide);
+        long targetCategoryId = resolveAssignmentTarget(guide, request.categoryId());
         List<CsvMovieRef> failed = new ArrayList<>();
         for (CsvMovieRef ref : request.movies()) {
             String imdbId = resolveCsvMovie(ref);
@@ -375,7 +345,7 @@ public class MovieGuideService {
     public void completeCsvImport(long guideId, CompleteCsvImportRequest request, String username, boolean adminOrGuide) {
         Row guide = requireGuide(guideId);
         categories.requireGuideManage(guideId, username, adminOrGuide);
-        long targetCategoryId = resolveAssignmentTarget(guide, request.categoryId(), adminOrGuide);
+        long targetCategoryId = resolveAssignmentTarget(guide, request.categoryId());
         for (CsvMovieImport item : request.movies()) {
             Movie movie = movieService.getOrCreateMovie(item.movie());
             assignToPathsOrTarget(movie.getImdbId(), targetCategoryId, item.categoryPaths());
@@ -400,8 +370,7 @@ public class MovieGuideService {
     }
 
     private void linkMovieToCategory(String imdbId, long categoryId) {
-        jdbc.sql("insert into movie_category(movie_id,category_id) values (:movie,:category) on conflict do nothing")
-                .param("movie", imdbId).param("category", categoryId).update();
+        categories.assignMovieToCategory(imdbId, categoryId);
     }
 
     // null means "not found" (the row is well-formed -- the client never sends rows it couldn't parse an
@@ -475,10 +444,15 @@ public class MovieGuideService {
                 .optional().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie Guide not found"));
     }
 
+    // "Subscribed" is now just "composable (AND or OR) direct child of the guide's own root" -- a composable
+    // category (regardless of operator) never receives direct movie assignments and is excluded from the guide's
+    // default ("nothing selected") movie view the same way a subscription always was.
     private List<Long> subscribedCategoryIds(long guideId) {
         return jdbc.sql("""
-                select category_id from movie_guide_default_category
-                where movie_guide_id=:guide and referenced_category_id is not null
+                select direct.child_id
+                from category_parent_child direct
+                join composition_category cc on cc.category_id = direct.child_id
+                where direct.parent_id = (select category_id from movie_guide where id=:guide)
                 """).param("guide", guideId).query(Long.class).list();
     }
 

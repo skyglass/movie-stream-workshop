@@ -2,6 +2,31 @@
   @if (loading) {
     <div class="state">Loading Watchlist…</div>
   } @else {
+    @if (selectedCategory != null && selectedCategoryPath.length) {
+      <nav class="category-breadcrumbs" aria-label="Category breadcrumbs">
+        <a [routerLink]="watchlistRootSegments()">
+          <span class="emoji">{{ watchlist?.icon || '🔖' }}</span>{{ watchlist?.name || 'Watchlist' }}
+        </a>
+        <span class="path-arrow">→</span>
+        @for (segment of selectedCategoryPath; track segment.id; let last = $last) {
+          @if (last) {
+            <span class="path-segment-name current" [class.composition-path]="segment.operator">
+              <span class="emoji">{{ segment.icon || (segment.operator ? '🧩' : '📁') }}</span>{{ segment.name }}@if (segment.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
+            </span>
+          } @else {
+            <a [routerLink]="watchlistBreadcrumbSegments(selectedCategoryPath.slice(0, $index + 1))">
+              <span class="emoji">{{ segment.icon || (segment.operator ? '🧩' : '📁') }}</span>{{ segment.name }}@if (segment.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
+            </a>
+          }
+          @if (!last) { <span class="path-arrow">→</span> }
+        }
+        @if (selectedCategoryLeaf?.description?.trim()) {
+          <button type="button" class="icon-button small" title="View category description" aria-label="View category description" (click)="openSelectedCategoryDescription()">
+            <span class="material-icons">visibility</span>
+          </button>
+        }
+      </nav>
+    }
     <header class="guide-header">
       <div>
         <p class="eyebrow">{{ watchlist?.icon || '🔖' }} Private Watchlist</p>
@@ -42,57 +67,32 @@
 
     <div class="owner-actions">
       @if (canManage) {
-        <button type="button" class="category-filter-button" (click)="openSubscribeCategories()">
-          <span class="material-icons">subscriptions</span>
+        <button type="button" class="category-filter-button" title="Subscribe to Categories" aria-label="Subscribe to Categories" (click)="openComposeCategoryDialog('OR')">
+          <span class="emoji" aria-hidden="true">🔔</span>
           Subscribe to Categories
+        </button>
+      }
+      @if (canManage) {
+        <button type="button" class="category-filter-button" title="Compose Categories" aria-label="Compose Categories" (click)="openComposeCategoryDialog()">
+          <span class="emoji" aria-hidden="true">🧩</span>
+          Compose Categories
         </button>
       }
       <button type="button" class="category-filter-button" (click)="openCategoryDialog()">
         <span class="material-icons">account_tree</span>
         {{ selectedCategory ? 'Sub-Category Selected' : 'Select Category' }}
       </button>
-      @if (selectedCategory && selectedCategoryPath.length) {
-        <span class="selected-category-path">
-          @for (segment of selectedCategoryPath; track segment.id; let last = $last) {
-            <span class="emoji">{{ segment.icon || '📁' }}</span><span class="path-segment-name">{{ segment.name }}</span>@if (!last) { <span class="path-arrow">→</span> }
-          }
-        </span>
-        @if (selectedCategoryLeaf?.description?.trim()) {
-          <button type="button" class="icon-button small" title="View category description" aria-label="View category description" (click)="openSelectedCategoryDescription()">
-            <span class="material-icons">visibility</span>
-          </button>
-        }
-      }
     </div>
     @if (categoryDialogVisible) {
       <app-category-tree-dialog mode="guide" [watchlistId]="watchlistId" [rootCategoryId]="watchlistCategoryId ?? undefined" [isOwner]="isOwner"
-        [selectedCategoryIds]="selectedCategory != null ? [selectedCategory] : []" [allowCopy]="false"
+        [selectedCategoryIds]="selectedCategory != null ? [selectedCategory] : []"
         (closed)="closeCategoryDialog()" (categoriesSelected)="closeCategoryDialog()"
         (selectionChanged)="onCategorySelectionChanged($event)" />
     }
-    @if (canManage && subscribeCategoriesVisible) {
-      <div class="dialog-backdrop" (click)="closeSubscribeCategories()">
-        <section class="subscribe-categories-dialog" role="dialog" aria-modal="true" aria-labelledby="subscribe-categories-title" (click)="$event.stopPropagation()">
-          <header>
-            <h2 id="subscribe-categories-title">Subscribe to Categories</h2>
-            <button type="button" class="icon-button" title="Close" aria-label="Close" (click)="closeSubscribeCategories()" [disabled]="subscribing"><span class="material-icons">close</span></button>
-          </header>
-          @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
-          <div class="subscribe-categories-body">
-            <p class="subscribe-hint">
-              Subscribe to other categories and receive all their updates in this watchlist —
-              e.g. subscribe to "New 2026" and it always shows fresh movies from that category.
-            </p>
-            <app-category-tree-dialog mode="filter" [inline]="true" [selectedCategoryIds]="subscribingCategoryIds"
-              [excludeRootNames]="['Guides', 'Personalities']"
-              (selectionChanged)="onSubscribeCategorySelectionChanged($event)" />
-          </div>
-          <footer>
-            <button type="button" class="secondary" (click)="closeSubscribeCategories()" [disabled]="subscribing">Cancel</button>
-            <button type="button" (click)="saveSubscribeCategories()" [disabled]="subscribing">{{ subscribing ? 'Submitting…' : 'Submit' }}</button>
-          </footer>
-        </section>
-      </div>
+    @if (composeCategoryDialogVisible && composeCategoryParentId != null) {
+      <app-category-tree-dialog mode="guide" [watchlistId]="watchlistId" [rootCategoryId]="watchlistCategoryId ?? undefined" [isOwner]="isOwner"
+        [startInComposeMode]="true" [startInOperator]="composeCategoryOperator" [composeParentId]="composeCategoryParentId"
+        (closed)="closeComposeCategoryDialog()" (categoriesSelected)="closeComposeCategoryDialog()" />
     }
     <app-movie-filter-search [(value)]="filterText" ariaLabel="Filter movies in this watchlist" [showNotRecommendedFilter]="true" [showSelectCategories]="false" [initialSelectedCategories]="activeCategoryIds"
       [allowExternalActions]="false" [externalActions]="showAddMovies ? ['addToCategory'] : []" addToCategoryLabel="Add to this Watchlist"
@@ -110,7 +110,7 @@
       (pageChange)="loadMovies($event)" />
   }
   @if (movieSelectorVisible) {
-    <app-movie-selector (moviesSelected)="onMoviesSelected($event)" />
+    <app-movie-selector (closed)="movieSelectorVisible = false" (moviesSelected)="onMoviesSelected($event)" />
   }
   @if (csvDialogVisible) {
     <app-import-csv-dialog [watchlistId]="watchlistId" [categoryId]="selectedCategory" (closed)="closeImportCsv()"

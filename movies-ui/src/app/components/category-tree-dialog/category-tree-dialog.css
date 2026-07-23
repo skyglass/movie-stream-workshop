@@ -18,6 +18,9 @@ footer button{padding:.65rem .9rem;font-size:1rem}
 .secondary{background:#e2e8f0!important;color:#334155!important}
 .category-dialog button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
 .category-editor-dialog{width:min(420px,100%);background:#fff;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.3);padding:1.25rem}
+.composition-notice{width:min(470px,100%);background:linear-gradient(145deg,#fff 0%,#f8fbff 100%);border:1px solid #bfdbfe;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.3);padding:1.4rem}
+.validation-notice .notice-icon{background:#fff7ed;color:#c2410c}.validation-notice{border-color:#fed7aa}.validation-notice .notice-message{border-left-color:#fb923c;background:#fff7ed}
+.composition-notice header{display:flex;align-items:center;gap:.8rem}.notice-icon{display:grid;place-items:center;width:2.8rem;height:2.8rem;border-radius:11px;background:#dbeafe;color:#2563eb;font-size:1.5rem}.notice-eyebrow{margin:0;color:#2563eb;font-size:.72rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.composition-notice h2{margin:.08rem 0 0;color:#172554;font-size:1.25rem;letter-spacing:-.015em}.notice-message{margin:1rem 0 .8rem;padding:.8rem 1rem;border-left:4px solid #60a5fa;border-radius:0 10px 10px 0;background:#eff6ff}.composition-name{display:block;color:#1e3a8a;font-size:1.05rem;font-weight:850;letter-spacing:-.01em}.notice-message p{margin:.22rem 0 0;color:#334155;line-height:1.45}.notice-next{display:flex;align-items:flex-start;gap:.45rem;margin:0;color:#334155;line-height:1.45;font-weight:600}.notice-next .material-icons{margin-top:.05rem;color:#2563eb;font-size:1.05rem}.composition-notice footer{display:flex;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:1px solid #dbeafe}.composition-notice button{border:0;border-radius:8px;background:#2563eb;color:#fff;font-weight:800;cursor:pointer;padding:.6rem 1rem}
 .category-editor-dialog header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.75rem}
 .category-editor-dialog h2{margin:.1rem 0}
 .category-editor-dialog form{display:grid;gap:.75rem}
@@ -29,6 +32,20 @@ footer button{padding:.65rem .9rem;font-size:1rem}
 .parent-field-label{color:#475569;font-weight:700;font-size:.85rem}
 .parent-field-value{display:flex;align-items:center;gap:.4rem;font-weight:700;color:#1e293b}
 .parent-field .emoji{font-size:1.2rem;line-height:1}
+.composition-editor{display:grid;gap:.55rem;padding:.75rem;border:1px solid #d8b4fe;border-radius:9px;background:#faf5ff}
+.composition-toggle{display:flex!important;grid-template-columns:none!important;align-items:center;gap:.55rem;font-size:.96rem;color:#4c1d95;cursor:pointer}.composition-toggle input{width:1.1rem;height:1.1rem;accent-color:#7e22ce}
+.composition-editor p{margin:.2rem 0 0;color:#5b416b;font-size:.88rem;line-height:1.35}
+.compose-button{justify-self:start;display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .65rem;border:0;border-radius:6px;cursor:pointer;font:inherit;font-weight:700}
+.compose-button .material-icons{font-size:1.05rem}
+.component-paths{list-style:none;margin:0;padding:0;display:grid;gap:.35rem}
+.component-paths li{display:flex;align-items:center;gap:.4rem;color:#6b3410;font-size:.86rem;font-weight:700}
+.and-badge{font-size:.67rem;font-weight:900;letter-spacing:.04em;color:#fff;background:#c2410c;border-radius:99px;padding:.1rem .32rem}
+.and-badge.or-badge{background:#1d4ed8}
+.operator-choice{display:grid;gap:.4rem}
+.operator-option{display:flex!important;grid-template-columns:none!important;align-items:center;gap:.5rem;font-size:.88rem;font-weight:600;color:#4c1d95;cursor:pointer;padding:.4rem .6rem;border:1px solid #e9d5ff;border-radius:8px;background:#fff}
+.operator-option.selected{background:#f3e8ff;border-color:#c084fc}
+.operator-option input{width:1.05rem;height:1.05rem;accent-color:#7e22ce}
+.public-marker{font-size:.95rem!important;color:#0369a1}
 .category-dialog footer{justify-content:flex-end;margin-top:1rem;padding-top:1rem;border-top:1px solid #e2e8f0}
 .error{color:#b91c1c}
 .empty{color:#64748b}

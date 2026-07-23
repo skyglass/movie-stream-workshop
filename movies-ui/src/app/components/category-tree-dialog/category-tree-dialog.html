@@ -12,7 +12,7 @@
 
 <ng-template #body>
   <header>
-    <div><p class="eyebrow">Movie categories</p><h2 id="category-dialog-title">{{ mode === 'assign' ? 'Set Categories' : mode === 'filter' || mode === 'guide' ? 'Select Categories' : 'Start Journey' }}</h2></div>
+    <div><p class="eyebrow">Movie categories</p><h2 id="category-dialog-title">{{ componentPicker ? 'Select Components' : mode === 'assign' ? 'Set Categories' : mode === 'filter' || mode === 'guide' ? 'Select Categories' : 'Start Journey' }}</h2></div>
     @if (!inline) {
       <button type="button" class="icon-button" [title]="mode === 'filter' || mode === 'guide' ? 'Close' : 'Cancel'" [attr.aria-label]="mode === 'filter' || mode === 'guide' ? 'Close' : 'Cancel'" (click)="closed.emit()"><span class="material-icons">close</span></button>
     }
@@ -20,18 +20,18 @@
   <div class="dialog-body">
     @if (errorMessage) { <p class="error">{{ errorMessage }}</p> }
     @if (loading) { <p>Loading categories…</p> } @else {
-      @if (managementEnabled()) {
+      @if (managementEnabled() && !componentPicker) {
         <button type="button" class="create-root" title="Create Root Category" aria-label="Create Root Category" (click)="beginCreate(rootCategoryId ?? null)"><span class="material-icons">create_new_folder</span></button>
       }
       @if (categories.length === 0) { <p class="empty">No categories yet.</p> }
       <ul class="category-tree">
         @for (category of categories; track category.id) {
-          <app-category-tree-node [category]="category" [mode]="mode" [rootCategoryId]="rootCategoryId" [expanded]="expanded" [explicitSelected]="explicitSelected" [assignmentSelected]="assignmentSelectedIds()" [management]="managementEnabled()"
-            (expand)="toggleExpanded($event)" (toggle)="toggleCategory($event.category,$event.checked)" (create)="beginCreate($event)" (edit)="beginEdit($event)" (move)="beginMove($event)" (remove)="deleteCategory($event)" />
+          <app-category-tree-node [category]="category" [mode]="mode" [rootCategoryId]="rootCategoryId" [expanded]="expanded" [explicitSelected]="explicitSelected" [assignmentSelected]="assignmentSelectedIds()" [compositionComponentIds]="selectedCompositionComponentIds()" [componentPicker]="componentPicker" [management]="managementEnabled() && !componentPicker" [cycleDisabledIds]="cycleDisabledIds"
+            (expand)="toggleExpanded($event)" (toggle)="toggleCategory($event.category,$event.checked)" (compositionComponentToggle)="toggleCompositionComponent($event.componentId, $event.checked)" (create)="beginCreate($event)" (edit)="beginEdit($event)" (move)="beginMove($event)" (remove)="deleteCategory($event)" />
         }
       </ul>
       @if (movingAction) {
-        <app-move-category-dialog [category]="movingAction.category" [sourceParentId]="movingAction.parentId" [allowCopy]="allowCopy" [watchlistId]="watchlistId" [rootCategoryId]="rootCategoryId" (closed)="cancelMove()" (moved)="onMoved()" />
+        <app-move-category-dialog [category]="movingAction.category" [sourceParentId]="movingAction.parentId" [watchlistId]="watchlistId" [rootCategoryId]="rootCategoryId" (closed)="cancelMove()" (moved)="onMoved()" />
       }
     }
   </div>
@@ -62,11 +62,94 @@
           <label>Name<input name="categoryName" [(ngModel)]="name" maxlength="200" required /></label>
           <label>Emoji icon<input name="categoryIcon" [(ngModel)]="icon" maxlength="32" placeholder="📁" /></label>
           <label>Description<textarea name="categoryDescription" [(ngModel)]="description" maxlength="2000" rows="3"></textarea></label>
+          @if (editingId == null) {
+            <label class="composition-toggle"><input type="checkbox" [checked]="combineEnabled" (change)="setCombineEnabled($any($event.target).checked)" /> <span>Combine Categories</span></label>
+          }
+          @if (combineEnabled || editingCombination()) {
+            <section class="composition-editor">
+              @if (editingId == null) {
+                <div class="operator-choice">
+                  <label class="operator-option" [class.selected]="combineOperator === 'AND'">
+                    <input type="radio" name="combineOperator" [checked]="combineOperator === 'AND'" (change)="setCombineOperator('AND')" />
+                    <span>🧩 Compose (AND) — every component is required</span>
+                  </label>
+                  <label class="operator-option" [class.selected]="combineOperator === 'OR'">
+                    <input type="radio" name="combineOperator" [checked]="combineOperator === 'OR'" (change)="setCombineOperator('OR')" />
+                    <span>🔔 Subscribe (OR) — any component is enough</span>
+                  </label>
+                </div>
+              }
+              @if (combineOperator === 'AND') {
+                <div>
+                  <strong>🧩 Compose Categories (AND)</strong>
+                  <p>Build new cinematic concepts by combining existing categories. Your composition becomes a reusable category that automatically includes movies matching all selected components.</p>
+                </div>
+              } @else {
+                <div>
+                  <strong>🔔 Subscribe to Categories (OR)</strong>
+                  <p>Create dynamic collections by following existing categories. Your category automatically updates whenever new movies are added to those categories.</p>
+                </div>
+              }
+              <button type="button" class="secondary compose-button" (click)="openCombinePicker()">
+                <span class="material-icons">account_tree</span>{{ combineOperator === 'AND' ? 'Compose Categories' : 'Subscribe to Categories' }}
+              </button>
+              @if (watchlistId != null) {
+                <button type="button" class="secondary compose-button" (click)="openCombinePublicPicker()">
+                  <span class="material-icons">public</span>Add public categories
+                </button>
+              }
+              @if (combineComponentDisplayItems().length) {
+                <ul class="component-paths">
+                  @for (item of combineComponentDisplayItems(); track item.label; let first = $first) {
+                    <li><span class="and-badge" [class.or-badge]="combineOperator === 'OR'">{{ first ? 'IS' : combineOperator }}</span>
+                      @if (item.isPublic) { <span class="material-icons public-marker" title="Public category">public</span> }{{ item.label }}</li>
+                  }
+                </ul>
+              }
+            </section>
+          }
           <footer class="editor-actions">
             <button type="button" class="secondary" (click)="cancelEditor()" [disabled]="saving">Cancel</button>
             <button type="submit" [disabled]="saving || !name.trim()"><span class="material-icons">check</span>Save</button>
           </footer>
         </form>
+      </section>
+    </div>
+  }
+  @if (combinePickerVisible) {
+    <app-category-tree-dialog mode="filter" [componentPicker]="true" [selectedCategoryIds]="combineComponentIds"
+      [watchlistId]="watchlistId" [rootCategoryId]="rootCategoryId" [cycleGuardId]="editingId ?? undefined"
+      (closed)="combinePickerVisible = false" (categoriesSelected)="onCombineComponentsSelected($event)" />
+  }
+  @if (combinePublicPickerVisible) {
+    <app-category-tree-dialog mode="filter" [selectedCategoryIds]="combinePublicComponentIds"
+      (closed)="combinePublicPickerVisible = false" (categoriesSelected)="onCombinePublicComponentsSelected($event)" />
+  }
+  @if (combineUncheckNotice; as composition) {
+    <div class="dialog-backdrop" (click)="acknowledgeCombineUncheck()">
+      <section class="composition-notice" role="dialog" aria-modal="true" aria-labelledby="composition-notice-title" (click)="$event.stopPropagation()">
+        <header>
+          <span class="notice-icon material-icons" aria-hidden="true">account_tree</span>
+          <div><p class="notice-eyebrow">{{ composition.operator === 'OR' ? 'Subscription Category' : 'Composition Category' }}</p><h2 id="composition-notice-title">Derived from components</h2></div>
+        </header>
+        <div class="notice-message">
+          <strong class="composition-name">{{ composition.name }}</strong>
+          <p>does not own movie unassignments. Unselect movies from its component categories?</p>
+        </div>
+        <p class="notice-next"><span class="material-icons" aria-hidden="true">tips_and_updates</span>Please, uncheck one or more component categories to confirm.</p>
+        <footer><button type="button" (click)="acknowledgeCombineUncheck()">OK</button></footer>
+      </section>
+    </div>
+  }
+  @if (combineValidationNotice) {
+    <div class="dialog-backdrop" (click)="acknowledgeCombineValidation()">
+      <section class="composition-notice validation-notice" role="dialog" aria-modal="true" aria-labelledby="composition-validation-title" (click)="$event.stopPropagation()">
+        <header>
+          <span class="notice-icon material-icons" aria-hidden="true">warning_amber</span>
+          <div><p class="notice-eyebrow">Combine Categories</p><h2 id="composition-validation-title">Component required</h2></div>
+        </header>
+        <div class="notice-message"><p>Please select at least one component.</p></div>
+        <footer><button type="button" (click)="acknowledgeCombineValidation()">OK</button></footer>
       </section>
     </div>
   }

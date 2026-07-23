@@ -1,15 +1,8 @@
 import { routes } from './app.routes';
 
 describe('public routes', () => {
-  it('keeps the Movie Journeys catalog publicly accessible', () => {
-    const route = routes.find(candidate => candidate.path === 'movie-journeys');
-
-    expect(route).toBeDefined();
-    expect(route?.canActivate).toBeUndefined();
-  });
-
-  it('keeps Movie Journey details publicly accessible', () => {
-    const route = routes.find(candidate => candidate.path === 'movie-journeys/:id');
+  it('keeps the My Watchlists landing page publicly accessible', () => {
+    const route = routes.find(candidate => candidate.path === 'my-watchlists');
 
     expect(route).toBeDefined();
     expect(route?.canActivate).toBeUndefined();

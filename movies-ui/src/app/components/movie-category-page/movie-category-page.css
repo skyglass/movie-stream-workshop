@@ -57,6 +57,9 @@
   font-size: 1.05rem;
   line-height: 1;
 }
+.category-breadcrumbs .composition-path { color:#6b21a8; }
+.category-breadcrumbs .and-badge { margin-left:.35rem;font-size:.65rem;font-weight:900;letter-spacing:.04em;color:#fff;background:#c2410c;border-radius:99px;padding:.1rem .32rem; }
+.category-breadcrumbs .or-badge { background:#1d4ed8; }
 
 .category-header {
   display: flex;

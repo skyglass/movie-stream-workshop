@@ -17,7 +17,6 @@ import skycomposer.moviechallenge.api.movie.dto.MovieGuideDto;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
 import skycomposer.moviechallenge.api.movie.dto.RemoveGuideMovieRequest;
 import skycomposer.moviechallenge.api.movie.dto.SubmitPersonalityRankingRequest;
-import skycomposer.moviechallenge.api.movie.dto.SubscribeGuideCategoriesRequest;
 
 import java.util.List;
 
@@ -35,14 +34,6 @@ public class MovieGuideController {
     @PostMapping("/wizard")
     public MovieGuideDto createWizard(@Valid @RequestBody CreateGuideRequest request, Authentication authentication) {
         return movieGuides.createGuide(request, authentication.getName());
-    }
-
-    // Backs the guide page's "Subscribe to Categories" dialog: subscribes an already-created guide to additional
-    // categories, on demand (not tied to any creation flow).
-    @PostMapping("/{id}/subscribe")
-    public MovieGuideDto subscribe(@PathVariable long id, @Valid @RequestBody SubscribeGuideCategoriesRequest request,
-                                    Authentication authentication) {
-        return movieGuides.subscribeCategories(id, request.categoryIds(), authentication.getName(), isAdminOrGuide(authentication));
     }
 
     // Public read, same as GET /api/categories.

@@ -16,21 +16,24 @@ import { categoryPageSegments } from '../../utils/category-path';
   template: `
     <li class="tree-node">
       <div class="node-row">
-        @if (!category.leaf) {
+        @if (!category.leaf || category.operator) {
           <button type="button" class="expand" (click)="toggle()" [attr.aria-label]="expanded.has(category.id) ? 'Collapse category' : 'Expand category'">
-            {{ expanded.has(category.id) ? '−' : '+' }}
+            @if (category.operator) { <span class="material-icons composition-expand">account_tree</span> } @else { {{ expanded.has(category.id) ? '−' : '+' }} }
           </button>
         } @else { <span class="expand-spacer"></span> }
         @if (isRoot) {
           <button type="button" class="category-link root-category" (click)="expand()" [title]="category.description || category.name">
-            <span class="emoji">{{ category.icon || '📁' }}</span><span class="category-name">{{ category.name }}</span>
+            <span class="emoji">{{ category.icon || (category.operator ? '🧩' : '📁') }}</span><span class="category-name">{{ category.name }}</span>@if (category.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
           </button>
         } @else {
           <a class="category-link" [class.active]="category.id === selectedCategoryId" [routerLink]="link()" [title]="category.description || category.name">
-            <span class="emoji">{{ category.icon || '📁' }}</span><span class="category-name">{{ category.name }}</span>
+            <span class="emoji">{{ category.icon || (category.operator ? '🧩' : '📁') }}</span><span class="category-name">{{ category.name }}</span>@if (category.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
           </a>
         }
       </div>
+      @if (category.operator && expanded.has(category.id)) {
+        <ul class="composition-components"><li *ngFor="let component of category.components; let first = first"><span class="and-badge" [class.or-badge]="category.operator === 'OR'">{{ first ? 'IS' : category.operator }}</span><span class="emoji">{{ component.icon || '📁' }}</span>{{ component.name }}</li></ul>
+      }
       @if (!category.leaf && expanded.has(category.id)) {
         <ul>
           @for (child of category.children; track child.id) {

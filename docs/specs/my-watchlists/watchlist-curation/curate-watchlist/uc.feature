@@ -23,7 +23,7 @@ Feature: curate-watchlist
   Scenario: The owner can subscribe their Watchlist to an existing public category
     Given category "New 2026" exists
     When user "curator" with role "USER" subscribes the Watchlist "Weekend Picks" to category "New 2026"
-    Then the Watchlist API response status is 200
+    Then the Watchlist API response status is 201
     And the Watchlist "Weekend Picks" is subscribed to category "New 2026"
     And category "New 2026" still has no other parent
 
@@ -35,8 +35,8 @@ Feature: curate-watchlist
   Scenario: Unsubscribing removes a category from a Watchlist's subscriptions
     Given category "New 2026" exists
     And user "curator" with role "USER" subscribes the Watchlist "Weekend Picks" to category "New 2026"
-    When user "curator" with role "USER" submits an empty subscription list for the Watchlist "Weekend Picks"
-    Then the Watchlist API response status is 200
+    When user "curator" with role "USER" unsubscribes the Watchlist "Weekend Picks" from category "New 2026"
+    Then the Watchlist API response status is 204
     And the Watchlist "Weekend Picks" is not subscribed to category "New 2026"
 
   Scenario: The owner can create a private sub-category inside their Watchlist

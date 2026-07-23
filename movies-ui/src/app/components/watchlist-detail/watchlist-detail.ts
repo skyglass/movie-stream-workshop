@@ -1,10 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ViewChild, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { Component, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
-import { Observable, map } from 'rxjs';
+import { Observable, Subscription, map } from 'rxjs';
 import { AuthService } from '../../services/auth';
-import { Movie, MovieCategory, MoviesApiService, OmdbMovieSearchResult, ParsedMovieSearch, WatchlistDto } from '../../services/movies-api';
+import { Movie, MovieCategory, MoviesApiService, Operator, OmdbMovieSearchResult, ParsedMovieSearch, WatchlistDto } from '../../services/movies-api';
 import { MovieFilterSearchComponent } from '../movie-filter-search/movie-filter-search';
 import { MovieGridComponent } from '../movie-grid/movie-grid';
 import { MovieSelectorComponent } from '../movie-selector/movie-selector';
@@ -12,7 +12,7 @@ import { CategoryTreeDialogComponent } from '../category-tree-dialog/category-tr
 import { ImportCsvDialogComponent } from '../import-csv-dialog/import-csv-dialog';
 import { DeleteMoviesSelectorComponent } from '../delete-movies-selector/delete-movies-selector';
 import { ShareDialogComponent } from '../share-dialog/share-dialog';
-import { findCategoryPath } from '../../utils/category-path';
+import { findCategoryPath, subCategorySegments } from '../../utils/category-path';
 
 // Trimmed port of MovieGuideDetailComponent for a private watchlist: same "Select Category"/"Subscribe to
 // Categories"/"Add Movies"/CSV import/"Delete Movies" mechanics, reusing the exact same dialog components (just
@@ -24,18 +24,21 @@ import { findCategoryPath } from '../../utils/category-path';
 @Component({
   standalone: true,
   selector: 'app-watchlist-detail',
-  imports: [CommonModule, MovieFilterSearchComponent, MovieGridComponent, MovieSelectorComponent,
+  imports: [CommonModule, RouterLink, MovieFilterSearchComponent, MovieGridComponent, MovieSelectorComponent,
     CategoryTreeDialogComponent, ImportCsvDialogComponent, DeleteMoviesSelectorComponent, ShareDialogComponent],
   templateUrl: './watchlist-detail.html',
   styleUrl: './watchlist-detail.css'
 })
-export class WatchlistDetailComponent implements OnInit {
+export class WatchlistDetailComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly api = inject(MoviesApiService);
   private readonly meta = inject(Meta);
   private readonly title = inject(Title);
   readonly auth = inject(AuthService);
   @ViewChild(MovieFilterSearchComponent) filterSearch!: MovieFilterSearchComponent;
+  private paramsSub?: Subscription;
+  private hasLoadedOnce = false;
 
   watchlistId = 0;
   watchlist: WatchlistDto | null = null;
@@ -58,14 +61,15 @@ export class WatchlistDetailComponent implements OnInit {
 
   isOwner = false;
   movieSelectorVisible = false;
+  // Populated from WatchlistDto.subscribedCategoryIds -- every public category currently followed via an OR
+  // subscription component (see WatchlistService.subscribedPublicCategoryIds).
   subscribedCategoryIds: number[] = [];
   selectedCategory: number | null = null;
   categoryDialogVisible = false;
+  composeCategoryDialogVisible = false;
+  composeCategoryOperator: Operator = 'AND';
   csvDialogVisible = false;
   deleteMoviesSelectorVisible = false;
-  subscribeCategoriesVisible = false;
-  subscribingCategoryIds: number[] = [];
-  subscribing = false;
   descriptionDialogVisible = false;
   shareDialogVisible = false;
   // Cached purely to resolve selectedCategoryPath below (the breadcrumb next to "Select Category") -- refreshed
@@ -73,10 +77,33 @@ export class WatchlistDetailComponent implements OnInit {
   categoryTree: MovieCategory[] = [];
 
   ngOnInit(): void {
-    this.watchlistId = Number(this.route.snapshot.paramMap.get('id'));
-    this.loadWatchlist();
-    this.loadMovies(1);
-    this.loadCategoryTree();
+    // Reactive (not a one-shot route.snapshot read), same reasoning as MovieGuideDetailComponent: the
+    // matcher-based route reuses this same component instance when only subCategoryId changes.
+    this.paramsSub = this.route.paramMap.subscribe(params => {
+      const requestedRootId = Number(params.get('id'));
+      const subIdParam = params.get('subCategoryId');
+      const sameRoot = this.hasLoadedOnce && this.watchlistId === requestedRootId;
+      this.watchlistId = requestedRootId;
+      this.selectedCategory = subIdParam != null ? Number(subIdParam) : null;
+      if (!sameRoot) {
+        this.hasLoadedOnce = true;
+        this.loadWatchlist();
+        this.loadCategoryTree();
+      }
+      this.loadMovies(1);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.paramsSub?.unsubscribe();
+  }
+
+  watchlistRootSegments(): (string | number)[] {
+    return ['/my-watchlists', this.watchlistId];
+  }
+
+  watchlistBreadcrumbSegments(path: MovieCategory[]): (string | number)[] {
+    return subCategorySegments(this.watchlistRootSegments(), path);
   }
 
   get canManage(): boolean {
@@ -138,6 +165,22 @@ export class WatchlistDetailComponent implements OnInit {
     this.loadCategoryTree();
   }
 
+  // Composition categories are always created directly under the watchlist's own root -- never under whatever
+  // sub-category happens to be selected -- to avoid confusion about where they land.
+  get composeCategoryParentId(): number | null {
+    return this.watchlistCategoryId;
+  }
+
+  openComposeCategoryDialog(operator: Operator = 'AND'): void {
+    this.composeCategoryOperator = operator;
+    this.composeCategoryDialogVisible = true;
+  }
+
+  closeComposeCategoryDialog(): void {
+    this.composeCategoryDialogVisible = false;
+    this.loadCategoryTree();
+  }
+
   // Ancestor chain from the picker's own top level down to the selected node (inclusive) -- e.g. a private
   // sub-category "Genres -> Drama" becomes ["Genres", "Drama"]; a subscribed category is always just itself
   // (the picker never nests anything under a subscribed entry).
@@ -158,9 +201,17 @@ export class WatchlistDetailComponent implements OnInit {
     });
   }
 
+  // Navigates to the friendly URL for the picked sub-category (or back to the watchlist's own root URL when
+  // cleared) rather than setting selectedCategory directly -- the paramMap subscription in ngOnInit is the single
+  // source of truth that actually applies the change and re-fetches movies.
   onCategorySelectionChanged(categoryIds: number[]): void {
-    this.selectedCategory = categoryIds.length ? categoryIds[0] : null;
-    this.loadMovies(1);
+    const subId = categoryIds.length ? categoryIds[0] : null;
+    if (subId == null) {
+      this.router.navigate(this.watchlistRootSegments());
+      return;
+    }
+    const path = findCategoryPath(this.categoryTree, subId) ?? [];
+    this.router.navigate(this.watchlistBreadcrumbSegments(path));
   }
 
   openImportCsv(): void {
@@ -215,38 +266,6 @@ export class WatchlistDetailComponent implements OnInit {
 
   closeSelectedCategoryDescription(): void {
     this.selectedCategoryDescriptionVisible = false;
-  }
-
-  openSubscribeCategories(): void {
-    this.subscribingCategoryIds = [...this.subscribedCategoryIds];
-    this.subscribeCategoriesVisible = true;
-  }
-
-  closeSubscribeCategories(): void {
-    this.subscribeCategoriesVisible = false;
-  }
-
-  onSubscribeCategorySelectionChanged(categoryIds: number[]): void {
-    this.subscribingCategoryIds = categoryIds;
-  }
-
-  saveSubscribeCategories(): void {
-    if (this.subscribing) return;
-    this.subscribing = true;
-    this.errorMessage = '';
-    this.api.subscribeWatchlistToCategories(this.watchlistId, this.subscribingCategoryIds).subscribe({
-      next: watchlist => {
-        this.subscribing = false;
-        this.watchlist = watchlist;
-        this.subscribedCategoryIds = watchlist.subscribedCategoryIds;
-        this.subscribeCategoriesVisible = false;
-        this.loadMovies(1);
-      },
-      error: err => {
-        this.subscribing = false;
-        this.errorMessage = err?.error?.message ?? err?.message ?? 'Could not subscribe to the selected categories';
-      }
-    });
   }
 
   private loadWatchlist(): void {

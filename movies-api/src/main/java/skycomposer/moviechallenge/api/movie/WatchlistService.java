@@ -20,16 +20,18 @@ import skycomposer.moviechallenge.api.movie.dto.CsvMovieRef;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesRequest;
 import skycomposer.moviechallenge.api.movie.dto.ImportCsvMoviesResponse;
 import skycomposer.moviechallenge.api.movie.dto.MoviePageDto;
+import skycomposer.moviechallenge.api.movie.dto.SaveCategoryRequest;
 import skycomposer.moviechallenge.api.movie.dto.UpdateWatchlistRequest;
 import skycomposer.moviechallenge.api.movie.dto.WatchlistDto;
 import skycomposer.moviechallenge.api.movie.mapper.MovieDtoEnricher;
 import skycomposer.moviechallenge.api.movie.model.Movie;
+import skycomposer.moviechallenge.api.movie.model.Operator;
 
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -74,33 +76,23 @@ public class WatchlistService {
                 ? List.of() : request.subscribedCategoryIds().stream().distinct().toList();
         for (Long categoryToSubscribe : subscribed) {
             requirePublicCategoryExists(categoryToSubscribe);
-            jdbc.sql("insert into movie_watchlist_default_category(watchlist_id,category_id) values (:watchlist,:category) on conflict do nothing")
-                    .param("watchlist", watchlistId).param("category", categoryToSubscribe).update();
+            createSubscriptionCategory(categoryId, categoryToSubscribe, owner);
         }
         return toDto(requireWatchlist(watchlistId));
     }
 
-    // Reconciles the desired (full, live checkbox state) subscription set against what's currently subscribed:
-    // missing ones are subscribed, no-longer-present ones are unsubscribed. Unlike MovieGuideService, this never
-    // touches the category DAG at all -- a subscription is only ever a row in movie_watchlist_default_category.
-    @Transactional
-    public WatchlistDto subscribeCategories(long watchlistId, List<Long> categoryIds, String username, boolean isAdmin) {
-        Row watchlist = requireWatchlist(watchlistId);
-        requireOwnerOrAdmin(watchlist, username, isAdmin);
-        Set<Long> desired = categoryIds == null ? Set.of() : new HashSet<>(categoryIds);
-        Set<Long> current = new HashSet<>(subscribedCategoryIds(watchlistId));
-        for (Long categoryId : desired) {
-            if (current.contains(categoryId)) continue;
-            requirePublicCategoryExists(categoryId);
-            jdbc.sql("insert into movie_watchlist_default_category(watchlist_id,category_id) values (:watchlist,:category) on conflict do nothing")
-                    .param("watchlist", watchlistId).param("category", categoryId).update();
-        }
-        for (Long categoryId : current) {
-            if (desired.contains(categoryId)) continue;
-            jdbc.sql("delete from movie_watchlist_default_category where watchlist_id=:watchlist and category_id=:category")
-                    .param("watchlist", watchlistId).param("category", categoryId).update();
-        }
-        return toDto(requireWatchlist(watchlistId));
+    private record SourceCategory(String name, String description, String icon) {}
+
+    // Wraps an existing PUBLIC category as a new one-(public)-component OR-composition PRIVATE category, parented
+    // under the watchlist's own root -- the private-side counterpart of MovieGuideService.createSubscriptionCategory.
+    private void createSubscriptionCategory(long watchlistCategoryId, long sourcePublicCategoryId, String owner) {
+        SourceCategory source = jdbc.sql("select name, description, icon from category where id=:id")
+                .param("id", sourcePublicCategoryId).query((rs, n) -> new SourceCategory(
+                        rs.getString("name"), rs.getString("description"), rs.getString("icon")))
+                .single();
+        SaveCategoryRequest request = new SaveCategoryRequest(source.name(), source.description(), source.icon(),
+                watchlistCategoryId, List.of(), List.of(sourcePublicCategoryId), Operator.OR);
+        privateCategories.create(request, owner, true);
     }
 
     @Transactional
@@ -163,28 +155,16 @@ public class WatchlistService {
         return rows.stream().map(this::toDto).toList();
     }
 
-    // Backs the 'watchlist'-scoped category-tree-dialog: direct children of the watchlist's own private anchor
-    // (full CRUD, expandable) plus the flat subscribed public categories (leaf, checkbox-only, bell/"Subscribed"
-    // badge), merged into one list the same way Guide's subscribed categories appear as normal tree children --
-    // just without any physical DAG link backing them.
+    // Backs the 'watchlist'-scoped category-tree-dialog: direct children of the watchlist's own private anchor --
+    // an OR-subscription category is now just an ordinary child of that anchor (a real composable private
+    // category), so it's already included here with no separate merging/splicing needed.
     @Transactional(readOnly = true)
     public List<CategoryDto> categoryPicker(long watchlistId, List<Long> exclude, String username, boolean isAdmin) {
         Row watchlist = requireWatchlist(watchlistId);
         requireOwnerOrAdmin(watchlist, username, isAdmin);
         Set<Long> excluded = exclude == null ? Set.of() : new HashSet<>(exclude);
-        List<CategoryDto> privateChildren = privateCategories.subtree(watchlist.categoryId(), username, isAdmin).stream()
+        return privateCategories.subtree(watchlist.categoryId(), username, isAdmin).stream()
                 .filter(category -> !excluded.contains(category.id())).toList();
-        List<CategoryDto> subscribed = jdbc.sql("""
-                select c.id, c.name, c.description, c.icon
-                from category c join movie_watchlist_default_category d on d.category_id=c.id
-                where d.watchlist_id=:watchlist order by lower(c.name)
-                """).param("watchlist", watchlistId).query((rs, n) -> new CategoryDto(
-                rs.getLong("id"), rs.getString("name"), rs.getString("description"), rs.getString("icon"),
-                null, false, true, false, null, true, List.of())).list().stream()
-                .filter(category -> !excluded.contains(category.id())).toList();
-        List<CategoryDto> merged = new ArrayList<>(privateChildren);
-        merged.addAll(subscribed);
-        return merged;
     }
 
     @Transactional
@@ -199,8 +179,7 @@ public class WatchlistService {
                 jdbc.sql("insert into movie_watchlist_movie(movie_watchlist_id,movie_id) values (:watchlist,:movie) on conflict do nothing")
                         .param("watchlist", watchlistId).param("movie", imdbId).update();
             } else {
-                jdbc.sql("insert into movie_private_category(movie_id,private_category_id) values (:movie,:category) on conflict do nothing")
-                        .param("movie", imdbId).param("category", targetPrivateCategoryId).update();
+                privateCategories.assignMovieToCategory(imdbId, targetPrivateCategoryId);
             }
         }
     }
@@ -233,10 +212,10 @@ public class WatchlistService {
                 """).param("movie", imdbId).param("scope", categoryIds).update();
     }
 
-    // categoryIds empty/null -> default union view. Otherwise every id must resolve the same way (all subscribed
-    // public categories, or all private-tree nodes) -- the "Select Category" browse picker only ever sends 0 or 1
-    // id; "Delete Movies"'s multi-select picker excludes subscribed categories entirely, so its own selections
-    // are always all-private. A caller mixing the two is a client bug, not a real use case.
+    // categoryIds empty/null -> default union view (the watchlist's own flat top level plus its whole private
+    // subtree, which now already includes any OR-subscription categories as ordinary nested nodes). Otherwise
+    // every picked id must be within the watchlist's own private tree -- there's no more "is this a subscribed
+    // public id" branch, since a subscription is now itself a private category id like any other.
     @Transactional(readOnly = true)
     public MoviePageDto watchlistMovies(long watchlistId, List<Long> categoryIds, int page, int pageSize, String filter,
                                          String year, String username, boolean isAdmin) {
@@ -245,15 +224,10 @@ public class WatchlistService {
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), pageSize);
         Page<Movie> movies;
         if (categoryIds == null || categoryIds.isEmpty()) {
-            movies = movieService.getWatchlistMovies(watchlistId, watchlist.categoryId(), subscribedCategoryIds(watchlistId),
-                    filter, year, pageable);
-        } else if (categoryIds.stream().allMatch(id -> isSubscribedCategory(watchlistId, id))) {
-            movies = movieService.getMovies(pageable, filter, year, categoryIds);
-        } else if (categoryIds.stream().allMatch(id -> isWithinWatchlist(watchlist, id))) {
-            movies = movieService.getPrivateCategoryMovies(categoryIds, filter, year, pageable);
+            movies = movieService.getWatchlistMovies(watchlistId, watchlist.categoryId(), List.of(), filter, year, pageable);
         } else {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Cannot mix subscribed and private categories in one selection");
+            for (Long categoryId : categoryIds) resolvePrivateTarget(watchlist, categoryId);
+            movies = movieService.getPrivateCategoryMovies(categoryIds, filter, year, pageable);
         }
         return new MoviePageDto(
                 movieDtoEnricher.toMovieDtos(movies.getContent(), Set.of(), Set.of(), username, username),
@@ -302,8 +276,7 @@ public class WatchlistService {
                 jdbc.sql("insert into movie_watchlist_movie(movie_watchlist_id,movie_id) values (:watchlist,:movie) on conflict do nothing")
                         .param("watchlist", watchlistId).param("movie", imdbId).update();
             } else {
-                jdbc.sql("insert into movie_private_category(movie_id,private_category_id) values (:movie,:category) on conflict do nothing")
-                        .param("movie", imdbId).param("category", targetCategoryId).update();
+                privateCategories.assignMovieToCategory(imdbId, targetCategoryId);
             }
             return;
         }
@@ -311,8 +284,7 @@ public class WatchlistService {
         for (String path : categoryPaths) {
             if (path == null || path.isBlank()) continue;
             long leafCategoryId = resolveCategoryPath(rootForPaths, path);
-            jdbc.sql("insert into movie_private_category(movie_id,private_category_id) values (:movie,:category) on conflict do nothing")
-                    .param("movie", imdbId).param("category", leafCategoryId).update();
+            privateCategories.assignMovieToCategory(imdbId, leafCategoryId);
         }
     }
 
@@ -359,19 +331,21 @@ public class WatchlistService {
                 """).param("root", watchlist.categoryId()).param("target", categoryId).query(Boolean.class).single();
     }
 
-    private boolean isSubscribedCategory(long watchlistId, long categoryId) {
-        return jdbc.sql("select exists(select 1 from movie_watchlist_default_category where watchlist_id=:watchlist and category_id=:category)")
-                .param("watchlist", watchlistId).param("category", categoryId).query(Boolean.class).single();
-    }
-
-    private List<Long> subscribedCategoryIds(long watchlistId) {
-        return jdbc.sql("select category_id from movie_watchlist_default_category where watchlist_id=:watchlist")
-                .param("watchlist", watchlistId).query(Long.class).list();
+    // "Subscribed" (public) category ids currently wrapped by this watchlist's own OR-composition children --
+    // used only to dedupe subscribeCategories' additive loop against what's already subscribed.
+    private List<Long> subscribedPublicCategoryIds(long watchlistId) {
+        return jdbc.sql("""
+                select comp.public_component_category_id
+                from private_category_parent_child direct
+                join private_composition_category_component comp on comp.composition_category_id = direct.child_id
+                where direct.parent_id = (select category_id from user_movie_watchlist where id=:watchlist)
+                  and comp.public_component_category_id is not null
+                """).param("watchlist", watchlistId).query(Long.class).list();
     }
 
     private WatchlistDto toDto(Row row) {
         return new WatchlistDto(row.id(), row.categoryId(), row.name(), row.description(), row.icon(), row.owner(),
-                subscribedCategoryIds(row.id()));
+                subscribedPublicCategoryIds(row.id()));
     }
 
     private Row requireWatchlist(long id) {

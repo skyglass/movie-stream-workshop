@@ -44,8 +44,6 @@ public class SecurityConfig {
                     .pathMatchers(HttpMethod.GET, "/api/movies/my-favorite-movies/**").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/movies/my-recommended-movies/**").permitAll()
                     .pathMatchers(HttpMethod.POST, "/api/movies/movie-cards/collage").permitAll()
-                    .pathMatchers(HttpMethod.GET, "/api/movies/movie-journeys/*", "/api/movies/movie-courses/*").permitAll()
-                    .pathMatchers(HttpMethod.GET, "/api/movies/movie-journeys", "/api/movies/movie-courses").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/movies/movie-guides/by-category/*").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/movies/movie-guides/*/movies").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/movies/movie-guides/*/similar-movies").permitAll()

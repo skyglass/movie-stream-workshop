@@ -25,3 +25,11 @@ export function categoryPageSegments(path: MovieCategory[]): (string | number)[]
   if (!path.length) return ['/categories', 'root'];
   return ['/categories', path[path.length - 1].id, ...path.map(category => slugify(category.name))];
 }
+
+// Router command array for a sub-category's friendly URL underneath a fixed base path, e.g.
+// subCategorySegments(['/movie-guides', 42], path) -> ['/movie-guides', 42, 108, 'genres', 'drama']. Mirrors
+// categoryPageSegments' slugify logic -- resolution is always by the numeric id, trailing segments are cosmetic.
+export function subCategorySegments(basePath: (string | number)[], path: MovieCategory[]): (string | number)[] {
+  if (!path.length) return basePath;
+  return [...basePath, path[path.length - 1].id, ...path.map(category => slugify(category.name))];
+}

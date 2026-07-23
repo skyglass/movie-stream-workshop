@@ -25,7 +25,7 @@ Feature: curate-movie-guide
   Scenario: The owner can subscribe their Guide to an existing category
     Given category "Genres" exists
     When user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to category "Genres"
-    Then the Movie Guide API response status is 200
+    Then the Movie Guide API response status is 201
     And the Movie Guide "Heist Movies" is subscribed to category "Genres"
 
   Scenario: Two different guides can subscribe to the same category
@@ -33,33 +33,32 @@ Feature: curate-movie-guide
     And "curator" creates a Movie Guide named "Second Guide"
     And user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to category "Genres"
     When user "curator" with role "USER" subscribes the Movie Guide "Second Guide" to category "Genres"
-    Then the Movie Guide API response status is 200
+    Then the Movie Guide API response status is 201
     And the Movie Guide "Second Guide" is subscribed to category "Genres"
 
   Scenario: Unsubscribing removes a category from a Guide's subscriptions without touching its original parent
     Given category "Genres" exists
     And category "Drama" exists under category "Genres"
     And user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to category "Drama"
-    When user "curator" with role "USER" submits an empty subscription list for the Movie Guide "Heist Movies"
-    Then the Movie Guide API response status is 200
+    When user "curator" with role "USER" unsubscribes the Movie Guide "Heist Movies" from category "Drama"
+    Then the Movie Guide API response status is 204
     And the Movie Guide "Heist Movies" is not subscribed to category "Drama"
     And category "Drama" still has parent "Genres"
 
-  Scenario: Subscribing to a category preserves its original parent and adds the guide as a second parent
+  Scenario: Subscribing to a category preserves its original parent and adds an independent subscription entry
     Given category "Genres" exists
     And category "Drama" exists under category "Genres"
     When user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to category "Drama"
-    Then the Movie Guide API response status is 200
-    And category "Drama" has parents "Genres" and "Heist Movies"
-
-  Scenario: Re-subscribing to an already-subscribed category succeeds
-    Given category "Genres" exists
-    And category "Drama" exists under category "Genres"
-    And user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to category "Genres"
-    When user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to categories "Genres" and "Drama"
-    Then the Movie Guide API response status is 200
-    And the Movie Guide "Heist Movies" is subscribed to category "Genres"
+    Then the Movie Guide API response status is 201
+    And category "Drama" still has parent "Genres"
     And the Movie Guide "Heist Movies" is subscribed to category "Drama"
+
+  Scenario: Subscribing a Guide to the same category twice succeeds without conflict
+    Given category "Genres" exists
+    And user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to category "Genres"
+    When user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to category "Genres"
+    Then the Movie Guide API response status is 201
+    And the Movie Guide "Heist Movies" is subscribed to category "Genres"
 
   Scenario: A non-owner cannot subscribe someone else's Guide
     Given category "Genres" exists
@@ -69,7 +68,7 @@ Feature: curate-movie-guide
   Scenario: A MOVIES_GUIDE curator can subscribe someone else's Guide
     Given category "Genres" exists
     When user "helper" with role "MOVIES_GUIDE" subscribes the Movie Guide "Heist Movies" to category "Genres"
-    Then the Movie Guide API response status is 200
+    Then the Movie Guide API response status is 201
 
   Scenario: The owner can add an existing movie to their Guide
     Given movie "tt101" exists with title "Movie One"
@@ -77,19 +76,13 @@ Feature: curate-movie-guide
     Then the Movie Guide API response status is 204
     And the Movie Guide "Heist Movies" movie list contains "tt101"
 
-  Scenario: The owner cannot add movies directly to a subscribed category
+  Scenario: Adding a movie to a subscribed category fans it out to the category it follows
     Given category "Genres" exists
     And user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to category "Genres"
     And movie "tt101" exists with title "Movie One"
     When user "curator" with role "USER" adds movie "tt101" to category "Genres" of the Movie Guide "Heist Movies"
-    Then the Movie Guide API response status is 403
-
-  Scenario: A MOVIES_ADMIN can add movies directly to a subscribed category
-    Given category "Genres" exists
-    And user "curator" with role "USER" subscribes the Movie Guide "Heist Movies" to category "Genres"
-    And movie "tt101" exists with title "Movie One"
-    When user "admin" with role "MOVIES_ADMIN" adds movie "tt101" to category "Genres" of the Movie Guide "Heist Movies"
     Then the Movie Guide API response status is 204
+    And category "Genres" still contains movie "tt101"
 
   Scenario: CSV import links an existing catalog movie by imdb id
     Given movie "tt101" exists with title "Movie One"
