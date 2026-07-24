@@ -10,10 +10,10 @@
         <span class="path-arrow">→</span>
         @for (segment of categoryPath; track segment.id; let last = $last) {
           @if (last || segment.parentId == null) {
-            <span class="path-segment-name" [class.current]="last" [class.composition-path]="segment.operator"><span class="emoji">{{ segment.icon || (segment.operator ? '🧩' : '📁') }}</span>{{ segment.name }}@if (segment.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }</span>
+            <span class="path-segment-name" [class.current]="last" [class.composition-path]="segment.operator"><span class="emoji">{{ segment.icon || (segment.operator === 'OR' ? '🔔' : segment.operator ? '🧩' : '📁') }}</span>{{ segment.name }}@if (segment.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }</span>
           } @else {
             <a [routerLink]="categoryPageSegments(categoryPath.slice(0, $index + 1))">
-              <span class="emoji">{{ segment.icon || (segment.operator ? '🧩' : '📁') }}</span>{{ segment.name }}@if (segment.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
+              <span class="emoji">{{ segment.icon || (segment.operator === 'OR' ? '🔔' : segment.operator ? '🧩' : '📁') }}</span>{{ segment.name }}@if (segment.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
             </a>
           }
           @if (!last) { <span class="path-arrow">→</span> }

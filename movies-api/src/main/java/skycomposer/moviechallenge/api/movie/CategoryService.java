@@ -140,14 +140,20 @@ public class CategoryService {
             Operator newOperator = request.operator() != null ? request.operator() : existingOperator;
             jdbc.sql("update composition_category set operator=:operator where category_id=:id")
                     .param("operator", newOperator.getCode()).param("id", id).update();
-            jdbc.sql("delete from composition_category_component where composition_category_id=:id")
-                    .param("id", id).update();
+            // Insert the desired components before removing the stale ones: cascade_delete_empty_compositions_
+            // trigger (V54) deletes a composition/subscription category outright the moment it has zero
+            // components, so a delete-all-then-reinsert here would trip that same cleanup on the category still
+            // being edited.
             for (Long component : components) {
                 jdbc.sql("""
                         insert into composition_category_component(composition_category_id, component_category_id)
-                        values (:composition, :component)
+                        values (:composition, :component) on conflict do nothing
                         """).param("composition", id).param("component", component).update();
             }
+            jdbc.sql("""
+                    delete from composition_category_component
+                    where composition_category_id=:id and component_category_id not in (:components)
+                    """).param("id", id).param("components", components).update();
         }
         String trimmedName = request.name().trim();
         syncGuideNameIfAnchor(id, trimmedName);

@@ -23,11 +23,11 @@ import { categoryPageSegments } from '../../utils/category-path';
         } @else { <span class="expand-spacer"></span> }
         @if (isRoot) {
           <button type="button" class="category-link root-category" (click)="expand()" [title]="category.description || category.name">
-            <span class="emoji">{{ category.icon || (category.operator ? '🧩' : '📁') }}</span><span class="category-name">{{ category.name }}</span>@if (category.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
+            <span class="emoji">{{ category.icon || (category.operator === 'OR' ? '🔔' : category.operator ? '🧩' : '📁') }}</span><span class="category-name">{{ category.name }}</span>@if (category.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
           </button>
         } @else {
           <a class="category-link" [class.active]="category.id === selectedCategoryId" [routerLink]="link()" [title]="category.description || category.name">
-            <span class="emoji">{{ category.icon || (category.operator ? '🧩' : '📁') }}</span><span class="category-name">{{ category.name }}</span>@if (category.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
+            <span class="emoji">{{ category.icon || (category.operator === 'OR' ? '🔔' : category.operator ? '🧩' : '📁') }}</span><span class="category-name">{{ category.name }}</span>@if (category.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
           </a>
         }
       </div>

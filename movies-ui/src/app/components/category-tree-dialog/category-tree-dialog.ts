@@ -50,9 +50,9 @@ export class CategoryTreeDialogComponent implements OnInit {
   // cycleDisabledIds client-side from whatever tree is already loaded in memory, mirroring the server-side cycle
   // check (CategoryService.wouldCreateCycle) without needing a recursive query.
   @Input() cycleGuardId?: number;
-  // Skips straight to the "Create Category" editor with Combine Categories already on, targeting composeParentId
-  // (falling back to rootCategoryId) and defaulting to the given operator -- backs the standalone "Compose
-  // Categories" (AND) and "Subscribe to Categories" (OR) shortcut buttons on the Guide/Personality/Watchlist
+  // Skips straight to the "Create Category" editor with Compose Categories already on, targeting composeParentId
+  // (falling back to rootCategoryId) and defaulting to the given operator -- backs the standalone "Match All
+  // Categories (AND)" and "Match Any Category (OR)" shortcut buttons on the Guide/Personality/Watchlist
   // pages, both of which just open the same editor pre-set to a different operator.
   @Input() startInComposeMode = false;
   @Input() startInOperator: Operator = 'AND';
@@ -75,8 +75,9 @@ export class CategoryTreeDialogComponent implements OnInit {
   name = '';
   icon = '';
   description = '';
-  // "Combine Categories": the one AND/OR composition mechanism, shared by what used to be two separate features
-  // ("Composition Category" and "Subscription Category") -- AND requires every component, OR requires just one.
+  // "Compose Categories": the one AND/OR composition mechanism, shared by what used to be two separate features
+  // (Match All Categories (AND) and Match Any Category (OR)) -- AND requires every component, OR requires
+  // just one.
   combineEnabled = false;
   combineOperator: Operator = 'AND';
   combineComponentIds: number[] = [];
@@ -146,9 +147,18 @@ export class CategoryTreeDialogComponent implements OnInit {
 
   toggleCategory(category: MovieCategory, checked: boolean): void {
     if (this.mode === 'assign' && category.operator && !checked) {
-      // Composition/subscription membership is calculated from its components. Do not add a "remove" write: the
-      // user must instead change whichever underlying category is no longer true for this movie.
-      this.combineUncheckNotice = category;
+      // A composition/subscription category has no direct assignment of its own to remove -- it's just showing
+      // the movie because its components do.
+      if (category.operator === 'OR') {
+        // OR includes the movie if it matches ANY component, so the only way to actually exclude it is to
+        // remove it from every component -- leaving even one checked would still satisfy the match. Safe to
+        // cascade automatically since there's only one way to do it.
+        this.leafComponentIds(category).forEach(id => this.uncheckDirectCategory(id));
+      } else {
+        // AND includes the movie only because it currently matches ALL components -- unchecking just one
+        // already breaks the match, so which one is the user's call, not something to guess and cascade.
+        this.combineUncheckNotice = category;
+      }
       return;
     }
     if (this.mode === 'guide') {
@@ -173,8 +183,7 @@ export class CategoryTreeDialogComponent implements OnInit {
       this.removedCategories.delete(category.id);
       if (!this.originalChecked.has(category.id)) this.addedCategories.add(category.id);
     } else {
-      this.addedCategories.delete(category.id);
-      if (this.originalChecked.has(category.id)) this.removedCategories.add(category.id);
+      this.uncheckDirectCategory(category.id);
     }
   }
 
@@ -350,6 +359,25 @@ export class CategoryTreeDialogComponent implements OnInit {
     if (this.addedCategories.has(id)) return true;
     if (this.removedCategories.has(id)) return false;
     return this.originalChecked.has(id);
+  }
+
+  private uncheckDirectCategory(id: number): void {
+    this.addedCategories.delete(id);
+    if (this.originalChecked.has(id)) this.removedCategories.add(id);
+  }
+
+  // Walks a composition/subscription category's components down to their actual (non-composable) leaves,
+  // recursing through the already-loaded tree wherever a component is itself composable (nesting is allowed --
+  // see CategoryService.assignComposition, which resolves the same way server-side). Falls back to the component
+  // id itself if it isn't in the loaded tree (e.g. a public component not present in a private-scoped picker).
+  private leafComponentIds(category: MovieCategory, visited = new Set<number>()): number[] {
+    if (visited.has(category.id)) return [];
+    visited.add(category.id);
+    if (!category.operator) return [category.id];
+    return category.components.flatMap(component => {
+      const full = this.find(component.id);
+      return full ? this.leafComponentIds(full, visited) : [component.id];
+    });
   }
 
   private removeExplicitDescendants(category: MovieCategory): void {

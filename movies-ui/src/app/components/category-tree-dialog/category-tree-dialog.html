@@ -63,7 +63,7 @@
           <label>Emoji icon<input name="categoryIcon" [(ngModel)]="icon" maxlength="32" placeholder="📁" /></label>
           <label>Description<textarea name="categoryDescription" [(ngModel)]="description" maxlength="2000" rows="3"></textarea></label>
           @if (editingId == null) {
-            <label class="composition-toggle"><input type="checkbox" [checked]="combineEnabled" (change)="setCombineEnabled($any($event.target).checked)" /> <span>Combine Categories</span></label>
+            <label class="composition-toggle"><input type="checkbox" [checked]="combineEnabled" (change)="setCombineEnabled($any($event.target).checked)" /> <span>Compose Categories</span></label>
           }
           @if (combineEnabled || editingCombination()) {
             <section class="composition-editor">
@@ -71,27 +71,27 @@
                 <div class="operator-choice">
                   <label class="operator-option" [class.selected]="combineOperator === 'AND'">
                     <input type="radio" name="combineOperator" [checked]="combineOperator === 'AND'" (change)="setCombineOperator('AND')" />
-                    <span>🧩 Compose (AND) — every component is required</span>
+                    <span>🧩 Match All Categories (AND)</span>
                   </label>
                   <label class="operator-option" [class.selected]="combineOperator === 'OR'">
                     <input type="radio" name="combineOperator" [checked]="combineOperator === 'OR'" (change)="setCombineOperator('OR')" />
-                    <span>🔔 Subscribe (OR) — any component is enough</span>
+                    <span>🔔 Match Any Category (OR)</span>
                   </label>
                 </div>
               }
               @if (combineOperator === 'AND') {
                 <div>
-                  <strong>🧩 Compose Categories (AND)</strong>
+                  <strong>🧩 Match All Categories (AND)</strong>
                   <p>Build new cinematic concepts by combining existing categories. Your composition becomes a reusable category that automatically includes movies matching all selected components.</p>
                 </div>
               } @else {
                 <div>
-                  <strong>🔔 Subscribe to Categories (OR)</strong>
+                  <strong>🔔 Match Any Category (OR)</strong>
                   <p>Create dynamic collections by following existing categories. Your category automatically updates whenever new movies are added to those categories.</p>
                 </div>
               }
               <button type="button" class="secondary compose-button" (click)="openCombinePicker()">
-                <span class="material-icons">account_tree</span>{{ combineOperator === 'AND' ? 'Compose Categories' : 'Subscribe to Categories' }}
+                <span class="material-icons">account_tree</span>Compose Categories
               </button>
               @if (watchlistId != null) {
                 <button type="button" class="secondary compose-button" (click)="openCombinePublicPicker()">
@@ -129,15 +129,11 @@
     <div class="dialog-backdrop" (click)="acknowledgeCombineUncheck()">
       <section class="composition-notice" role="dialog" aria-modal="true" aria-labelledby="composition-notice-title" (click)="$event.stopPropagation()">
         <header>
-          <span class="notice-icon material-icons" aria-hidden="true">account_tree</span>
-          <div><p class="notice-eyebrow">{{ composition.operator === 'OR' ? 'Subscription Category' : 'Composition Category' }}</p><h2 id="composition-notice-title">Derived from components</h2></div>
+          <span class="notice-icon" aria-hidden="true">🧩</span>
+          <div><p class="notice-eyebrow">Match All Categories (AND)</p><h2 id="composition-notice-title">Pick which category to uncheck</h2></div>
         </header>
-        <div class="notice-message">
-          <strong class="composition-name">{{ composition.name }}</strong>
-          <p>does not own movie unassignments. Unselect movies from its component categories?</p>
-        </div>
-        <p class="notice-next"><span class="material-icons" aria-hidden="true">tips_and_updates</span>Please, uncheck one or more component categories to confirm.</p>
-        <footer><button type="button" (click)="acknowledgeCombineUncheck()">OK</button></footer>
+        <p class="notice-next"><span class="material-icons" aria-hidden="true">tips_and_updates</span>Expand "{{ composition.name }}" below and uncheck whichever category no longer applies.</p>
+        <footer><button type="button" (click)="acknowledgeCombineUncheck()">Got it</button></footer>
       </section>
     </div>
   }
@@ -146,7 +142,7 @@
       <section class="composition-notice validation-notice" role="dialog" aria-modal="true" aria-labelledby="composition-validation-title" (click)="$event.stopPropagation()">
         <header>
           <span class="notice-icon material-icons" aria-hidden="true">warning_amber</span>
-          <div><p class="notice-eyebrow">Combine Categories</p><h2 id="composition-validation-title">Component required</h2></div>
+          <div><p class="notice-eyebrow">Compose Categories</p><h2 id="composition-validation-title">Component required</h2></div>
         </header>
         <div class="notice-message"><p>Please select at least one component.</p></div>
         <footer><button type="button" (click)="acknowledgeCombineValidation()">OK</button></footer>

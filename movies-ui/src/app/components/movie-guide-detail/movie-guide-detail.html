@@ -11,11 +11,11 @@
         @for (segment of selectedCategoryPath; track segment.id; let last = $last) {
           @if (last) {
             <span class="path-segment-name current" [class.composition-path]="segment.operator">
-              <span class="emoji">{{ segment.icon || (segment.operator ? '🧩' : '📁') }}</span>{{ segment.name }}@if (segment.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
+              <span class="emoji">{{ segment.icon || (segment.operator === 'OR' ? '🔔' : segment.operator ? '🧩' : '📁') }}</span>{{ segment.name }}@if (segment.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
             </span>
           } @else {
             <a [routerLink]="guideBreadcrumbSegments(selectedCategoryPath.slice(0, $index + 1))">
-              <span class="emoji">{{ segment.icon || (segment.operator ? '🧩' : '📁') }}</span>{{ segment.name }}@if (segment.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
+              <span class="emoji">{{ segment.icon || (segment.operator === 'OR' ? '🔔' : segment.operator ? '🧩' : '📁') }}</span>{{ segment.name }}@if (segment.operator; as operator) { <span class="and-badge" [class.or-badge]="operator === 'OR'">{{ operator }}</span> }
             </a>
           }
           @if (!last) { <span class="path-arrow">→</span> }
@@ -68,15 +68,15 @@
     @if (movieGuideId) {
       <div class="owner-actions">
         @if (canManageGuide) {
-          <button type="button" class="category-filter-button" title="Subscribe to Categories" aria-label="Subscribe to Categories" (click)="openComposeCategoryDialog('OR')">
+          <button type="button" class="category-filter-button" title="Match Any Category (OR)" aria-label="Match Any Category (OR)" (click)="openComposeCategoryDialog('OR')">
             <span class="emoji" aria-hidden="true">🔔</span>
-            Subscribe to Categories
+            Match Any Category (OR)
           </button>
         }
         @if (canManageGuide) {
-          <button type="button" class="category-filter-button" title="Compose Categories" aria-label="Compose Categories" (click)="openComposeCategoryDialog()">
+          <button type="button" class="category-filter-button" title="Match All Categories (AND)" aria-label="Match All Categories (AND)" (click)="openComposeCategoryDialog()">
             <span class="emoji" aria-hidden="true">🧩</span>
-            Compose Categories
+            Match All Categories (AND)
           </button>
         }
         @if (showSelectCategory) {

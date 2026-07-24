@@ -24,10 +24,10 @@ export interface CategoryNodeAction {
         <label class="category-choice" [class.locked]="locked" [class.composition-choice]="category.operator" [class.component-match]="isCompositionComponent">
           <input type="checkbox" [checked]="checked" [disabled]="locked" (change)="toggle.emit({category, checked: $any($event.target).checked})" />
           <span class="category-label" [title]="cycleDisabled ? 'Selecting this would create a circular dependency' : (category.description || category.name)">
-            <span class="emoji">{{ category.icon || (category.operator ? '🧩' : '📁') }}</span>
+            <span class="emoji">{{ category.icon || (category.operator === 'OR' ? '🔔' : category.operator ? '🧩' : '📁') }}</span>
             <span class="category-name">{{ category.name }}</span>
             @if (category.operator; as operator) {
-              <span class="and-badge" [class.or-badge]="operator === 'OR'" [title]="operator === 'AND' ? 'Composition category: all components are required' : 'Subscription category: any component is enough'">{{ operator }}</span>
+              <span class="and-badge" [class.or-badge]="operator === 'OR'" [title]="operator === 'AND' ? 'Match All Categories (AND): all components are required' : 'Match Any Category (OR): any component is enough'">{{ operator }}</span>
             }
             @if (isCompositionComponent; as componentOperator) {
               <span class="and-badge" [class.or-badge]="componentOperator === 'OR'" title="Component of the selected composition/subscription category">{{ componentOperator }}</span>
@@ -103,7 +103,6 @@ export class CategoryTreeNodeComponent {
   }
   get locked(): boolean {
     return (this.mode === 'filter' && this.ancestors.some(parent => this.explicitSelected.has(parent.id)))
-      || (this.componentPicker && !!this.category.operator)
       || this.isCompositionComponent != null
       || this.cycleDisabled;
   }

@@ -120,7 +120,7 @@ export class MovieGuideDetailComponent implements OnInit, OnDestroy {
     return subCategorySegments(this.guideRootSegments(), path);
   }
 
-  // Gates "Subscribe to Categories"/"Select Category" -- these are the controls that change the selection itself,
+  // Gates "Match Any Category (OR)"/"Select Category" -- these are the controls that change the selection itself,
   // so unlike showAddMovies below they must stay visible no matter which category is currently selected;
   // otherwise selecting a subscribed category would hide the only way to pick a different one again.
   get canManageGuide(): boolean {
